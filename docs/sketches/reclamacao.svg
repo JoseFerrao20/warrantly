@@ -1,0 +1,56 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="800" height="500" rx="12" fill="#ffffff"/>
+  <rect x="0.5" y="0.5" width="799" height="499" rx="12" fill="none" stroke="#c9ced6"/>
+  <text x="28" y="40" font-size="13" fill="#7b8794">← Garantias</text>
+  <text x="28" y="72" font-size="20" font-weight="700" fill="#1f2933">Máquina de lavar Bosch</text>
+  <text x="28" y="96" font-size="13" fill="#52606d">Worten · comprada a 03/11/2023 · 429,00 €</text>
+  <!-- timeline -->
+  <line x1="40" y1="140" x2="340" y2="140" stroke="#e4e7eb" stroke-width="6" stroke-linecap="round"/>
+  <line x1="40" y1="140" x2="318" y2="140" stroke="#f0b429" stroke-width="6" stroke-linecap="round"/>
+  <circle cx="40" cy="140" r="6" fill="#1f2933"/>
+  <circle cx="340" cy="140" r="6" fill="#ffffff" stroke="#1f2933" stroke-width="2"/>
+  <text x="40" y="166" font-size="12" fill="#52606d">Compra</text>
+  <text x="340" y="166" font-size="12" fill="#52606d" text-anchor="end">Fim: 03/11/2026</text>
+  <text x="318" y="124" font-size="12" font-weight="600" fill="#b44d12" text-anchor="middle">hoje</text>
+  <!-- details -->
+  <g font-size="13">
+    <text x="28" y="210" fill="#7b8794">Fatura</text>
+    <rect x="28" y="220" width="56" height="70" rx="4" fill="#f8fafc" stroke="#9aa5b1"/>
+    <line x1="38" y1="238" x2="74" y2="238" stroke="#c9ced6" stroke-width="3"/>
+    <line x1="38" y1="252" x2="74" y2="252" stroke="#c9ced6" stroke-width="3"/>
+    <line x1="38" y1="266" x2="62" y2="266" stroke="#c9ced6" stroke-width="3"/>
+    <text x="96" y="252" fill="#2563eb">fatura-worten.pdf</text>
+    <text x="28" y="326" fill="#7b8794">Descreve o problema</text>
+    <rect x="28" y="336" width="312" height="80" rx="6" fill="none" stroke="#c9ced6"/>
+    <text x="40" y="360" fill="#1f2933">Não centrifuga e dá o erro E18</text>
+    <text x="40" y="380" fill="#1f2933">a meio do programa.</text>
+  </g>
+  <rect x="28" y="432" width="312" height="40" rx="6" fill="#2563eb"/>
+  <text x="184" y="457" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Gerar reclamação</text>
+  <!-- arrow -->
+  <path d="M362 300 h40" stroke="#9aa5b1" stroke-width="2"/>
+  <path d="M396 294 l8 6 l-8 6" stroke="#9aa5b1" stroke-width="2" fill="none"/>
+  <!-- letter preview -->
+  <rect x="424" y="40" width="348" height="432" rx="6" fill="#ffffff" stroke="#9aa5b1"/>
+  <g font-size="12" fill="#1f2933">
+    <text x="444" y="72" fill="#7b8794">Pré-visualização · PDF / email</text>
+    <text x="444" y="104">Exmos. Senhores Worten,</text>
+    <text x="444" y="132">Venho, ao abrigo do Decreto-Lei</text>
+    <text x="444" y="150">n.º 84/2021, solicitar a reparação</text>
+    <text x="444" y="168">do bem abaixo, dentro do prazo</text>
+    <text x="444" y="186">de garantia legal:</text>
+    <text x="456" y="214">• Máquina de lavar Bosch</text>
+    <text x="456" y="232">• Comprada a 03/11/2023</text>
+    <text x="456" y="250">• Fatura n.º FT 2023/48213</text>
+    <text x="444" y="278">Descrição da avaria:</text>
+    <text x="444" y="296">Não centrifuga e dá o erro E18</text>
+    <text x="444" y="314">a meio do programa.</text>
+    <text x="444" y="346">Junto cópia da fatura.</text>
+    <text x="444" y="378">Com os melhores cumprimentos,</text>
+    <text x="444" y="396">José Ferrão</text>
+  </g>
+  <rect x="444" y="420" width="148" height="34" rx="6" fill="none" stroke="#c9ced6"/>
+  <text x="518" y="442" font-size="13" fill="#52606d" text-anchor="middle">Descarregar PDF</text>
+  <rect x="604" y="420" width="148" height="34" rx="6" fill="none" stroke="#c9ced6"/>
+  <text x="678" y="442" font-size="13" fill="#52606d" text-anchor="middle">Copiar texto</text>
+</svg>

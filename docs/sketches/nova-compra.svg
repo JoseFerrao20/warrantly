@@ -1,0 +1,51 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="500" viewBox="0 0 800 500" font-family="Segoe UI, Helvetica, Arial, sans-serif">
+  <rect width="800" height="500" rx="12" fill="#ffffff"/>
+  <rect x="0.5" y="0.5" width="799" height="499" rx="12" fill="none" stroke="#c9ced6"/>
+  <text x="28" y="44" font-size="20" font-weight="700" fill="#1f2933">Nova compra</text>
+  <text x="772" y="44" font-size="14" fill="#7b8794" text-anchor="end">✕</text>
+  <!-- upload -->
+  <rect x="28" y="68" width="300" height="340" rx="10" fill="#f8fafc" stroke="#9aa5b1" stroke-dasharray="6 5"/>
+  <rect x="148" y="160" width="60" height="76" rx="4" fill="#ffffff" stroke="#9aa5b1"/>
+  <line x1="160" y1="180" x2="196" y2="180" stroke="#c9ced6" stroke-width="3"/>
+  <line x1="160" y1="194" x2="196" y2="194" stroke="#c9ced6" stroke-width="3"/>
+  <line x1="160" y1="208" x2="184" y2="208" stroke="#c9ced6" stroke-width="3"/>
+  <text x="178" y="272" font-size="14" font-weight="600" fill="#1f2933" text-anchor="middle">Arrasta a fatura</text>
+  <text x="178" y="294" font-size="12" fill="#7b8794" text-anchor="middle">ou tira uma fotografia</text>
+  <text x="178" y="314" font-size="12" fill="#7b8794" text-anchor="middle">PDF, JPG ou PNG</text>
+  <!-- form -->
+  <g font-size="12" fill="#52606d" font-weight="600">
+    <text x="360" y="84">Produto</text>
+    <text x="360" y="150">Loja</text>
+    <text x="576" y="150">Preço</text>
+    <text x="360" y="216">Data de compra</text>
+    <text x="576" y="216">Garantia</text>
+  </g>
+  <g fill="none" stroke="#c9ced6">
+    <rect x="360" y="92" width="412" height="34" rx="6"/>
+    <rect x="360" y="158" width="196" height="34" rx="6"/>
+    <rect x="576" y="158" width="196" height="34" rx="6"/>
+    <rect x="360" y="224" width="196" height="34" rx="6"/>
+    <rect x="576" y="224" width="196" height="34" rx="6"/>
+  </g>
+  <g font-size="14" fill="#1f2933">
+    <text x="372" y="114">Portátil Lenovo IdeaPad 5</text>
+    <text x="372" y="180">Fnac</text>
+    <text x="588" y="180">749,99 €</text>
+    <text x="372" y="246">14/02/2026</text>
+    <text x="588" y="246">3 anos (legal)  ▾</text>
+  </g>
+  <!-- computed -->
+  <rect x="360" y="282" width="412" height="64" rx="8" fill="#e3f9f0"/>
+  <text x="376" y="308" font-size="13" fill="#147d64">Garantia válida até</text>
+  <text x="376" y="332" font-size="18" font-weight="700" fill="#147d64">14 de fevereiro de 2029</text>
+  <text x="756" y="320" font-size="12" fill="#147d64" text-anchor="end">calculado automaticamente</text>
+  <!-- alerts -->
+  <rect x="360" y="366" width="16" height="16" rx="3" fill="#2563eb"/>
+  <path d="M363 374 l3 3 l6 -7" stroke="#ffffff" stroke-width="2" fill="none"/>
+  <text x="386" y="379" font-size="13" fill="#1f2933">Avisar 60 e 15 dias antes de expirar</text>
+  <!-- actions -->
+  <rect x="560" y="430" width="96" height="38" rx="6" fill="none" stroke="#c9ced6"/>
+  <text x="608" y="454" font-size="14" fill="#52606d" text-anchor="middle">Cancelar</text>
+  <rect x="668" y="430" width="104" height="38" rx="6" fill="#2563eb"/>
+  <text x="720" y="454" font-size="14" font-weight="600" fill="#ffffff" text-anchor="middle">Guardar</text>
+</svg>
