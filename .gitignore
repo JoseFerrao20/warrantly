@@ -1,0 +1,17 @@
+# Ambiente
+.env
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.pytest_cache/
+.ruff_cache/
+
+# Node
+node_modules/
+dist/
+
+# Editor / SO
+.DS_Store
+Thumbs.db

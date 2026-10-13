@@ -43,4 +43,8 @@ Ideias para depois: ler automaticamente os dados da fatura (OCR), partilhar o ar
 
 ## Desenvolvimento
 
-O ambiente fica definido em `.devcontainer/`. Abre o repositório no VS Code com a extensão Dev Containers, ou num Codespace, e tens tudo pronto (em construção).
+O ambiente fica definido em `.devcontainer/`: Python 3.12, Node 22 e PostgreSQL 16 (num contentor à parte).
+
+1. Abre o repositório no VS Code com a extensão Dev Containers e escolhe **Reopen in Container**, ou cria um Codespace.
+2. No primeiro arranque, o `.env` é criado a partir de `.env.example`.
+3. A base de dados fica disponível em `db:5432` (utilizador, palavra-passe e base de dados: `warrantly`).

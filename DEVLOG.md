@@ -1,3 +1,4 @@
 # DEVLOG
 
 - **2026-10-13 (desktop):** repositório criado com README e sketches. Próximo passo: criar o dev container (`.devcontainer/devcontainer.json`, `docker-compose.yml` com Postgres, `.env.example`) e confirmar que abre no VS Code.
+- **2026-10-13 (desktop):** dev container criado: `.devcontainer/devcontainer.json` (imagem Python 3.12 + Node 22, extensões VS Code, portas 8000/5173), `.devcontainer/docker-compose.yml` (serviço `app` + Postgres 16 com healthcheck e volume), `post-create.sh` (cria `.env` a partir de `.env.example`), `.env.example` e `.gitignore`. Testado com `docker compose up`: Python 3.12 a correr e Postgres acessível a partir do `app`. Falta confirmar que abre no VS Code ("Dev Containers: Reopen in Container") e num Codespace. Próximo passo: esqueleto do backend (FastAPI + SQLAlchemy + Alembic) com um endpoint `/health` que fala com a base de dados.

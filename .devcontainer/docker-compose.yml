@@ -1,0 +1,32 @@
+services:
+  app:
+    image: mcr.microsoft.com/devcontainers/python:3.12-bookworm
+    volumes:
+      - ..:/workspaces/warrantly:cached
+    command: sleep infinity
+    env_file:
+      - path: ../.env
+        required: false
+    environment:
+      DATABASE_URL: postgresql+psycopg://warrantly:warrantly@db:5432/warrantly
+    depends_on:
+      db:
+        condition: service_healthy
+
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: warrantly
+      POSTGRES_PASSWORD: warrantly
+      POSTGRES_DB: warrantly
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U warrantly -d warrantly"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  postgres-data:

@@ -1,0 +1,49 @@
+{
+  "name": "Warrantly",
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+  "workspaceFolder": "/workspaces/warrantly",
+  "shutdownAction": "stopCompose",
+
+  "features": {
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
+
+  "forwardPorts": [8000, 5173, "db:5432"],
+  "portsAttributes": {
+    "8000": { "label": "API" },
+    "5173": { "label": "Frontend" },
+    "db:5432": { "label": "Postgres" }
+  },
+
+  "postCreateCommand": "bash .devcontainer/post-create.sh",
+
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "ms-playwright.playwright",
+        "mtxr.sqltools",
+        "mtxr.sqltools-driver-pg"
+      ],
+      "settings": {
+        "python.defaultInterpreterPath": "/usr/local/bin/python",
+        "sqltools.connections": [
+          {
+            "name": "warrantly (dev)",
+            "driver": "PostgreSQL",
+            "server": "db",
+            "port": 5432,
+            "database": "warrantly",
+            "username": "warrantly",
+            "password": "warrantly"
+          }
+        ]
+      }
+    }
+  }
+}
