@@ -96,4 +96,20 @@ O comando `python -m app.alerts` (na pasta `backend/`) envia os avisos de garant
 
 No dev container, os emails vão para o Mailpit em http://localhost:8025 e não chegam a ser enviados.
 
-O CI (`.github/workflows/backend.yml`) corre as migrações e os testes com Postgres em cada PR e em cada push para o `main`.
+### Frontend
+
+React com TypeScript (Vite), na pasta `frontend/`:
+
+```bash
+cd frontend
+npm install
+npm run dev        # http://localhost:5173 (precisa da API a correr na porta 8000)
+npm test           # testes de componentes (Vitest + Testing Library)
+npm run lint       # oxlint
+npm run typecheck  # tsc
+npm run build      # build de produção em frontend/dist/
+```
+
+Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `http://localhost:8000` (configurável com `API_URL`), por isso não é preciso configurar CORS. Páginas: login e registo (`/entrar`), painel (`/`), nova compra (`/compras/nova`), detalhe (`/compras/:id`) e edição (`/compras/:id/editar`).
+
+O CI corre em cada PR e em cada push para o `main`: `.github/workflows/backend.yml` aplica as migrações e corre os testes com Postgres, e `.github/workflows/frontend.yml` corre o lint, os tipos, os testes e o build do frontend.
