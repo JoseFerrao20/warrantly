@@ -71,6 +71,9 @@ class PurchaseRead(BaseModel):
     price: Decimal
     warranty_months: int
     warranty_end: date
+    invoice_filename: str | None
+    invoice_content_type: str | None
+    invoice_size: int | None
     created_at: datetime
     updated_at: datetime
 

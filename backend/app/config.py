@@ -1,3 +1,5 @@
+from pathlib import Path
+
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -15,6 +17,10 @@ class Settings(BaseSettings):
         default="dev-only-insecure-secret-key-change-me-in-production", min_length=32
     )
     access_token_expire_minutes: int = 60
+
+    # Pasta onde ficam as faturas (relativa à pasta onde a API arranca) e tamanho máximo.
+    upload_dir: Path = Path("uploads")
+    max_invoice_bytes: int = 10 * 1024 * 1024
 
 
 settings = Settings()
