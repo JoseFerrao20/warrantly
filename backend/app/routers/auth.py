@@ -1,0 +1,45 @@
+from typing import Annotated
+
+from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordRequestForm
+from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
+
+from app.dependencies import CurrentUser, SessionDep
+from app.models import User
+from app.schemas import Token, UserCreate, UserRead
+from app.security import DUMMY_PASSWORD_HASH, create_access_token, hash_password, verify_password
+
+router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+@router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
+def register(data: UserCreate, session: SessionDep) -> User:
+    user = User(email=data.email.lower(), password_hash=hash_password(data.password))
+    session.add(user)
+    try:
+        session.commit()
+    except IntegrityError:
+        session.rollback()
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="Já existe uma conta com este email")
+    session.refresh(user)
+    return user
+
+
+@router.post("/login", response_model=Token)
+def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], session: SessionDep) -> Token:
+    """Login no formato OAuth2 (form com `username` = email e `password`), para funcionar no /docs."""
+    user = session.scalar(select(User).where(User.email == form.username.lower()))
+    password_ok = verify_password(form.password, user.password_hash if user else DUMMY_PASSWORD_HASH)
+    if user is None or not password_ok:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED,
+            detail="Email ou palavra-passe incorretos",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return Token(access_token=create_access_token(user.id))
+
+
+@router.get("/me", response_model=UserRead)
+def me(user: CurrentUser) -> User:
+    return user

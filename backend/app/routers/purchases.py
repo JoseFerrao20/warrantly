@@ -1,11 +1,10 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Response, status
+from fastapi import APIRouter, HTTPException, Query, Response, status
 from sqlalchemy import select
-from sqlalchemy.orm import Session
 
-from app.db import get_session
-from app.models import Purchase
+from app.dependencies import CurrentUser, SessionDep
+from app.models import Purchase, User
 from app.schemas import (
     EXPIRING_SOON_DAYS,
     PurchaseCreate,
@@ -17,16 +16,17 @@ from app.schemas import (
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 
 
-def get_purchase_or_404(purchase_id: int, session: Session) -> Purchase:
+def get_purchase_or_404(purchase_id: int, user: User, session: SessionDep) -> Purchase:
     purchase = session.get(Purchase, purchase_id)
-    if purchase is None:
+    # Uma compra de outro utilizador responde como se não existisse.
+    if purchase is None or purchase.user_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Compra não encontrada")
     return purchase
 
 
 @router.post("", response_model=PurchaseRead, status_code=status.HTTP_201_CREATED)
-def create_purchase(data: PurchaseCreate, session: Session = Depends(get_session)) -> Purchase:
-    purchase = Purchase(**data.model_dump())
+def create_purchase(data: PurchaseCreate, user: CurrentUser, session: SessionDep) -> Purchase:
+    purchase = Purchase(**data.model_dump(), user_id=user.id)
     session.add(purchase)
     session.commit()
     session.refresh(purchase)
@@ -35,13 +35,18 @@ def create_purchase(data: PurchaseCreate, session: Session = Depends(get_session
 
 @router.get("", response_model=list[PurchaseRead])
 def list_purchases(
+    user: CurrentUser,
+    session: SessionDep,
     store: str | None = None,
     category: str | None = None,
     warranty_status: WarrantyStatus | None = Query(None, alias="status"),
-    session: Session = Depends(get_session),
 ) -> list[Purchase]:
-    """Lista as compras, da garantia que expira primeiro para a última."""
-    query = select(Purchase).order_by(Purchase.warranty_end, Purchase.id)
+    """Lista as compras do utilizador, da garantia que expira primeiro para a última."""
+    query = (
+        select(Purchase)
+        .where(Purchase.user_id == user.id)
+        .order_by(Purchase.warranty_end, Purchase.id)
+    )
     if store is not None:
         query = query.where(Purchase.store == store)
     if category is not None:
@@ -59,15 +64,15 @@ def list_purchases(
 
 
 @router.get("/{purchase_id}", response_model=PurchaseRead)
-def get_purchase(purchase_id: int, session: Session = Depends(get_session)) -> Purchase:
-    return get_purchase_or_404(purchase_id, session)
+def get_purchase(purchase_id: int, user: CurrentUser, session: SessionDep) -> Purchase:
+    return get_purchase_or_404(purchase_id, user, session)
 
 
 @router.patch("/{purchase_id}", response_model=PurchaseRead)
 def update_purchase(
-    purchase_id: int, data: PurchaseUpdate, session: Session = Depends(get_session)
+    purchase_id: int, data: PurchaseUpdate, user: CurrentUser, session: SessionDep
 ) -> Purchase:
-    purchase = get_purchase_or_404(purchase_id, session)
+    purchase = get_purchase_or_404(purchase_id, user, session)
     for field, value in data.model_dump(exclude_unset=True).items():
         setattr(purchase, field, value)
     session.commit()
@@ -76,8 +81,8 @@ def update_purchase(
 
 
 @router.delete("/{purchase_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_purchase(purchase_id: int, session: Session = Depends(get_session)) -> Response:
-    purchase = get_purchase_or_404(purchase_id, session)
+def delete_purchase(purchase_id: int, user: CurrentUser, session: SessionDep) -> Response:
+    purchase = get_purchase_or_404(purchase_id, user, session)
     session.delete(purchase)
     session.commit()
     return Response(status_code=status.HTTP_204_NO_CONTENT)

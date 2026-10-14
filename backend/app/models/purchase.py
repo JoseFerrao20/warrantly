@@ -1,7 +1,17 @@
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, Computed, Date, DateTime, Integer, Numeric, String, func
+from sqlalchemy import (
+    CheckConstraint,
+    Computed,
+    Date,
+    DateTime,
+    ForeignKey,
+    Integer,
+    Numeric,
+    String,
+    func,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.db import Base
@@ -20,6 +30,8 @@ class Purchase(Base):
     )
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    # Cada compra pertence a um utilizador; apagar o utilizador apaga as compras dele.
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), index=True)
     product_name: Mapped[str] = mapped_column(String(200))
     store: Mapped[str] = mapped_column(String(200))
     category: Mapped[str | None] = mapped_column(String(100))

@@ -68,6 +68,9 @@ Endpoints (documentação interativa em `/docs`):
 | Método | Caminho | O que faz |
 | --- | --- | --- |
 | `GET` | `/health` | Estado da API e da base de dados |
+| `POST` | `/auth/register` | Cria uma conta (email e palavra-passe com 8 caracteres ou mais) |
+| `POST` | `/auth/login` | Devolve um token de acesso (form OAuth2: `username` = email, `password`) |
+| `GET` | `/auth/me` | Dados do utilizador autenticado |
 | `POST` | `/purchases` | Regista uma compra (garantia de 36 meses por omissão) |
 | `GET` | `/purchases` | Lista as compras pela garantia que expira primeiro; filtros `store`, `category` e `status` (`active`, `expiring`, `expired`) |
 | `GET` | `/purchases/{id}` | Detalhe de uma compra |
@@ -75,5 +78,7 @@ Endpoints (documentação interativa em `/docs`):
 | `DELETE` | `/purchases/{id}` | Apaga uma compra |
 
 Uma garantia está "a expirar" (`expiring`) quando faltam 60 dias ou menos.
+
+Os endpoints `/purchases` e `/auth/me` pedem o cabeçalho `Authorization: Bearer <token>`, e cada utilizador só vê as suas compras. No `/docs`, o botão **Authorize** faz o login. O token é assinado com a `SECRET_KEY` (pelo menos 32 caracteres) e dura 60 minutos.
 
 O CI (`.github/workflows/backend.yml`) corre as migrações e os testes com Postgres em cada PR e em cada push para o `main`.

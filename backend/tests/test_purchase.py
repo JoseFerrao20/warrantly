@@ -5,11 +5,12 @@ import pytest
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.models import Purchase
+from app.models import Purchase, User
 
 
-def make_purchase(**overrides) -> Purchase:
+def make_purchase(user: User, **overrides) -> Purchase:
     data = {
+        "user_id": user.id,
         "product_name": "Máquina de lavar",
         "store": "Worten",
         "purchase_date": date(2026, 10, 14),
@@ -18,8 +19,8 @@ def make_purchase(**overrides) -> Purchase:
     return Purchase(**(data | overrides))
 
 
-def test_default_warranty_is_three_years(db_session: Session):
-    purchase = make_purchase()
+def test_default_warranty_is_three_years(db_session: Session, user: User):
+    purchase = make_purchase(user)
     db_session.add(purchase)
     db_session.flush()
     db_session.refresh(purchase)
@@ -37,9 +38,9 @@ def test_default_warranty_is_three_years(db_session: Session):
     ],
 )
 def test_warranty_end_is_computed_from_purchase_date(
-    db_session: Session, purchase_date: date, warranty_months: int, expected_end: date
+    db_session: Session, user: User, purchase_date: date, warranty_months: int, expected_end: date
 ):
-    purchase = make_purchase(purchase_date=purchase_date, warranty_months=warranty_months)
+    purchase = make_purchase(user, purchase_date=purchase_date, warranty_months=warranty_months)
     db_session.add(purchase)
     db_session.flush()
     db_session.refresh(purchase)
@@ -47,8 +48,8 @@ def test_warranty_end_is_computed_from_purchase_date(
     assert purchase.warranty_end == expected_end
 
 
-def test_warranty_end_follows_changes_to_warranty_months(db_session: Session):
-    purchase = make_purchase()
+def test_warranty_end_follows_changes_to_warranty_months(db_session: Session, user: User):
+    purchase = make_purchase(user)
     db_session.add(purchase)
     db_session.flush()
 
@@ -60,8 +61,8 @@ def test_warranty_end_follows_changes_to_warranty_months(db_session: Session):
 
 
 @pytest.mark.parametrize("overrides", [{"price": Decimal("-1")}, {"warranty_months": 0}])
-def test_rejects_invalid_values(db_session: Session, overrides: dict):
-    db_session.add(make_purchase(**overrides))
+def test_rejects_invalid_values(db_session: Session, user: User, overrides: dict):
+    db_session.add(make_purchase(user, **overrides))
 
     with pytest.raises(IntegrityError):
         db_session.flush()

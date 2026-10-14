@@ -9,8 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.db import engine, get_session
 from app.main import app
+from app.models import User
+from app.security import create_access_token, hash_password
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
+TEST_PASSWORD = "palavra-passe-segura"
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -29,6 +32,22 @@ def db_session() -> Iterator[Session]:
         transaction.rollback()
 
 
+def make_user(session: Session, email: str = "ana@example.com") -> User:
+    user = User(email=email, password_hash=hash_password(TEST_PASSWORD))
+    session.add(user)
+    session.flush()
+    return user
+
+
+def auth_headers(user: User) -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(user.id)}"}
+
+
+@pytest.fixture
+def user(db_session: Session) -> User:
+    return make_user(db_session)
+
+
 @pytest.fixture
 def client(db_session: Session) -> Iterator[TestClient]:
     """Cliente HTTP da API a usar a sessão de teste (os dados são desfeitos no fim)."""
@@ -36,3 +55,10 @@ def client(db_session: Session) -> Iterator[TestClient]:
     with TestClient(app) as test_client:
         yield test_client
     app.dependency_overrides.clear()
+
+
+@pytest.fixture
+def auth_client(client: TestClient, user: User) -> TestClient:
+    """Cliente autenticado como `user`."""
+    client.headers.update(auth_headers(user))
+    return client
