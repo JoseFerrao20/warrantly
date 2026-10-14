@@ -9,3 +9,7 @@ fi
 
 python --version
 node --version
+
+# Dependências do backend e do frontend.
+pip install --quiet -e './backend[dev]'
+npm ci --prefix frontend
