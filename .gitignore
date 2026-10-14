@@ -16,3 +16,6 @@ dist/
 # Editor / SO
 .DS_Store
 Thumbs.db
+
+# Faturas carregadas em desenvolvimento
+uploads/

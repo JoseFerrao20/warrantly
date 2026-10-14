@@ -1,8 +1,13 @@
 from datetime import date, timedelta
 
-from fastapi import APIRouter, HTTPException, Query, Response, status
+from pathlib import PurePath
+
+from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, status
+from fastapi.responses import FileResponse
 from sqlalchemy import select
 
+from app import storage
+from app.config import settings
 from app.dependencies import CurrentUser, SessionDep
 from app.models import Purchase, User
 from app.schemas import (
@@ -83,6 +88,74 @@ def update_purchase(
 @router.delete("/{purchase_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_purchase(purchase_id: int, user: CurrentUser, session: SessionDep) -> Response:
     purchase = get_purchase_or_404(purchase_id, user, session)
+    invoice_key = purchase.invoice_key
     session.delete(purchase)
     session.commit()
+    storage.delete(invoice_key)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.put("/{purchase_id}/invoice", response_model=PurchaseRead)
+def upload_invoice(
+    purchase_id: int, file: UploadFile, user: CurrentUser, session: SessionDep
+) -> Purchase:
+    """Carrega a fatura (PDF, JPEG, PNG ou WebP, até 10 MB). Substitui a anterior, se existir."""
+    purchase = get_purchase_or_404(purchase_id, user, session)
+
+    data = file.file.read(settings.max_invoice_bytes + 1)
+    if len(data) > settings.max_invoice_bytes:
+        raise HTTPException(
+            status.HTTP_413_CONTENT_TOO_LARGE,
+            detail=f"A fatura não pode ter mais de {settings.max_invoice_bytes // (1024 * 1024)} MB",
+        )
+    content_type = storage.detect_content_type(data)
+    if content_type is None:
+        raise HTTPException(
+            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+            detail="A fatura tem de ser um PDF ou uma imagem (JPEG, PNG ou WebP)",
+        )
+
+    old_key = purchase.invoice_key
+    new_key = storage.save(data, content_type)
+    purchase.invoice_key = new_key
+    purchase.invoice_filename = PurePath(file.filename or "").name[:255] or "fatura"
+    purchase.invoice_content_type = content_type
+    purchase.invoice_size = len(data)
+    try:
+        session.commit()
+    except Exception:
+        storage.delete(new_key)
+        raise
+    storage.delete(old_key)
+    session.refresh(purchase)
+    return purchase
+
+
+@router.get("/{purchase_id}/invoice", response_class=FileResponse)
+def download_invoice(purchase_id: int, user: CurrentUser, session: SessionDep) -> FileResponse:
+    purchase = get_purchase_or_404(purchase_id, user, session)
+    path = storage.path_for(purchase.invoice_key) if purchase.invoice_key else None
+    if path is None or not path.is_file():
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Esta compra não tem fatura")
+    return FileResponse(
+        path,
+        media_type=purchase.invoice_content_type,
+        filename=purchase.invoice_filename,
+        content_disposition_type="inline",
+        headers={"X-Content-Type-Options": "nosniff"},
+    )
+
+
+@router.delete("/{purchase_id}/invoice", status_code=status.HTTP_204_NO_CONTENT)
+def delete_invoice(purchase_id: int, user: CurrentUser, session: SessionDep) -> Response:
+    purchase = get_purchase_or_404(purchase_id, user, session)
+    if purchase.invoice_key is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Esta compra não tem fatura")
+    old_key = purchase.invoice_key
+    purchase.invoice_key = None
+    purchase.invoice_filename = None
+    purchase.invoice_content_type = None
+    purchase.invoice_size = None
+    session.commit()
+    storage.delete(old_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)

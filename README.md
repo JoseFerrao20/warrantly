@@ -75,10 +75,15 @@ Endpoints (documentação interativa em `/docs`):
 | `GET` | `/purchases` | Lista as compras pela garantia que expira primeiro; filtros `store`, `category` e `status` (`active`, `expiring`, `expired`) |
 | `GET` | `/purchases/{id}` | Detalhe de uma compra |
 | `PATCH` | `/purchases/{id}` | Altera os campos enviados |
-| `DELETE` | `/purchases/{id}` | Apaga uma compra |
+| `DELETE` | `/purchases/{id}` | Apaga uma compra (e a fatura, se tiver) |
+| `PUT` | `/purchases/{id}/invoice` | Carrega a fatura (multipart, campo `file`); substitui a anterior |
+| `GET` | `/purchases/{id}/invoice` | Devolve a fatura |
+| `DELETE` | `/purchases/{id}/invoice` | Apaga a fatura |
 
 Uma garantia está "a expirar" (`expiring`) quando faltam 60 dias ou menos.
 
 Os endpoints `/purchases` e `/auth/me` pedem o cabeçalho `Authorization: Bearer <token>`, e cada utilizador só vê as suas compras. No `/docs`, o botão **Authorize** faz o login. O token é assinado com a `SECRET_KEY` (pelo menos 32 caracteres) e dura 60 minutos.
+
+As faturas podem ser PDF, JPEG, PNG ou WebP, até 10 MB. O tipo é reconhecido pelo conteúdo do ficheiro, não pelo nome. Ficam guardadas em disco na pasta `UPLOAD_DIR` (por omissão `backend/uploads/`, que não vai para o git), com um nome aleatório.
 
 O CI (`.github/workflows/backend.yml`) corre as migrações e os testes com Postgres em cada PR e em cada push para o `main`.

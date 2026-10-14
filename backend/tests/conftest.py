@@ -7,6 +7,7 @@ from alembic.config import Config
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import engine, get_session
 from app.main import app
 from app.models import User
@@ -62,3 +63,11 @@ def auth_client(client: TestClient, user: User) -> TestClient:
     """Cliente autenticado como `user`."""
     client.headers.update(auth_headers(user))
     return client
+
+
+@pytest.fixture(autouse=True)
+def upload_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Cada teste guarda as faturas numa pasta temporária própria."""
+    directory = tmp_path / "uploads"
+    monkeypatch.setattr(settings, "upload_dir", directory)
+    return directory

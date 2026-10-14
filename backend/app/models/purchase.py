@@ -47,6 +47,12 @@ class Purchase(Base):
         Computed("(purchase_date + make_interval(months => warranty_months))::date", persisted=True),
         index=True,
     )
+    # Fatura (opcional): o ficheiro fica no disco com o nome `invoice_key`; guardamos também o nome
+    # original, o tipo e o tamanho para a mostrar e devolver.
+    invoice_key: Mapped[str | None] = mapped_column(String(64))
+    invoice_filename: Mapped[str | None] = mapped_column(String(255))
+    invoice_content_type: Mapped[str | None] = mapped_column(String(100))
+    invoice_size: Mapped[int | None] = mapped_column(Integer)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
