@@ -10,19 +10,28 @@
 - **2026-10-14 (PC da empresa, sessão cloud do Claude Code):** alertas por email. `python -m app.alerts` junta, por utilizador, as compras cuja garantia acaba dentro de 60 ou 15 dias e envia um só email (SMTP com `smtplib`; definições `SMTP_*` e `MAIL_FROM` no `.env`). A tabela `warranty_alerts` (única por compra e aviso) regista os avisos enviados: correr duas vezes não repete emails, um dia falhado é apanhado no seguinte e uma compra registada já com 10 dias recebe um só email que cobre os dois avisos. O aviso só é registado depois de o email sair; se o envio falhar, fica para a execução seguinte e o comando termina com código 1. Sem `SMTP_HOST`, o comando recusa correr. Mailpit no dev container (`axllent/mailpit:v1.31`, interface na porta 8025), e o `.env.example` já aponta para ele. A convenção de nomes das restrições únicas passa a incluir todas as colunas (o nome de `uq_users_email` não muda). Testado com um servidor SMTP local: um email com a compra a 20 dias, nada na segunda execução, erro claro sem SMTP. 75 testes a passar. Pendente: agendar o comando (cron) quando houver deploy; se a garantia for prolongada depois de um aviso, esse aviso não volta a sair; confirmar o Mailpit no desktop ("Reopen in Container"). Próximo passo: frontend (React + TypeScript).
 - **2026-10-14 (PC da empresa, sessão cloud do Claude Code):** frontend em `frontend/` (Vite 8, React 19, TypeScript, React Router 8; CSS próprio com as cores dos sketches). Páginas: login/registo, painel (cartões ativas/a expirar/expiradas que filtram, pesquisa sem acentos, barra do tempo de garantia passado, expiradas no fim da lista), nova compra e edição (cálculo do fim da garantia ao escrever, igual ao Postgres, e zona para arrastar a fatura) e detalhe (ver, substituir e apagar a fatura; editar e apagar a compra). O token fica no `localStorage`; um 401 termina a sessão e volta ao login. O Vite reencaminha `/api` para a API, por isso não é preciso CORS. 41 testes (Vitest + Testing Library, com a API simulada) e novo workflow `frontend.yml` (lint, tipos, testes, build). O `post-create.sh` passa a instalar as dependências do backend e do frontend. Testado a sério com a API, o Vite e o Chromium: criar conta, criar compra com fatura, abrir o PDF, filtros, versão de telemóvel e sair, sem erros na consola. Fica para depois: gerar a reclamação, testes E2E com Playwright no CI, build e deploy (servir o `dist/` e a API juntos) e modo escuro. Próximo passo: gerar a reclamação para a loja.
 
-## Plano para 2026-10-14 (portátil, Codespaces, 2h)
+## Plano para a próxima sessão (desktop ou portátil, 2h)
 
-Objetivo: esqueleto do backend (FastAPI ligado ao Postgres, com `/health` testado).
+Contexto: a 2026-10-14 trabalhei no PC da empresa, numa sessão cloud do Claude Code (sem Docker nem Codespace). Entraram no `main` sete PRs: esqueleto do backend, modelo `Purchase`, API das compras e CI, autenticação, upload da fatura, alertas por email e frontend. Tudo foi testado na cloud (Python 3.13, Postgres local) e no CI (Python 3.12), mas **ainda nada correu no dev container nem no Codespace**.
 
-- [ ] **0:00–0:15 · Validar o Codespace:** criar o Codespace no `main`; confirmar que o `.env` existe, Python 3.12, Node 22; ligar ao Postgres pelo SQLTools ("warrantly (dev)"). Se falhar, anotar aqui e não gastar mais de 15 min.
-- [x] **0:15–0:30 · Estrutura:** `backend/` com `pyproject.toml`; dependências `fastapi`, `uvicorn[standard]`, `sqlalchemy`, `psycopg[binary]`, `alembic`, `pydantic-settings`; para testes, `pytest` e `httpx`.
-- [x] **0:30–1:00 · App e `/health`:** `config.py` (lê `DATABASE_URL` com `pydantic-settings`), `db.py` (engine e sessão), `main.py` com `GET /health` a correr `SELECT 1` e a devolver `{"status": "ok", "db": "ok"}`. Arrancar com `uvicorn app.main:app --reload --host 0.0.0.0` e abrir a porta 8000.
-- [x] **1:00–1:30 · Alembic:** `alembic init`; `env.py` a usar o `DATABASE_URL`; migração inicial vazia; `alembic upgrade head`; confirmar que existe a tabela `alembic_version`.
-- [x] **1:30–1:50 · Teste:** `tests/test_health.py` com `TestClient` (código 200 e conteúdo da resposta); `pytest` a passar.
-- [x] **1:50–2:00 · Fechar:** entrada no DEVLOG, commit e push.
+Objetivo: confirmar que tudo funciona no ambiente de desenvolvimento e começar a reclamação para a loja.
 
-Se o tempo apertar, o Alembic passa para a sessão seguinte. O mínimo é o `/health` com a base de dados e o teste a passar.
+- [ ] **0:00–0:10 · Atualizar:** `git pull` no `main`. O `.env` antigo já não serve: a `SECRET_KEY` tem de ter 32 caracteres ou mais (com a antiga, a API não arranca) e há variáveis novas (`SMTP_*`, `MAIL_FROM`, `UPLOAD_DIR`). O mais simples é apagar o `.env`, porque o `post-create.sh` volta a criá-lo a partir do `.env.example`.
+- [ ] **0:10–0:40 · Validar o ambiente:**
+  - Desktop: "Dev Containers: Rebuild and Reopen in Container". Portátil: criar um Codespace novo no `main`.
+  - Confirmar que o `post-create.sh` instalou as dependências: `cd backend && alembic upgrade head && pytest` (75 testes) e `cd frontend && npm test` (41 testes).
+  - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`); abrir a porta 5173, criar conta e registar uma compra com fatura.
+  - Registar uma compra com menos de 60 dias de garantia, correr `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025).
+  - Anotar aqui o que falhar; não gastar mais de 30 min (o resto pode ficar para a sessão seguinte).
+- [ ] **0:40–1:30 · Reclamação (backend):** `POST /purchases/{id}/claim` com a descrição da avaria e o nome de quem reclama, a devolver o texto da carta (sketch `docs/sketches/reclamacao.svg`): loja, produto, data da compra, referência ao Decreto-Lei n.º 84/2021, descrição e menção à fatura em anexo. Decidir se o nome fica no utilizador (campo `full_name`) ou vai no pedido. Testes com `pytest`.
+- [ ] **1:30–1:50 · Reclamação (frontend):** no detalhe da compra, caixa "Descreve o problema", botão "Gerar reclamação", pré-visualização e "Copiar texto". O PDF fica para depois.
+- [ ] **1:50–2:00 · Fechar:** entrada no DEVLOG, commit, push e PR.
 
-Pendente (portátil): validar o Codespace (passo 0 de 2026-10-14).
+Se a validação do ambiente correr mal, a reclamação passa para a sessão seguinte: o mínimo é ter tudo a correr no dev container ou no Codespace.
 
-Pendente (em casa, desktop): confirmar que o dev container abre no VS Code ("Dev Containers: Reopen in Container").
+Para depois (por ordem):
+- PDF da reclamação e envio por email com a fatura em anexo.
+- Testes E2E com Playwright no CI (fluxo: criar conta → compra com fatura → painel).
+- Build e deploy: Docker com a API e o `frontend/dist`, Postgres gerido, `python -m app.alerts` agendado (cron) e SMTP a sério.
+- Apagar conta (incluindo os ficheiros das faturas), aceitar HEIC, modo escuro.
+- Rever o aviso do Starlette sobre o `httpx` no `TestClient` (sugere `httpx2`).
