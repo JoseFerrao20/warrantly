@@ -86,4 +86,14 @@ Os endpoints `/purchases` e `/auth/me` pedem o cabeçalho `Authorization: Bearer
 
 As faturas podem ser PDF, JPEG, PNG ou WebP, até 10 MB. O tipo é reconhecido pelo conteúdo do ficheiro, não pelo nome. Ficam guardadas em disco na pasta `UPLOAD_DIR` (por omissão `backend/uploads/`, que não vai para o git), com um nome aleatório.
 
+### Alertas por email
+
+O comando `python -m app.alerts` (na pasta `backend/`) envia os avisos de garantias a acabar: um email por utilizador quando faltam 60 dias e outro quando faltam 15. Os avisos enviados ficam registados, por isso correr o comando várias vezes não repete emails. Deve correr uma vez por dia, por exemplo com cron:
+
+```cron
+0 9 * * * cd /caminho/para/warrantly/backend && python -m app.alerts
+```
+
+No dev container, os emails vão para o Mailpit em http://localhost:8025 e não chegam a ser enviados.
+
 O CI (`.github/workflows/backend.yml`) corre as migrações e os testes com Postgres em cada PR e em cada push para o `main`.

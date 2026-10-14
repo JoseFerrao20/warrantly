@@ -22,5 +22,13 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("uploads")
     max_invoice_bytes: int = 10 * 1024 * 1024
 
+    # Email (alertas de garantia). Sem SMTP_HOST, os alertas não são enviados.
+    smtp_host: str | None = None
+    smtp_port: int = 587
+    smtp_user: str | None = None
+    smtp_password: str | None = None
+    smtp_starttls: bool = True
+    mail_from: str = "Warrantly <alertas@warrantly.local>"
+
 
 settings = Settings()
