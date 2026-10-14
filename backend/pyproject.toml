@@ -10,6 +10,10 @@ dependencies = [
     "psycopg[binary]",
     "alembic",
     "pydantic-settings",
+    "email-validator",
+    "pyjwt",
+    "pwdlib[argon2]",
+    "python-multipart",
 ]
 
 [project.optional-dependencies]

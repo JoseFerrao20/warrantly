@@ -3,7 +3,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated
 
-from pydantic import BaseModel, ConfigDict, Field, computed_field, model_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
 
 from app.models.purchase import DEFAULT_WARRANTY_MONTHS
 
@@ -78,3 +78,21 @@ class PurchaseRead(BaseModel):
     @property
     def status(self) -> WarrantyStatus:
         return warranty_status(self.warranty_end)
+
+
+class UserCreate(BaseModel):
+    email: EmailStr = Field(max_length=320)
+    password: str = Field(min_length=8, max_length=128)
+
+
+class UserRead(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+    created_at: datetime
+
+
+class Token(BaseModel):
+    access_token: str
+    token_type: str = "bearer"
