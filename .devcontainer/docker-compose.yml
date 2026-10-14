@@ -12,6 +12,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      mailpit:
+        condition: service_started
 
   db:
     image: postgres:16-alpine
@@ -27,6 +29,11 @@ services:
       interval: 5s
       timeout: 3s
       retries: 10
+
+  # Servidor de email falso: recebe os emails da app e mostra-os em http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.31
+    restart: unless-stopped
 
 volumes:
   postgres-data:

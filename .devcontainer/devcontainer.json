@@ -10,11 +10,12 @@
     "ghcr.io/devcontainers/features/github-cli:1": {}
   },
 
-  "forwardPorts": [8000, 5173, "db:5432"],
+  "forwardPorts": [8000, 5173, "db:5432", "mailpit:8025"],
   "portsAttributes": {
     "8000": { "label": "API" },
     "5173": { "label": "Frontend" },
-    "db:5432": { "label": "Postgres" }
+    "db:5432": { "label": "Postgres" },
+    "mailpit:8025": { "label": "Mailpit (emails)" }
   },
 
   "postCreateCommand": "bash .devcontainer/post-create.sh",
