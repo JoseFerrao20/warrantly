@@ -48,3 +48,17 @@ O ambiente fica definido em `.devcontainer/`: Python 3.12, Node 22 e PostgreSQL 
 1. Abre o repositório no VS Code com a extensão Dev Containers e escolhe **Reopen in Container**, ou cria um Codespace.
 2. No primeiro arranque, o `.env` é criado a partir de `.env.example`.
 3. A base de dados fica disponível em `db:5432` (utilizador, palavra-passe e base de dados: `warrantly`).
+
+### Backend
+
+API em FastAPI, na pasta `backend/`:
+
+```bash
+cd backend
+pip install -e '.[dev]'
+alembic upgrade head                                 # aplica as migrações
+uvicorn app.main:app --reload --host 0.0.0.0         # API em http://localhost:8000 (GET /health)
+pytest                                               # testes (precisam do Postgres a correr)
+```
+
+O URL da base de dados vem da variável `DATABASE_URL`, que é usada pela app e pelo Alembic.
