@@ -20,24 +20,36 @@
 
 ## Plano para a próxima sessão (desktop ou portátil, 2h)
 
-Contexto: a 2026-10-14 trabalhei no PC da empresa, numa sessão cloud do Claude Code (sem Docker nem Codespace). Entraram no `main` sete PRs: esqueleto do backend, modelo `Purchase`, API das compras e CI, autenticação, upload da fatura, alertas por email e frontend. Tudo foi testado na cloud (Python 3.13, Postgres local) e no CI (Python 3.12), mas **ainda nada correu no dev container nem no Codespace**.
+Contexto: a 2026-10-14 e a 2026-10-15 trabalhei em sessões cloud do Claude Code (sem Docker, dev container nem Codespace). Entraram no `main` 15 PRs. Tudo está testado no CI: backend com 123 testes, frontend com 58, 12 E2E com Playwright, e a imagem Docker testada com E2E. **Ainda nada correu no dev container, no Codespace nem no Fly.**
 
-Objetivo: confirmar que tudo funciona no ambiente de desenvolvimento. A reclamação ficou feita a 2026-10-15 na sessão cloud; falta experimentá-la no dev container.
+Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online no Fly.io.
 
-- [ ] **0:00–0:10 · Atualizar:** `git pull` no `main`. O `.env` antigo já não serve: a `SECRET_KEY` tem de ter 32 caracteres ou mais (com a antiga, a API não arranca) e há variáveis novas (`SMTP_*`, `MAIL_FROM`, `UPLOAD_DIR`). O mais simples é apagar o `.env`, porque o `post-create.sh` volta a criá-lo a partir do `.env.example`.
-- [ ] **0:10–0:40 · Validar o ambiente:**
-  - Desktop: "Dev Containers: Rebuild and Reopen in Container". Portátil: criar um Codespace novo no `main`.
-  - Confirmar que o `post-create.sh` instalou as dependências: `cd backend && alembic upgrade head && pytest` (123 testes) e `cd frontend && npm test` (58 testes).
-  - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`); abrir a porta 5173, criar conta e registar uma compra com fatura.
+- [ ] **0:00–0:10 · Atualizar:**
+  - `git pull` no `main`.
+  - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais (com a antiga, a API não arranca) e há variáveis novas: `SMTP_*`, `MAIL_FROM`, `UPLOAD_DIR` e `ALERTS_TOKEN`.
+- [ ] **0:10–0:45 · Validar o ambiente:**
+  - Desktop: "Dev Containers: Rebuild and Reopen in Container" (o compose tem agora o Mailpit). Portátil: criar um Codespace novo no `main`.
+  - Dependências (o `post-create.sh` deve tê-las instalado): `cd backend && alembic upgrade head && pytest` (123 testes, sem avisos) e `cd frontend && npm test` (58 testes).
+  - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
+    - criar conta com nome;
+    - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel (HEIC, se tiveres iPhone);
+    - painel: filtros e pesquisa;
+    - na conta: tema escuro e claro.
   - Registar uma compra com menos de 60 dias de garantia, correr `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025).
-  - No detalhe dessa compra, gerar a reclamação e testar "Copiar texto", "Abrir no email" e "Descarregar PDF".
-  - Correr os testes E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (9 testes).
-  - Anotar aqui o que falhar; não gastar mais de 30 min (o resto pode ficar para a sessão seguinte).
-- [x] **0:40–1:30 · Reclamação (backend):** feito a 2026-10-15 (ver entrada acima); o nome ficou no perfil (`full_name`).
-- [x] **1:30–1:50 · Reclamação (frontend):** feito a 2026-10-15.
-- [ ] **1:50–2:00 · Fechar:** entrada no DEVLOG, commit, push e PR.
+  - Na mesma compra, gerar a reclamação e seguir os três passos: descarregar o PDF (carta e fatura), "Abrir no email" com o email da loja preenchido e confirmar que o programa de email abre com a carta. Testar também "Copiar texto".
+  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (12 testes).
+  - Anotar aqui o que falhar; não gastar mais de 35 min. Se algo partir, corrigir primeiro isso e deixar o deploy para a sessão seguinte.
+- [ ] **0:45–1:50 · Deploy no Fly.io** (README, secção "Deploy (Fly.io)"):
+  - Antes de criar, confirmar os preços: o Postgres gerido do Fly ou um gratuito (Neon/Supabase), e um SMTP a sério (ex.: Brevo, Mailgun ou Resend).
+  - `fly auth login`, `fly apps create warrantly` (se o nome estiver ocupado, trocar também no `fly.toml`) e `fly volumes create warrantly_data --region mad --size 1`.
+  - Postgres: `fly mpg create` + `fly mpg attach`, ou `fly secrets set DATABASE_URL=…`.
+  - Segredos: `SECRET_KEY`, `ALERTS_TOKEN`, `SMTP_*` e `MAIL_FROM` (`fly secrets set …`).
+  - Primeiro `fly deploy`; abrir `https://<app>.fly.dev`, criar conta, registar uma compra com fatura e gerar a reclamação.
+  - No GitHub: segredos `FLY_API_TOKEN` e `ALERTS_TOKEN` e variável `APP_URL`. Correr à mão Actions → "Alertas diários" e confirmar que não dá erro.
+  - Fazer um PR pequeno qualquer e confirmar que o `deploy.yml` publica sozinho depois do merge.
+- [ ] **1:50–2:00 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou, custos escolhidos), commit, push e PR.
 
-Com o tempo que sobrar, seguir para o primeiro ponto da lista abaixo.
-
-Para depois (por ordem):
-- Deploy: seguir a configuração inicial do README (secção "Deploy (Fly.io)"): conta, app, volume, Postgres, SMTP a sério e segredos no Fly e no GitHub.
+Ideias para depois (do README, por ordem de interesse):
+- Ler os dados da fatura automaticamente (OCR): preencher produto, loja, data e preço a partir do PDF ou da foto.
+- Exportar tudo num ZIP (compras em CSV e faturas).
+- Partilhar o arquivo com a família (vários utilizadores na mesma conta).
