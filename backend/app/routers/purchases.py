@@ -1,8 +1,11 @@
-from datetime import date, timedelta
+import tempfile
+from collections.abc import Iterator
+from datetime import UTC, date, datetime, timedelta
 from pathlib import PurePath
+from typing import IO
 
 from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, status
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 
 from app import storage
@@ -10,6 +13,7 @@ from app.claim_pdf import build_claim_pdf
 from app.claims import build_claim
 from app.config import settings
 from app.dependencies import CurrentUser, SessionDep
+from app.export import write_export
 from app.models import Purchase, User
 from app.schemas import (
     EXPIRING_SOON_DAYS,
@@ -69,6 +73,44 @@ def list_purchases(
         else:
             query = query.where(Purchase.warranty_end > expiring_limit)
     return list(session.scalars(query))
+
+
+def _chunks(file: IO[bytes], size: int = 64 * 1024) -> Iterator[bytes]:
+    try:
+        file.seek(0)
+        while chunk := file.read(size):
+            yield chunk
+    finally:
+        file.close()
+
+
+# Tem de vir antes de /{purchase_id}, senão "export" seria lido como um id.
+@router.get(
+    "/export",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"application/zip": {}}}},
+)
+def export_purchases(user: CurrentUser, session: SessionDep) -> StreamingResponse:
+    """Todas as compras num ZIP: `compras.csv` (para o Excel), `compras.json` e `faturas/`."""
+    purchases = session.scalars(
+        select(Purchase)
+        .where(Purchase.user_id == user.id)
+        .order_by(Purchase.purchase_date, Purchase.id)
+    )
+    now = datetime.now(UTC)
+    # Até 10 MB em memória; acima disso, o ZIP passa para um ficheiro temporário.
+    out = tempfile.SpooledTemporaryFile(max_size=10 * 1024 * 1024)
+    try:
+        write_export(out, user, purchases, now)
+    except Exception:
+        out.close()
+        raise
+    filename = f"warrantly-{now.date().isoformat()}.zip"
+    return StreamingResponse(
+        _chunks(out),
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/{purchase_id}", response_model=PurchaseRead)

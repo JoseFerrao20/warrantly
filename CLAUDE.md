@@ -6,8 +6,8 @@ Arquivo de garantias: compras com fatura, prazo da garantia calculado, alertas p
 
 - `backend/`: FastAPI + SQLAlchemy 2 + Alembic + Postgres 16 (Python 3.12 no CI e no Docker).
   - `app/main.py` (API de desenvolvimento) e `app/server.py` (produção: API em `/api` e frontend na raiz).
-  - `app/routers/`: `auth`, `purchases` (compras, fatura, reclamação, PDF) e `internal` (alertas por HTTP).
-  - `app/claims.py` (texto da carta), `app/claim_pdf.py` (PDF com a fatura junta), `app/alerts.py` (`python -m app.alerts`), `app/storage.py` (faturas em disco e conversão de HEIC).
+  - `app/routers/`: `auth`, `purchases` (compras, fatura, reclamação, PDF, exportação) e `internal` (alertas por HTTP).
+  - `app/claims.py` (texto da carta), `app/claim_pdf.py` (PDF com a fatura junta), `app/alerts.py` (`python -m app.alerts`), `app/storage.py` (faturas em disco e conversão de HEIC), `app/export.py` (ZIP com CSV, JSON e faturas).
 - `frontend/`: Vite + React 19 + TypeScript + React Router 8, CSS próprio em `src/index.css` (tokens claro/escuro). Testes em `src/**/*.test.tsx` (Vitest) e `e2e/` (Playwright).
 - `.devcontainer/` (dev container e Codespace, com Postgres e Mailpit), `Dockerfile` e `fly.toml` (produção) e `.github/workflows/` (backend, frontend, e2e, docker, deploy e alerts).
 

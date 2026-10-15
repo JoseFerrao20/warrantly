@@ -40,6 +40,39 @@ describe('AccountPage', () => {
     document.documentElement.removeAttribute('data-theme')
   })
 
+  it('descarrega o ZIP com os dados', async () => {
+    const fetchMock = mockApi({
+      'GET /auth/me': { body: USER },
+      'GET /purchases/export': { body: 'zip' },
+    })
+    vi.stubGlobal('URL', { ...URL, createObjectURL: vi.fn(() => 'blob:zip'), revokeObjectURL: vi.fn() })
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    renderApp('/conta')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Descarregar ZIP' }))
+
+    expect(await screen.findByRole('status')).toHaveTextContent('Descarregado.')
+    const link = click.mock.instances[0] as unknown as HTMLAnchorElement
+    expect(link.download).toMatch(/^warrantly-\d{4}-\d{2}-\d{2}\.zip$/)
+    expect(link.getAttribute('href')).toBe('blob:zip')
+    const call = fetchMock.mock.calls.find((c) => c[0] === '/api/purchases/export')
+    expect(new Headers(call![1]!.headers).get('Authorization')).toBe('Bearer token-de-teste')
+    click.mockRestore()
+  })
+
+  it('mostra o erro quando a exportação falha', async () => {
+    mockApi({
+      'GET /auth/me': { body: USER },
+      'GET /purchases/export': { status: 500, body: { detail: 'Falhou' } },
+    })
+    renderApp('/conta')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Descarregar ZIP' }))
+
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Descarregar ZIP' })).toBeEnabled()
+  })
+
   it('apaga a conta com a palavra-passe e volta ao login', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const fetchMock = mockApi({

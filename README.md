@@ -16,8 +16,9 @@ Em Portugal, os bens novos têm 3 anos de garantia legal (Decreto-Lei n.º 84/20
 - **Alertas:** aviso por email 60 e 15 dias antes de cada garantia expirar.
 - **Reclamação pronta:** a partir de uma compra e de uma descrição da avaria, gera o texto da reclamação para a loja, com os dados da compra e a fatura em anexo.
 - **Pesquisa e filtros:** por loja, categoria e estado.
+- **Exportar:** um ZIP com todas as compras (CSV para o Excel e JSON) e as faturas.
 
-Ideias para depois: ler automaticamente os dados da fatura (OCR), partilhar o arquivo com a família, exportar tudo num ZIP.
+Ideias para depois: ler automaticamente os dados da fatura (OCR), partilhar o arquivo com a família.
 
 ## Sketches
 
@@ -76,6 +77,7 @@ Endpoints (documentação interativa em `/docs`):
 | `DELETE` | `/auth/me` | Apaga a conta, as compras, os alertas e os ficheiros das faturas (pede a palavra-passe) |
 | `POST` | `/purchases` | Regista uma compra (garantia de 36 meses por omissão) |
 | `GET` | `/purchases` | Lista as compras pela garantia que expira primeiro; filtros `store`, `category` e `status` (`active`, `expiring`, `expired`) |
+| `GET` | `/purchases/export` | ZIP com `compras.csv` (`;` e vírgula decimal, para o Excel), `compras.json` e as faturas em `faturas/` |
 | `GET` | `/purchases/{id}` | Detalhe de uma compra |
 | `PATCH` | `/purchases/{id}` | Altera os campos enviados |
 | `DELETE` | `/purchases/{id}` | Apaga uma compra (e a fatura, se tiver) |
