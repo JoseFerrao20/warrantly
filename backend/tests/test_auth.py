@@ -144,3 +144,63 @@ def test_update_full_name(auth_client: TestClient):
 
 def test_update_full_name_rejects_empty(auth_client: TestClient):
     assert auth_client.patch("/auth/me", json={"full_name": ""}).status_code == 422
+
+
+PDF = b"%PDF-1.7\n%%EOF\n"
+
+
+def create_purchase_with_invoice(client: TestClient, **kwargs) -> int:
+    purchase = client.post(
+        "/purchases",
+        json={"product_name": "TV", "store": "Fnac", "purchase_date": "2026-01-10", "price": "1"},
+        **kwargs,
+    ).json()
+    client.put(
+        f"/purchases/{purchase['id']}/invoice",
+        files={"file": ("f.pdf", PDF, "application/pdf")},
+        **kwargs,
+    )
+    return purchase["id"]
+
+
+def test_delete_account_removes_everything(
+    auth_client: TestClient, db_session: Session, user: User, upload_dir
+):
+    purchase_id = create_purchase_with_invoice(auth_client)
+    assert len(list(upload_dir.iterdir())) == 1
+
+    response = auth_client.request("DELETE", "/auth/me", json={"password": TEST_PASSWORD})
+
+    assert response.status_code == 204
+    assert db_session.get(Purchase, purchase_id) is None
+    assert db_session.get(User, user.id) is None
+    assert list(upload_dir.iterdir()) == []
+    assert auth_client.get("/auth/me").status_code == 401
+    login = auth_client.post(
+        "/auth/login", data={"username": "ana@example.com", "password": TEST_PASSWORD}
+    )
+    assert login.status_code == 401
+
+
+def test_delete_account_requires_the_password(auth_client: TestClient, db_session: Session, user: User):
+    response = auth_client.request("DELETE", "/auth/me", json={"password": "errada-123"})
+
+    assert response.status_code == 403
+    assert response.json()["detail"] == "Palavra-passe incorreta"
+    assert db_session.get(User, user.id) is not None
+
+
+def test_delete_account_keeps_other_users_data(
+    auth_client: TestClient, db_session: Session, upload_dir
+):
+    from tests.conftest import auth_headers, make_user
+
+    other_headers = auth_headers(make_user(db_session, "rui@example.com"))
+    theirs = create_purchase_with_invoice(auth_client, headers=other_headers)
+    create_purchase_with_invoice(auth_client)
+
+    auth_client.request("DELETE", "/auth/me", json={"password": TEST_PASSWORD})
+
+    assert db_session.get(Purchase, theirs) is not None
+    assert len(list(upload_dir.iterdir())) == 1
+    assert auth_client.get(f"/purchases/{theirs}/invoice", headers=other_headers).status_code == 200

@@ -1,7 +1,9 @@
 import { useRef, useState } from 'react'
 import type { DragEvent } from 'react'
 
-export const INVOICE_ACCEPT = 'application/pdf,image/jpeg,image/png,image/webp'
+// HEIC: fotografias do iPhone (a API converte-as para JPEG).
+export const INVOICE_ACCEPT =
+  'application/pdf,image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif'
 const MAX_BYTES = 10 * 1024 * 1024
 
 /** Zona para arrastar a fatura ou escolher um ficheiro (no telemóvel, também tirar fotografia). */
@@ -52,7 +54,7 @@ export function InvoicePicker({
           <>
             <strong>Arrasta a fatura</strong>
             <span>ou toca para escolher / tirar uma fotografia</span>
-            <small>PDF, JPG ou PNG, até 10 MB</small>
+            <small>PDF ou fotografia (JPG, PNG, HEIC), até 10 MB</small>
           </>
         )}
         {!file && currentName && <small>Atual: {currentName}</small>}

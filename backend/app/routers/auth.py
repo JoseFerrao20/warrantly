@@ -1,13 +1,14 @@
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Response, status
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
+from app import storage
 from app.dependencies import CurrentUser, SessionDep
-from app.models import User
-from app.schemas import Token, UserCreate, UserRead, UserUpdate
+from app.models import Purchase, User
+from app.schemas import AccountDelete, Token, UserCreate, UserRead, UserUpdate
 from app.security import DUMMY_PASSWORD_HASH, create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -56,3 +57,22 @@ def update_me(data: UserUpdate, user: CurrentUser, session: SessionDep) -> User:
     session.commit()
     session.refresh(user)
     return user
+
+
+@router.delete("/me", status_code=status.HTTP_204_NO_CONTENT)
+def delete_me(data: AccountDelete, user: CurrentUser, session: SessionDep) -> Response:
+    """Apaga a conta, as compras, os alertas e os ficheiros das faturas. Pede a palavra-passe."""
+    if not verify_password(data.password, user.password_hash):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Palavra-passe incorreta")
+    invoice_keys = list(
+        session.scalars(
+            select(Purchase.invoice_key).where(
+                Purchase.user_id == user.id, Purchase.invoice_key.is_not(None)
+            )
+        )
+    )
+    session.delete(user)  # compras e alertas saem pelo ON DELETE CASCADE da base de dados
+    session.commit()
+    for key in invoice_keys:
+        storage.delete(key)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)

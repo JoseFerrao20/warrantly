@@ -11,7 +11,9 @@ export function Layout() {
           Warrantly
         </Link>
         <div className="topbar-actions">
-          <span className="topbar-user">{user?.email}</span>
+          <Link to="/conta" className="topbar-user" title="A tua conta">
+            {user?.email}
+          </Link>
           <button type="button" className="button-link" onClick={logout}>
             Sair
           </button>

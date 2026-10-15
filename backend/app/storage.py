@@ -6,9 +6,15 @@ utilizador, para não haver colisões nem caminhos manipulados (`../`).
 
 import os
 import secrets
+from io import BytesIO
 from pathlib import Path
 
+import pillow_heif
+from PIL import Image, ImageOps
+
 from app.config import settings
+
+pillow_heif.register_heif_opener()
 
 # Tipos aceites, reconhecidos pelos primeiros bytes do ficheiro (não pelo Content-Type enviado).
 INVOICE_TYPES = {
@@ -17,6 +23,12 @@ INVOICE_TYPES = {
     "image/png": ".png",
     "image/webp": ".webp",
 }
+
+
+# Fotografias HEIC/HEIF (iPhone): "ftyp" seguido de uma destas marcas. Não se guardam assim
+# (a maioria dos browsers não as mostra): são convertidas para JPEG no upload.
+HEIF_BRANDS = {b"heic", b"heix", b"hevc", b"hevx", b"heim", b"heis", b"mif1", b"msf1"}
+HEIC = "image/heic"
 
 
 def detect_content_type(data: bytes) -> str | None:
@@ -28,7 +40,18 @@ def detect_content_type(data: bytes) -> str | None:
         return "image/png"
     if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
         return "image/webp"
+    if data[4:8] == b"ftyp" and data[8:12] in HEIF_BRANDS:
+        return HEIC
     return None
+
+
+def heic_to_jpeg(data: bytes) -> bytes:
+    """Converte uma fotografia HEIC para JPEG, já rodada conforme a orientação da câmara."""
+    with Image.open(BytesIO(data)) as image:
+        rotated = ImageOps.exif_transpose(image).convert("RGB")
+    buffer = BytesIO()
+    rotated.save(buffer, format="JPEG", quality=85, optimize=True)
+    return buffer.getvalue()
 
 
 def _path(key: str) -> Path:

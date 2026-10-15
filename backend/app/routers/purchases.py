@@ -103,7 +103,10 @@ def delete_purchase(purchase_id: int, user: CurrentUser, session: SessionDep) ->
 def upload_invoice(
     purchase_id: int, file: UploadFile, user: CurrentUser, session: SessionDep
 ) -> Purchase:
-    """Carrega a fatura (PDF, JPEG, PNG ou WebP, até 10 MB). Substitui a anterior, se existir."""
+    """Carrega a fatura (PDF, JPEG, PNG, WebP ou HEIC, até 10 MB). Substitui a anterior.
+
+    As fotografias HEIC (iPhone) são guardadas como JPEG.
+    """
     purchase = get_purchase_or_404(purchase_id, user, session)
 
     data = file.file.read(settings.max_invoice_bytes + 1)
@@ -116,13 +119,24 @@ def upload_invoice(
     if content_type is None:
         raise HTTPException(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            detail="A fatura tem de ser um PDF ou uma imagem (JPEG, PNG ou WebP)",
+            detail="A fatura tem de ser um PDF ou uma imagem (JPEG, PNG, WebP ou HEIC)",
         )
+    filename = PurePath(file.filename or "").name[:255] or "fatura"
+    if content_type == storage.HEIC:
+        try:
+            data = storage.heic_to_jpeg(data)
+        except Exception:
+            raise HTTPException(
+                status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
+                detail="Não foi possível ler a fotografia HEIC",
+            )
+        content_type = "image/jpeg"
+        filename = str(PurePath(filename).with_suffix(".jpg"))
 
     old_key = purchase.invoice_key
     new_key = storage.save(data, content_type)
     purchase.invoice_key = new_key
-    purchase.invoice_filename = PurePath(file.filename or "").name[:255] or "fatura"
+    purchase.invoice_filename = filename
     purchase.invoice_content_type = content_type
     purchase.invoice_size = len(data)
     try:

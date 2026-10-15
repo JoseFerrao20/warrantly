@@ -126,3 +126,27 @@ test('recusa uma fatura que não é PDF nem imagem', async ({ page }) => {
 
   await expect(page.getByRole('alert')).toContainText('A fatura tem de ser um PDF ou uma imagem')
 })
+
+test('aceita uma fotografia HEIC (iPhone) e guarda-a como JPEG', async ({ page }) => {
+  const { token } = await signUp(page)
+  const purchase = await createPurchase(page, token, {
+    product_name: 'Frigorífico',
+    store: 'Worten',
+    purchase_date: dateFromToday(-1),
+    price: '899',
+  })
+
+  await page.goto(`/compras/${purchase.id}`)
+  await page
+    .getByLabel('Fatura', { exact: true })
+    .setInputFiles(new URL('./fixtures/foto-fatura.heic', import.meta.url).pathname)
+  await page.getByRole('button', { name: 'Guardar fatura' }).click()
+
+  await expect(page.getByText('foto-fatura.jpg')).toBeVisible()
+  const [, invoice] = await Promise.all([
+    page.waitForEvent('popup'),
+    page.waitForResponse((r) => r.url().endsWith('/invoice') && r.request().method() === 'GET'),
+    page.getByRole('button', { name: 'Ver fatura' }).click(),
+  ])
+  expect(invoice.headers()['content-type']).toBe('image/jpeg')
+})
