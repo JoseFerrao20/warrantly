@@ -99,6 +99,10 @@ class UserUpdate(BaseModel):
     full_name: FullName | None = None
 
 
+class AccountDelete(BaseModel):
+    password: str = Field(min_length=1, max_length=128)
+
+
 class UserRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

@@ -2,6 +2,7 @@ import { Navigate, Route, Routes } from 'react-router'
 
 import { RequireAuth } from './auth'
 import { Layout } from './components/Layout'
+import { AccountPage } from './pages/AccountPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { LoginPage } from './pages/LoginPage'
 import { PurchaseDetailPage } from './pages/PurchaseDetailPage'
@@ -22,6 +23,7 @@ export function App() {
         <Route path="compras/nova" element={<PurchaseFormPage />} />
         <Route path="compras/:id" element={<PurchaseDetailPage />} />
         <Route path="compras/:id/editar" element={<PurchaseFormPage />} />
+        <Route path="conta" element={<AccountPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

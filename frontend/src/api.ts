@@ -98,6 +98,8 @@ export const api = {
   me: () => request<User>('/auth/me'),
   updateMe: (data: { full_name: string | null }) =>
     request<User>('/auth/me', { method: 'PATCH', json: data }),
+  deleteMe: (password: string) =>
+    request<void>('/auth/me', { method: 'DELETE', json: { password } }),
 
   listPurchases: () => request<Purchase[]>('/purchases'),
   getPurchase: (id: number) => request<Purchase>(`/purchases/${id}`),

@@ -9,6 +9,7 @@ import { AuthContext, useAuth } from './useAuth'
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(() => getToken() !== null)
+  const [notice, setNotice] = useState<string | null>(null)
 
   const logout = useCallback(() => {
     setToken(null)
@@ -27,6 +28,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(async (email: string, password: string) => {
     setToken(await api.login(email, password))
+    setNotice(null)
     setUser(await api.me())
   }, [])
 
@@ -42,9 +44,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await api.updateMe({ full_name: fullName }))
   }, [])
 
+  const deleteAccount = useCallback(
+    async (password: string) => {
+      await api.deleteMe(password)
+      setNotice('A tua conta foi apagada.')
+      logout()
+    },
+    [logout],
+  )
+
   const value = useMemo(
-    () => ({ user, loading, login, register, updateProfile, logout }),
-    [user, loading, login, register, updateProfile, logout],
+    () => ({ user, loading, notice, login, register, updateProfile, deleteAccount, logout }),
+    [user, loading, notice, login, register, updateProfile, deleteAccount, logout],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

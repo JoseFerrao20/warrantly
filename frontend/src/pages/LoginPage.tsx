@@ -6,7 +6,7 @@ import { ApiError } from '../api'
 import { useAuth } from '../useAuth'
 
 export function LoginPage() {
-  const { user, login, register } = useAuth()
+  const { user, notice, login, register } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
@@ -40,6 +40,11 @@ export function LoginPage() {
     <main className="auth">
       <h1 className="brand">Warrantly</h1>
       <p className="muted">As tuas garantias, num só sítio.</p>
+      {notice && (
+        <p className="notice" role="status">
+          {notice}
+        </p>
+      )}
       <form className="card form" onSubmit={onSubmit}>
         <h2>{isLogin ? 'Entrar' : 'Criar conta'}</h2>
         {!isLogin && (

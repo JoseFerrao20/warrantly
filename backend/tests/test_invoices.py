@@ -165,3 +165,61 @@ def test_invoices_of_other_users_are_not_accessible(
 def test_invoice_endpoints_require_authentication(client: TestClient):
     assert client.get("/purchases/1/invoice").status_code == 401
     assert upload(client, 1, PDF).status_code == 401
+
+
+def heic_photo(width: int = 60, height: int = 40, orientation: int | None = None) -> bytes:
+    """Fotografia HEIC como as do iPhone (opcionalmente com a orientação EXIF)."""
+    from io import BytesIO
+
+    import pillow_heif  # noqa: F401  (regista o formato HEIF no Pillow)
+    from PIL import Image
+
+    image = Image.new("RGB", (width, height), "red")
+    exif = Image.Exif()
+    if orientation:
+        exif[0x0112] = orientation
+    buffer = BytesIO()
+    image.save(buffer, format="HEIF", exif=exif.tobytes())
+    return buffer.getvalue()
+
+
+def test_detects_heic():
+    assert storage.detect_content_type(heic_photo()) == storage.HEIC
+
+
+def test_heic_photo_is_stored_as_jpeg(auth_client: TestClient, upload_dir: Path):
+    purchase = create_purchase(auth_client)
+
+    response = upload(auth_client, purchase["id"], heic_photo(), filename="IMG_1234.HEIC")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["invoice_content_type"] == "image/jpeg"
+    assert body["invoice_filename"] == "IMG_1234.jpg"
+    [stored] = stored_files(upload_dir)
+    assert stored.suffix == ".jpg"
+    assert storage.detect_content_type(stored.read_bytes()) == "image/jpeg"
+    download = auth_client.get(f"/purchases/{purchase['id']}/invoice")
+    assert download.headers["content-type"] == "image/jpeg"
+
+
+def test_heic_orientation_is_applied():
+    from io import BytesIO
+
+    from PIL import Image
+
+    # Orientação 6 = fotografia tirada com o telemóvel na vertical: rodar 90°.
+    jpeg = storage.heic_to_jpeg(heic_photo(60, 40, orientation=6))
+
+    assert Image.open(BytesIO(jpeg)).size == (40, 60)
+
+
+def test_broken_heic_is_rejected(auth_client: TestClient, upload_dir: Path):
+    purchase = create_purchase(auth_client)
+    broken = b"\x00\x00\x00\x18ftypheic" + b"\x00" * 40
+
+    response = upload(auth_client, purchase["id"], broken, filename="IMG.HEIC")
+
+    assert response.status_code == 415
+    assert response.json()["detail"] == "Não foi possível ler a fotografia HEIC"
+    assert stored_files(upload_dir) == []
