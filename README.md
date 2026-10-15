@@ -10,7 +10,7 @@ Em Portugal, os bens novos têm 3 anos de garantia legal (Decreto-Lei n.º 84/20
 
 ## O que a app faz
 
-- **Registar compras:** carregas a fatura (PDF ou fotografia) e indicas o produto, a loja, a data e o preço.
+- **Registar compras:** carregas a fatura (PDF ou fotografia) e a app lê-a e sugere o produto, a loja, a data, o preço e o n.º da fatura (PDF com texto diretamente; fotografias com OCR, pelo Tesseract, sem sair do servidor). Confirmas e corriges antes de guardar.
 - **Calcular o prazo:** a data de fim da garantia é calculada automaticamente (3 anos por omissão, ajustável para garantias de marca ou bens usados).
 - **Painel:** todas as garantias ordenadas pela que expira primeiro, com o estado de cada uma (ativa, a expirar, expirada).
 - **Alertas:** aviso por email 60 e 15 dias antes de cada garantia expirar.
@@ -18,7 +18,7 @@ Em Portugal, os bens novos têm 3 anos de garantia legal (Decreto-Lei n.º 84/20
 - **Pesquisa e filtros:** por loja, categoria e estado.
 - **Exportar:** um ZIP com todas as compras (CSV para o Excel e JSON) e as faturas.
 
-Ideias para depois: ler automaticamente os dados da fatura (OCR), partilhar o arquivo com a família.
+Ideias para depois: partilhar o arquivo com a família.
 
 ## Sketches
 
@@ -81,6 +81,7 @@ Endpoints (documentação interativa em `/docs`):
 | `GET` | `/purchases/{id}` | Detalhe de uma compra |
 | `PATCH` | `/purchases/{id}` | Altera os campos enviados |
 | `DELETE` | `/purchases/{id}` | Apaga uma compra (e a fatura, se tiver) |
+| `POST` | `/purchases/scan-invoice` | Lê uma fatura (multipart, campo `file`) e devolve sugestões para os campos da compra; não guarda nada. Fotografias precisam do `tesseract` com o português (`tesseract-ocr-por`) |
 | `PUT` | `/purchases/{id}/invoice` | Carrega a fatura (multipart, campo `file`); substitui a anterior |
 | `GET` | `/purchases/{id}/invoice` | Devolve a fatura |
 | `DELETE` | `/purchases/{id}/invoice` | Apaga a fatura |

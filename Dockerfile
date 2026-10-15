@@ -24,6 +24,10 @@ COPY backend/alembic ./alembic
 COPY --from=frontend /frontend/dist ./static
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 
+# Tesseract (OCR das fotografias das faturas), com o português.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends tesseract-ocr tesseract-ocr-por \
+    && rm -rf /var/lib/apt/lists/*
 RUN useradd --create-home --uid 1000 warrantly
 
 ENV ENVIRONMENT=production \

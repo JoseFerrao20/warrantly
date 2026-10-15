@@ -425,6 +425,12 @@ textarea {
   margin: 0;
 }
 
+.scan-status {
+  margin: -0.4rem 0 0;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
 .notice {
   display: flex;
   flex-direction: column;

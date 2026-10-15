@@ -1,10 +1,10 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router'
 
 import { api, ApiError } from '../api'
 import { InvoicePicker } from '../components/InvoicePicker'
-import type { PurchaseInput } from '../types'
+import type { InvoiceScan, PurchaseInput } from '../types'
 import { usePageTitle } from '../usePageTitle'
 import { addMonths, formatLongDate, parsePrice, todayISO } from '../warranty'
 
@@ -39,6 +39,20 @@ const emptyForm = (): FormState => ({
   store_email: '',
 })
 
+// Campos que a leitura da fatura pode preencher, com o nome para a mensagem.
+const SCAN_FIELDS: [keyof FormState & keyof InvoiceScan, string][] = [
+  ['product_name', 'produto'],
+  ['store', 'loja'],
+  ['price', 'preço'],
+  ['purchase_date', 'data'],
+  ['invoice_number', 'n.º da fatura'],
+  ['store_email', 'email da loja'],
+]
+
+function joinPt(items: string[]): string {
+  return items.length < 2 ? items.join('') : `${items.slice(0, -1).join(', ')} e ${items.at(-1)}`
+}
+
 export function PurchaseFormPage() {
   const { id } = useParams()
   const editing = id !== undefined
@@ -51,6 +65,15 @@ export function PurchaseFormPage() {
   const [loading, setLoading] = useState(editing)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
+  const [scanStatus, setScanStatus] = useState<string | null>(null)
+
+  // Para a leitura da fatura não apagar o que o utilizador já escreveu.
+  const formRef = useRef(form)
+  useEffect(() => {
+    formRef.current = form
+  }, [form])
+  const touched = useRef(new Set<keyof FormState>())
+  const scanRequest = useRef(0)
 
   useEffect(() => {
     if (!editing) return
@@ -75,8 +98,44 @@ export function PurchaseFormPage() {
       .finally(() => setLoading(false))
   }, [editing, id])
 
-  const set = (field: keyof FormState) => (value: string) =>
+  const set = (field: keyof FormState) => (value: string) => {
+    touched.current.add(field)
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  /** Escolher a fatura também a lê e preenche os campos ainda vazios (só sugestões). */
+  async function chooseInvoice(file: File | null) {
+    setInvoice(file)
+    setScanStatus(null)
+    if (!file) return
+    const request = ++scanRequest.current
+    setScanStatus('A ler a fatura…')
+    let scan: InvoiceScan
+    try {
+      scan = await api.scanInvoice(file)
+    } catch {
+      // Ler é só uma ajuda: se falhar, preenche-se à mão (e o envio mostra o erro da fatura).
+      if (request === scanRequest.current) setScanStatus(null)
+      return
+    }
+    if (request !== scanRequest.current) return // entretanto escolheu outro ficheiro
+
+    const initial = emptyForm()
+    const next = { ...formRef.current }
+    const filled: string[] = []
+    for (const [field, label] of SCAN_FIELDS) {
+      const value = scan[field]
+      if (!value || touched.current.has(field) || next[field] !== initial[field]) continue
+      next[field] = field === 'price' ? value.replace('.', ',') : value
+      filled.push(label)
+    }
+    setForm(next)
+    setScanStatus(
+      filled.length > 0
+        ? `Lemos a fatura e preenchemos: ${joinPt(filled)}. Confirma os valores antes de guardar.`
+        : 'Não conseguimos ler os dados desta fatura; preenche à mão.',
+    )
+  }
 
   const months =
     form.warranty_option === 'custom' ? Number(form.custom_months) : Number(form.warranty_option)
@@ -130,7 +189,12 @@ export function PurchaseFormPage() {
     <form className="card form purchase-form" onSubmit={onSubmit}>
       <h1>{editing ? 'Editar compra' : 'Nova compra'}</h1>
 
-      <InvoicePicker file={invoice} onChange={setInvoice} currentName={currentInvoice} />
+      <InvoicePicker file={invoice} onChange={chooseInvoice} currentName={currentInvoice} />
+      {scanStatus && (
+        <p className="scan-status" role="status">
+          {scanStatus}
+        </p>
+      )}
 
       <label>
         Produto

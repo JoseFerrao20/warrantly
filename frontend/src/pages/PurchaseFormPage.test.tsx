@@ -16,6 +16,68 @@ async function fillForm() {
 }
 
 describe('PurchaseFormPage', () => {
+  it('lê a fatura e preenche só os campos vazios', async () => {
+    const fetchMock = mockApi({
+      'GET /auth/me': { body: USER },
+      'POST /purchases/scan-invoice': {
+        body: {
+          text_found: true,
+          ocr_available: true,
+          product_name: 'Máquina de lavar Bosch',
+          store: 'Worten',
+          purchase_date: '2023-11-03',
+          price: '429.00',
+          invoice_number: 'FT 2023/48213',
+          store_email: null,
+        },
+      },
+    })
+    renderApp('/compras/nova')
+    // O utilizador já escreveu o produto: a leitura não o substitui.
+    await userEvent.type(await screen.findByLabelText('Produto'), 'Máquina da cozinha')
+
+    const file = new File(['%PDF-1.4'], 'fatura.pdf', { type: 'application/pdf' })
+    await userEvent.upload(screen.getByLabelText('Fatura'), file)
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Lemos a fatura e preenchemos: loja, preço, data e n.º da fatura. Confirma os valores antes de guardar.',
+    )
+    expect(screen.getByLabelText('Produto')).toHaveValue('Máquina da cozinha')
+    expect(screen.getByLabelText('Loja')).toHaveValue('Worten')
+    expect(screen.getByLabelText('Preço (€)')).toHaveValue('429,00')
+    expect(screen.getByLabelText('Data de compra')).toHaveValue('2023-11-03')
+    expect(screen.getByLabelText(/N\.º da fatura/)).toHaveValue('FT 2023/48213')
+    expect(screen.getByLabelText(/Email da loja/)).toHaveValue('')
+    const call = fetchMock.mock.calls.find((c) => c[0] === '/api/purchases/scan-invoice')
+    expect((call![1]!.body as FormData).get('file')).toBe(file)
+  })
+
+  it('avisa quando não consegue ler a fatura', async () => {
+    mockApi({
+      'GET /auth/me': { body: USER },
+      'POST /purchases/scan-invoice': {
+        body: {
+          text_found: false,
+          ocr_available: true,
+          product_name: null,
+          store: null,
+          purchase_date: null,
+          price: null,
+          invoice_number: null,
+          store_email: null,
+        },
+      },
+    })
+    renderApp('/compras/nova')
+    const file = new File(['\x89PNG'], 'foto.png', { type: 'image/png' })
+    await userEvent.upload(await screen.findByLabelText('Fatura'), file)
+
+    expect(await screen.findByRole('status')).toHaveTextContent(
+      'Não conseguimos ler os dados desta fatura; preenche à mão.',
+    )
+    expect(screen.getByLabelText('Loja')).toHaveValue('')
+  })
+
   it('a zona da fatura é um botão que abre o seletor de ficheiros', async () => {
     mockApi({ 'GET /auth/me': { body: USER } })
     renderApp('/compras/nova')
