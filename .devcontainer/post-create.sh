@@ -10,6 +10,12 @@ fi
 python --version
 node --version
 
+# Tesseract (OCR das fotografias das faturas), com o português.
+if ! command -v tesseract >/dev/null; then
+  sudo apt-get update -q
+  sudo apt-get install -y -q --no-install-recommends tesseract-ocr tesseract-ocr-por
+fi
+
 # Dependências do backend e do frontend.
 pip install --quiet -e './backend[dev]'
 npm ci --prefix frontend

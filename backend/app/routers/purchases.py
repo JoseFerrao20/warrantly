@@ -8,7 +8,7 @@ from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, statu
 from fastapi.responses import FileResponse, StreamingResponse
 from sqlalchemy import select
 
-from app import storage
+from app import invoice_scan, storage
 from app.claim_pdf import build_claim_pdf
 from app.claims import build_claim
 from app.config import settings
@@ -19,6 +19,7 @@ from app.schemas import (
     EXPIRING_SOON_DAYS,
     ClaimRead,
     ClaimRequest,
+    InvoiceScanRead,
     PurchaseCreate,
     PurchaseRead,
     PurchaseUpdate,
@@ -140,16 +141,11 @@ def delete_purchase(purchase_id: int, user: CurrentUser, session: SessionDep) ->
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
-@router.put("/{purchase_id}/invoice", response_model=PurchaseRead)
-def upload_invoice(
-    purchase_id: int, file: UploadFile, user: CurrentUser, session: SessionDep
-) -> Purchase:
-    """Carrega a fatura (PDF, JPEG, PNG, WebP ou HEIC, até 10 MB). Substitui a anterior.
+def read_invoice_upload(file: UploadFile) -> tuple[bytes, str, str]:
+    """Lê e valida a fatura enviada: devolve os bytes, o tipo e o nome do ficheiro.
 
-    As fotografias HEIC (iPhone) são guardadas como JPEG.
+    Aceita PDF, JPEG, PNG, WebP e HEIC (até 10 MB); o HEIC (iPhone) passa a JPEG.
     """
-    purchase = get_purchase_or_404(purchase_id, user, session)
-
     data = file.file.read(settings.max_invoice_bytes + 1)
     if len(data) > settings.max_invoice_bytes:
         max_mb = settings.max_invoice_bytes // (1024 * 1024)
@@ -174,6 +170,40 @@ def upload_invoice(
             ) from err
         content_type = "image/jpeg"
         filename = str(PurePath(filename).with_suffix(".jpg"))
+    return data, content_type, filename
+
+
+@router.post("/scan-invoice", response_model=InvoiceScanRead)
+def scan_invoice(file: UploadFile, user: CurrentUser) -> InvoiceScanRead:
+    """Lê a fatura e sugere os campos da compra (não guarda nada).
+
+    PDF com texto: lido diretamente. Fotografia ou PDF digitalizado: OCR com o Tesseract.
+    Os campos que não se conseguem ler vêm a null.
+    """
+    data, content_type, _ = read_invoice_upload(file)
+    result = invoice_scan.scan_invoice(data, content_type)
+    return InvoiceScanRead(
+        text_found=bool(result.text.strip()),
+        ocr_available=invoice_scan.ocr_available(),
+        product_name=result.product_name,
+        store=result.store,
+        purchase_date=result.purchase_date,
+        price=result.price,
+        invoice_number=result.invoice_number,
+        store_email=result.store_email,
+    )
+
+
+@router.put("/{purchase_id}/invoice", response_model=PurchaseRead)
+def upload_invoice(
+    purchase_id: int, file: UploadFile, user: CurrentUser, session: SessionDep
+) -> Purchase:
+    """Carrega a fatura (PDF, JPEG, PNG, WebP ou HEIC, até 10 MB). Substitui a anterior.
+
+    As fotografias HEIC (iPhone) são guardadas como JPEG.
+    """
+    purchase = get_purchase_or_404(purchase_id, user, session)
+    data, content_type, filename = read_invoice_upload(file)
 
     old_key = purchase.invoice_key
     new_key = storage.save(data, content_type)

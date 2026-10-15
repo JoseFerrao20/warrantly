@@ -1,4 +1,4 @@
-import type { Claim, Purchase, PurchaseInput, User } from './types'
+import type { Claim, InvoiceScan, Purchase, PurchaseInput, User } from './types'
 
 const BASE = '/api'
 const TOKEN_KEY = 'warrantly.token'
@@ -115,6 +115,11 @@ export const api = {
     const body = new FormData()
     body.append('file', file)
     return request<Purchase>(`/purchases/${id}/invoice`, { method: 'PUT', body })
+  },
+  scanInvoice(file: File) {
+    const body = new FormData()
+    body.append('file', file)
+    return request<InvoiceScan>('/purchases/scan-invoice', { method: 'POST', body })
   },
   deleteInvoice: (id: number) => request<void>(`/purchases/${id}/invoice`, { method: 'DELETE' }),
   getInvoice: (id: number) => requestBlob(`/purchases/${id}/invoice`),

@@ -37,6 +37,18 @@ export interface PurchaseInput {
   store_email: string | null
 }
 
+/** Sugestões lidas da fatura (null = não encontrado). */
+export interface InvoiceScan {
+  text_found: boolean
+  ocr_available: boolean
+  product_name: string | null
+  store: string | null
+  purchase_date: string | null
+  price: string | null
+  invoice_number: string | null
+  store_email: string | null
+}
+
 export interface Claim {
   subject: string
   body: string

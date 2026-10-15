@@ -32,6 +32,12 @@ else
   log "Postgres não instalado: os testes do backend vão falhar"
 fi
 
+# Tesseract para o OCR das faturas (sem ele, só as fotografias deixam de dar sugestões).
+if ! command -v tesseract >/dev/null 2>&1; then
+  { apt-get update -q && apt-get install -y -q --no-install-recommends tesseract-ocr tesseract-ocr-por; } \
+    >/dev/null 2>&1 || log "não foi possível instalar o tesseract: o OCR das fotografias fica desligado"
+fi
+
 # 2. Backend: venv com as dependências (incluindo as de desenvolvimento) e migrações.
 cd "$ROOT/backend"
 [ -d .venv ] || python3 -m venv .venv

@@ -126,6 +126,19 @@ class ClaimRead(BaseModel):
     within_warranty: bool
 
 
+class InvoiceScanRead(BaseModel):
+    """Sugestões lidas da fatura (cada campo a null se não foi encontrado)."""
+
+    text_found: bool  # False: a fatura não tinha texto legível (ou não há OCR)
+    ocr_available: bool  # o servidor tem o Tesseract para ler fotografias
+    product_name: str | None
+    store: str | None
+    purchase_date: date | None
+    price: Decimal | None
+    invoice_number: str | None
+    store_email: str | None
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

@@ -150,3 +150,20 @@ test('aceita uma fotografia HEIC (iPhone) e guarda-a como JPEG', async ({ page }
   ])
   expect(invoice.headers()['content-type']).toBe('image/jpeg')
 })
+
+test('lê a fatura em PDF e preenche o formulário', async ({ page }) => {
+  await signUp(page)
+  await page.goto('/compras/nova')
+
+  await page.getByLabel('Fatura', { exact: true }).setInputFiles(INVOICE)
+
+  await expect(page.getByRole('status').first()).toContainText('Lemos a fatura e preenchemos')
+  await expect(page.getByLabel('Produto')).toHaveValue('Máquina de lavar Bosch')
+  await expect(page.getByLabel('Loja', { exact: true })).toHaveValue('Worten')
+  await expect(page.getByLabel('Preço (€)')).toHaveValue('429,00')
+  await expect(page.getByLabel(/N\.º da fatura/)).toHaveValue('FT 2023/48213')
+
+  await page.getByRole('button', { name: 'Guardar' }).click()
+  await expect(page.getByRole('heading', { name: 'Máquina de lavar Bosch' })).toBeVisible()
+  await expect(page.getByText('fatura.pdf')).toBeVisible()
+})
