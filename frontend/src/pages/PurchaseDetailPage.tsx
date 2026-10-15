@@ -157,7 +157,7 @@ export function PurchaseDetailPage() {
         </section>
       </div>
 
-      <ClaimSection purchaseId={purchase.id} />
+      <ClaimSection purchase={purchase} onPurchaseChange={setPurchase} />
 
       <div className="form-actions detail-actions">
         <Link to={`/compras/${purchase.id}/editar`} className="button">

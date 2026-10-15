@@ -17,6 +17,7 @@ export interface Purchase {
   warranty_months: number
   warranty_end: string // AAAA-MM-DD
   invoice_number: string | null
+  store_email: string | null
   invoice_filename: string | null
   invoice_content_type: string | null
   invoice_size: number | null
@@ -33,6 +34,7 @@ export interface PurchaseInput {
   price: string
   warranty_months: number
   invoice_number: string | null
+  store_email: string | null
 }
 
 export interface Claim {

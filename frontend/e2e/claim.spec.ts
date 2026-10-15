@@ -33,6 +33,12 @@ test('gera a reclamação, guarda o nome e descarrega o PDF com a fatura', async
   await expect(letter).toContainText(`José Ferrão\n${email}`)
   await expect(page.getByLabel(/O teu nome/)).toHaveCount(0)
 
+  // Enviar pelo email do utilizador: o link já leva o email da loja, o assunto e a carta.
+  await page.getByLabel(/Email da loja/).fill('apoio@worten.pt')
+  const mailto = await page.getByRole('link', { name: 'Abrir no email' }).getAttribute('href')
+  expect(mailto).toMatch(/^mailto:apoio@worten\.pt\?subject=Reclama/)
+  expect(decodeURIComponent(mailto!)).toContain('Exmos. Senhores Worten,')
+
   const [download] = await Promise.all([
     page.waitForEvent('download'),
     page.getByRole('button', { name: 'Descarregar PDF' }).click(),
@@ -42,6 +48,8 @@ test('gera a reclamação, guarda o nome e descarrega o PDF com a fatura', async
   expect(pdf.subarray(0, 5).toString()).toBe('%PDF-')
   // Carta + fatura: o PDF final tem de ser maior do que a fatura sozinha.
   expect(pdf.length).toBeGreaterThan((await readFile(INVOICE)).length)
+  await expect(page.getByRole('button', { name: 'Descarregado ✓' })).toBeVisible()
+  await page.screenshot({ path: test.info().outputPath('reclamacao.png'), fullPage: true })
 
   // O nome ficou no perfil: noutra visita já não é pedido.
   await page.reload()

@@ -2,11 +2,25 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { api, ApiError } from '../api'
-import type { Claim } from '../types'
+import type { Claim, Purchase } from '../types'
 import { useAuth } from '../useAuth'
 
-/** Gera o texto da reclamação para a loja (o utilizador copia-o ou abre-o no email). */
-export function ClaimSection({ purchaseId }: { purchaseId: number }) {
+// Alguns programas de email cortam links mailto: muito longos.
+const MAILTO_SAFE_LENGTH = 1800
+const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+
+/**
+ * Gera a reclamação para a loja. O envio é feito pelo email do próprio utilizador: a app
+ * prepara o PDF (carta + fatura) e abre o programa de email com a carta já escrita.
+ */
+export function ClaimSection({
+  purchase,
+  onPurchaseChange,
+}: {
+  purchase: Purchase
+  onPurchaseChange: (purchase: Purchase) => void
+}) {
+  const purchaseId = purchase.id
   const { user, updateProfile } = useAuth()
   const needsName = !user?.full_name
   const [fullName, setFullName] = useState('')
@@ -17,6 +31,8 @@ export function ClaimSection({ purchaseId }: { purchaseId: number }) {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [downloaded, setDownloaded] = useState(false)
+  const [storeEmail, setStoreEmail] = useState(purchase.store_email ?? '')
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault()
@@ -55,6 +71,7 @@ export function ClaimSection({ purchaseId }: { purchaseId: number }) {
       link.download = `reclamacao-${purchaseId}.pdf`
       link.click()
       setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setDownloaded(true)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível gerar o PDF')
     } finally {
@@ -62,9 +79,22 @@ export function ClaimSection({ purchaseId }: { purchaseId: number }) {
     }
   }
 
+  const recipient = storeEmail.trim()
+  const recipientValid = recipient === '' || EMAIL_PATTERN.test(recipient)
   const mailto = claim
-    ? `mailto:?subject=${encodeURIComponent(claim.subject)}&body=${encodeURIComponent(claim.body)}`
+    ? `mailto:${recipientValid ? recipient : ''}?subject=${encodeURIComponent(claim.subject)}` +
+      `&body=${encodeURIComponent(claim.body)}`
     : undefined
+
+  /** Guarda o email da loja na compra (para a próxima vez), sem atrasar a abertura do email. */
+  function rememberStoreEmail() {
+    const value = recipient || null
+    if (!recipientValid || value === purchase.store_email) return
+    api
+      .updatePurchase(purchaseId, { store_email: value })
+      .then(onPurchaseChange)
+      .catch(() => setError('Não foi possível guardar o email da loja'))
+  }
 
   return (
     <section className="card claim">
@@ -119,17 +149,67 @@ export function ClaimSection({ purchaseId }: { purchaseId: number }) {
           <pre className="claim-preview" aria-label="Texto da reclamação">
             {claim.body}
           </pre>
-          <div className="form-actions">
-            <a className="button" href={mailto}>
-              Abrir no email
-            </a>
-            <button type="button" className="button" onClick={downloadPdf} disabled={busy}>
-              Descarregar PDF
-            </button>
-            <button type="button" className="button button-primary" onClick={copy}>
+
+          <h3>Enviar pelo teu email</h3>
+          <ol className="send-steps">
+            <li>
+              <div className="step-body">
+                <div>
+                  <strong>Descarrega o PDF</strong>{' '}
+                  <span className="muted">
+                    ({purchase.invoice_filename ? 'carta e fatura' : 'carta'})
+                  </span>
+                </div>
+                <button type="button" className="button" onClick={downloadPdf} disabled={busy}>
+                  {downloaded ? 'Descarregado ✓' : 'Descarregar PDF'}
+                </button>
+              </div>
+            </li>
+            <li>
+              <div className="step-body">
+                <div>
+                  <strong>Abre o teu email</strong>{' '}
+                  <span className="muted">com a carta já escrita</span>
+                </div>
+                <label>
+                  <span>
+                    Email da loja <span className="muted">(opcional, fica guardado)</span>
+                  </span>
+                  <input
+                    type="email"
+                    autoComplete="off"
+                    maxLength={320}
+                    value={storeEmail}
+                    onChange={(e) => setStoreEmail(e.target.value)}
+                    placeholder="apoio@loja.pt"
+                  />
+                </label>
+                {!recipientValid && <p className="field-error">Email da loja inválido</p>}
+                <a className="button button-primary" href={mailto} onClick={rememberStoreEmail}>
+                  Abrir no email
+                </a>
+              </div>
+            </li>
+            <li>
+              <div className="step-body">
+                <strong>Anexa o PDF</strong>
+                <span>
+                  O ficheiro <code>reclamacao-{purchaseId}.pdf</code> que descarregaste no passo 1,
+                  e envia.
+                </span>
+              </div>
+            </li>
+          </ol>
+          <p className="muted">
+            {mailto && mailto.length > MAILTO_SAFE_LENGTH
+              ? 'O texto é longo e alguns programas de email cortam-no: se aparecer incompleto, '
+              : 'Se o email não abrir (por exemplo, Gmail no browser), '}
+            usa{' '}
+            <button type="button" className="button-link" onClick={copy}>
               {copied ? 'Copiado!' : 'Copiar texto'}
-            </button>
-          </div>
+            </button>{' '}
+            e cola-o na tua mensagem.
+          </p>
         </div>
       )}
     </section>

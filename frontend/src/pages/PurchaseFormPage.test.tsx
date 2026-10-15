@@ -56,6 +56,7 @@ describe('PurchaseFormPage', () => {
       price: '749.99',
       warranty_months: 36,
       invoice_number: null,
+      store_email: null,
     })
     const upload = fetchMock.mock.calls.find((c) => c[1]?.method === 'PUT')
     expect((upload![1]!.body as FormData).get('file')).toBeInstanceOf(File)
