@@ -9,6 +9,9 @@ import { defineConfig, devices } from '@playwright/test'
 const venvPython = '../backend/.venv/bin/python'
 const python = existsSync(venvPython) ? '.venv/bin/python' : 'python'
 const uploadDir = join(tmpdir(), 'warrantly-e2e-uploads')
+// Com E2E_BASE_URL (ex.: http://localhost:8080, o contentor de produção), os testes usam essa
+// app e não arrancam a API nem o Vite.
+const externalBaseURL = process.env.E2E_BASE_URL
 
 export default defineConfig({
   testDir: './e2e',
@@ -17,7 +20,7 @@ export default defineConfig({
   retries: process.env.CI ? 1 : 0,
   reporter: process.env.CI ? [['list'], ['html', { open: 'never' }]] : 'list',
   use: {
-    baseURL: 'http://localhost:5173',
+    baseURL: externalBaseURL ?? 'http://localhost:5173',
     trace: 'retain-on-failure',
     locale: 'pt-PT',
     timezoneId: 'Europe/Lisbon',
@@ -34,7 +37,7 @@ export default defineConfig({
       },
     },
   ],
-  webServer: [
+  webServer: externalBaseURL ? [] : [
     {
       command: `${python} -m alembic upgrade head && ${python} -m uvicorn app.main:app --port 8000`,
       cwd: '../backend',

@@ -5,7 +5,11 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.config import settings
 
-engine = create_engine(settings.database_url, pool_pre_ping=True)
+# prepare_threshold=None: sem prepared statements no servidor, que falham quando a ligação passa
+# por um PgBouncer em modo transação (como no Postgres gerido do Fly).
+engine = create_engine(
+    settings.database_url, pool_pre_ping=True, connect_args={"prepare_threshold": None}
+)
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
 

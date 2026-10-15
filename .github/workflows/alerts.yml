@@ -1,0 +1,27 @@
+name: Alertas diários
+
+# Pede à app em produção que envie os alertas de garantia (60 e 15 dias antes do fim).
+# Precisa da variável APP_URL (ex.: https://warrantly.fly.dev) e do segredo ALERTS_TOKEN
+# (o mesmo valor que o segredo ALERTS_TOKEN no Fly).
+on:
+  schedule:
+    - cron: "47 7 * * *" # 07:47 UTC (08:47 em Lisboa no verão, 07:47 no inverno)
+  workflow_dispatch:
+
+jobs:
+  alerts:
+    runs-on: ubuntu-latest
+    env:
+      APP_URL: ${{ vars.APP_URL }}
+      ALERTS_TOKEN: ${{ secrets.ALERTS_TOKEN }}
+    steps:
+      - name: Enviar alertas
+        run: |
+          if [ -z "$APP_URL" ] || [ -z "$ALERTS_TOKEN" ]; then
+            echo "::notice::Sem APP_URL ou ALERTS_TOKEN: alertas ignorados."
+            exit 0
+          fi
+          # A máquina pode estar parada (auto stop): o primeiro pedido acorda-a.
+          curl -fsS --retry 3 --retry-delay 10 --retry-all-errors \
+            -X POST "$APP_URL/api/internal/alerts" \
+            -H "Authorization: Bearer $ALERTS_TOKEN"
