@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
 
-import { ApiError } from '../api'
+import { api, ApiError } from '../api'
 import { getTheme, setTheme } from '../theme'
 import type { Theme } from '../theme'
 import { useAuth } from '../useAuth'
@@ -19,6 +19,10 @@ export function AccountPage() {
 
   const [theme, setThemeState] = useState<Theme>(getTheme)
 
+  const [exporting, setExporting] = useState(false)
+  const [exported, setExported] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
+
   const [password, setPassword] = useState('')
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
@@ -35,6 +39,26 @@ export function AccountPage() {
       setProfileError(message(err, 'Não foi possível guardar'))
     } finally {
       setBusy(false)
+    }
+  }
+
+  async function exportData() {
+    setExportError(null)
+    setExported(false)
+    setExporting(true)
+    try {
+      const blob = await api.exportPurchases()
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `warrantly-${new Date().toISOString().slice(0, 10)}.zip`
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+      setExported(true)
+    } catch (err) {
+      setExportError(message(err, 'Não foi possível exportar'))
+    } finally {
+      setExporting(false)
     }
   }
 
@@ -105,10 +129,30 @@ export function AccountPage() {
         </label>
       </section>
 
+      <section className="card form">
+        <h2>Exportar dados</h2>
+        <p className="muted">
+          Um ZIP com todas as compras (<code>compras.csv</code>, que abre no Excel, e{' '}
+          <code>compras.json</code>) e as faturas guardadas, na pasta <code>faturas</code>.
+        </p>
+        {exportError && (
+          <p className="form-error" role="alert">
+            {exportError}
+          </p>
+        )}
+        <div className="form-actions">
+          {exported && <span role="status">Descarregado.</span>}
+          <button type="button" className="button" onClick={exportData} disabled={exporting}>
+            {exporting ? 'A preparar…' : 'Descarregar ZIP'}
+          </button>
+        </div>
+      </section>
+
       <form className="card form danger-zone" onSubmit={removeAccount}>
         <h2>Apagar conta</h2>
         <p className="muted">
           Apaga a conta, todas as compras, as faturas guardadas e os alertas. Não dá para desfazer.
+          Se quiseres guardar uma cópia, exporta os dados antes.
         </p>
         <label>
           Palavra-passe (para confirmar)

@@ -66,7 +66,7 @@ async function request<T>(path: string, init: RequestInit & { json?: unknown } =
   return (await response.json()) as T
 }
 
-/** Para respostas que são ficheiros (fatura, PDF da reclamação). */
+/** Para respostas que são ficheiros (fatura, PDF da reclamação, exportação). */
 async function requestBlob(path: string, init: RequestInit = {}): Promise<Blob> {
   const token = getToken()
   const response = await fetch(BASE + path, {
@@ -118,6 +118,7 @@ export const api = {
   },
   deleteInvoice: (id: number) => request<void>(`/purchases/${id}/invoice`, { method: 'DELETE' }),
   getInvoice: (id: number) => requestBlob(`/purchases/${id}/invoice`),
+  exportPurchases: () => requestBlob('/purchases/export'),
   getClaimPdf: (id: number, description: string) =>
     requestBlob(`/purchases/${id}/claim.pdf`, {
       method: 'POST',
