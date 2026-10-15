@@ -55,14 +55,18 @@ describe('LoginPage', () => {
     renderApp('/entrar', { loggedIn: false })
 
     await userEvent.click(screen.getByRole('button', { name: /Cria uma/ }))
+    await userEvent.type(screen.getByLabelText(/^Nome/), 'Ana Silva')
     await userEvent.type(screen.getByLabelText('Email'), 'ana@example.com')
     await userEvent.type(screen.getByLabelText('Palavra-passe'), 'segredo123')
     await userEvent.click(screen.getByRole('button', { name: 'Criar conta' }))
 
     expect(await screen.findByText('Ainda não tens compras registadas')).toBeInTheDocument()
-    expect(fetchMock.mock.calls.map((c) => `${c[1]?.method ?? 'GET'} ${c[0]}`)).toContain(
-      'POST /api/auth/register',
-    )
+    const registerCall = fetchMock.mock.calls.find((c) => c[0] === '/api/auth/register')
+    expect(JSON.parse(registerCall![1]!.body as string)).toEqual({
+      email: 'ana@example.com',
+      password: 'segredo123',
+      full_name: 'Ana Silva',
+    })
   })
 
   it('um token expirado volta ao login', async () => {

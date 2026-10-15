@@ -12,6 +12,7 @@ export function LoginPage() {
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -25,7 +26,7 @@ export function LoginPage() {
     setSubmitting(true)
     try {
       if (mode === 'login') await login(email, password)
-      else await register(email, password)
+      else await register(email, password, fullName.trim() || null)
       navigate(from, { replace: true })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível ligar ao servidor')
@@ -41,6 +42,19 @@ export function LoginPage() {
       <p className="muted">As tuas garantias, num só sítio.</p>
       <form className="card form" onSubmit={onSubmit}>
         <h2>{isLogin ? 'Entrar' : 'Criar conta'}</h2>
+        {!isLogin && (
+          <label>
+            <span>
+              Nome <span className="muted">(opcional, para assinar as reclamações)</span>
+            </span>
+            <input
+              autoComplete="name"
+              maxLength={200}
+              value={fullName}
+              onChange={(e) => setFullName(e.target.value)}
+            />
+          </label>
+        )}
         <label>
           Email
           <input

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useLocation, useNavigate, useParams } from 'react-router'
 
 import { api, ApiError } from '../api'
+import { ClaimSection } from '../components/ClaimSection'
 import { InvoicePicker } from '../components/InvoicePicker'
 import { StatusBadge } from '../components/StatusBadge'
 import type { Purchase } from '../types'
@@ -117,6 +118,11 @@ export function PurchaseDetailPage() {
 
         <section className="card">
           <h2>Fatura</h2>
+          {purchase.invoice_number && (
+            <p>
+              N.º <strong>{purchase.invoice_number}</strong>
+            </p>
+          )}
           {purchase.invoice_filename ? (
             <>
               <p className="invoice-name">{purchase.invoice_filename}</p>
@@ -150,6 +156,8 @@ export function PurchaseDetailPage() {
           )}
         </section>
       </div>
+
+      <ClaimSection purchaseId={purchase.id} />
 
       <div className="form-actions detail-actions">
         <Link to={`/compras/${purchase.id}/editar`} className="button">

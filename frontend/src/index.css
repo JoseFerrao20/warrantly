@@ -300,7 +300,8 @@ a {
 }
 
 input,
-select {
+select,
+textarea {
   padding: 0.5rem 0.65rem;
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -311,6 +312,7 @@ select {
 
 input:focus-visible,
 select:focus-visible,
+textarea:focus-visible,
 .button:focus-visible,
 .summary:focus-visible {
   outline: 2px solid var(--primary);
@@ -418,6 +420,39 @@ select:focus-visible,
 
 .detail-actions {
   justify-content: space-between;
+}
+
+.claim {
+  margin-bottom: 1.25rem;
+}
+
+.claim-result {
+  margin-top: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.claim-result p {
+  margin: 0;
+}
+
+.claim-preview {
+  margin: 0;
+  padding: 1rem;
+  border: 1px solid var(--divider);
+  border-radius: var(--radius);
+  background: var(--surface);
+  font-family: inherit;
+  font-size: 0.875rem;
+  white-space: pre-wrap;
+}
+
+.warning {
+  padding: 0.6rem 0.9rem;
+  border-radius: var(--radius);
+  background: var(--warn-bg);
+  color: var(--warn-text);
 }
 
 .page-message {

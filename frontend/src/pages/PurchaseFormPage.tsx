@@ -22,6 +22,7 @@ interface FormState {
   purchase_date: string
   warranty_option: string // meses, ou "custom"
   custom_months: string
+  invoice_number: string
 }
 
 const emptyForm = (): FormState => ({
@@ -32,6 +33,7 @@ const emptyForm = (): FormState => ({
   purchase_date: todayISO(),
   warranty_option: '36',
   custom_months: '',
+  invoice_number: '',
 })
 
 export function PurchaseFormPage() {
@@ -60,6 +62,7 @@ export function PurchaseFormPage() {
           purchase_date: p.purchase_date,
           warranty_option: preset ? String(p.warranty_months) : 'custom',
           custom_months: preset ? '' : String(p.warranty_months),
+          invoice_number: p.invoice_number ?? '',
         })
         setCurrentInvoice(p.invoice_filename)
       })
@@ -90,6 +93,7 @@ export function PurchaseFormPage() {
       purchase_date: form.purchase_date,
       price,
       warranty_months: months,
+      invoice_number: form.invoice_number.trim() || null,
     }
     setSubmitting(true)
     try {
@@ -202,6 +206,18 @@ export function PurchaseFormPage() {
           value={form.category}
           onChange={(e) => set('category')(e.target.value)}
           placeholder="Informática"
+        />
+      </label>
+
+      <label>
+        <span>
+          N.º da fatura <span className="muted">(opcional, aparece na reclamação)</span>
+        </span>
+        <input
+          maxLength={100}
+          value={form.invoice_number}
+          onChange={(e) => set('invoice_number')(e.target.value)}
+          placeholder="FT 2026/12345"
         />
       </label>
 

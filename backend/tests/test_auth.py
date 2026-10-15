@@ -25,7 +25,8 @@ def test_register_creates_user_without_exposing_password(client: TestClient):
     assert response.status_code == 201
     body = response.json()
     assert body["email"] == "nova@example.com"
-    assert set(body) == {"id", "email", "created_at"}
+    assert set(body) == {"id", "email", "full_name", "created_at"}
+    assert body["full_name"] is None
 
 
 def test_register_rejects_duplicate_email_ignoring_case(client: TestClient):
@@ -118,3 +119,28 @@ def test_deleting_user_deletes_their_purchases(
     db_session.flush()
 
     assert db_session.get(Purchase, created["id"]) is None
+
+
+def test_register_with_full_name(client: TestClient):
+    response = client.post(
+        "/auth/register",
+        json={"email": "jose@example.com", "password": "12345678", "full_name": "  José Ferrão "},
+    )
+
+    assert response.status_code == 201
+    assert response.json()["full_name"] == "José Ferrão"
+
+
+def test_update_full_name(auth_client: TestClient):
+    response = auth_client.patch("/auth/me", json={"full_name": "Ana Silva"})
+
+    assert response.status_code == 200
+    assert response.json()["full_name"] == "Ana Silva"
+    assert auth_client.get("/auth/me").json()["full_name"] == "Ana Silva"
+
+    cleared = auth_client.patch("/auth/me", json={"full_name": None})
+    assert cleared.json()["full_name"] is None
+
+
+def test_update_full_name_rejects_empty(auth_client: TestClient):
+    assert auth_client.patch("/auth/me", json={"full_name": ""}).status_code == 422
