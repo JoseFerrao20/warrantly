@@ -1,15 +1,17 @@
-/* Cores e medidas tiradas dos sketches em docs/sketches/. */
+/* Cores e medidas tiradas dos sketches em docs/sketches/ (a paleta escura é derivada delas). */
+/* Paleta clara (por omissão) */
 :root {
   --text: #1f2933;
   --text-muted: #52606d;
   --text-subtle: #7b8794;
-  --text-faded: #9aa5b1;
+  --text-faded: #6b7785; /* 4.6:1 no branco (o #9aa5b1 dos sketches ficava abaixo do mínimo de contraste) */
   --border: #c9ced6;
   --divider: #e4e7eb;
   --surface: #f3f5f8;
   --background: #ffffff;
   --primary: #2563eb;
   --primary-text: #ffffff;
+  --link: #2563eb;
   --warn-bg: #fff7e6;
   --warn-border: #f0b429;
   --warn-text: #b44d12;
@@ -24,6 +26,52 @@
   color: var(--text);
   background: var(--background);
   line-height: 1.45;
+}
+
+/* Paleta escura: segue o sistema operativo, a não ser que o utilizador escolha "Claro"
+   (data-theme="light"); "Escuro" (data-theme="dark") força-a. */
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme='light']) {
+    --text: #e4e7eb;
+    --text-muted: #b3bcc6;
+    --text-subtle: #9aa5b1;
+    --text-faded: #75828f;
+    --border: #3e4c59;
+    --divider: #2c3742;
+    --surface: #1c242d;
+    --background: #11171d;
+    --link: #7aa7ff;
+    --warn-bg: #3a2a0d;
+    --warn-border: #d69e2e;
+    --warn-text: #f7c46c;
+    --ok-bar: #3ebd93;
+    --ok-bg: #0f3a2e;
+    --ok-text: #6fdcb3;
+    --danger: #f87171;
+
+    color-scheme: dark;
+  }
+}
+
+:root[data-theme='dark'] {
+  --text: #e4e7eb;
+  --text-muted: #b3bcc6;
+  --text-subtle: #9aa5b1;
+  --text-faded: #75828f;
+  --border: #3e4c59;
+  --divider: #2c3742;
+  --surface: #1c242d;
+  --background: #11171d;
+  --link: #7aa7ff;
+  --warn-bg: #3a2a0d;
+  --warn-border: #d69e2e;
+  --warn-text: #f7c46c;
+  --ok-bar: #3ebd93;
+  --ok-bg: #0f3a2e;
+  --ok-text: #6fdcb3;
+  --danger: #f87171;
+
+  color-scheme: dark;
 }
 
 * {
@@ -46,7 +94,7 @@ h2 {
 }
 
 a {
-  color: var(--primary);
+  color: var(--link);
 }
 
 .muted {
@@ -134,7 +182,7 @@ a {
   border: 0;
   background: none;
   padding: 0;
-  color: var(--primary);
+  color: var(--link);
   font: inherit;
   font-size: 0.875rem;
   cursor: pointer;
@@ -187,7 +235,7 @@ a {
 }
 
 .summary.selected {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--link);
   outline-offset: 1px;
 }
 
@@ -320,7 +368,7 @@ select:focus-visible,
 textarea:focus-visible,
 .button:focus-visible,
 .summary:focus-visible {
-  outline: 2px solid var(--primary);
+  outline: 2px solid var(--link);
   outline-offset: 1px;
 }
 
@@ -372,7 +420,7 @@ textarea:focus-visible,
 }
 
 .dropzone-active {
-  border-color: var(--primary);
+  border-color: var(--link);
 }
 
 .purchase-form {

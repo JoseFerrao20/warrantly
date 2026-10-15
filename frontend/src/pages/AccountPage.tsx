@@ -2,6 +2,8 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { ApiError } from '../api'
+import { getTheme, setTheme } from '../theme'
+import type { Theme } from '../theme'
 import { useAuth } from '../useAuth'
 
 function message(err: unknown, fallback: string): string {
@@ -14,6 +16,8 @@ export function AccountPage() {
   const [fullName, setFullName] = useState(user?.full_name ?? '')
   const [saved, setSaved] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
+
+  const [theme, setThemeState] = useState<Theme>(getTheme)
 
   const [password, setPassword] = useState('')
   const [deleteError, setDeleteError] = useState<string | null>(null)
@@ -81,6 +85,25 @@ export function AccountPage() {
           </button>
         </div>
       </form>
+
+      <section className="card form">
+        <h2>Aparência</h2>
+        <label>
+          Tema
+          <select
+            value={theme}
+            onChange={(e) => {
+              const value = e.target.value as Theme
+              setTheme(value)
+              setThemeState(value)
+            }}
+          >
+            <option value="system">Igual ao sistema</option>
+            <option value="light">Claro</option>
+            <option value="dark">Escuro</option>
+          </select>
+        </label>
+      </section>
 
       <form className="card form danger-zone" onSubmit={removeAccount}>
         <h2>Apagar conta</h2>

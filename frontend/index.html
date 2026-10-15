@@ -5,6 +5,16 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Warrantly</title>
+    <meta name="color-scheme" content="light dark" />
+    <script>
+      // Aplica o tema escolhido antes de a página aparecer (evita um clarão branco).
+      try {
+        var theme = localStorage.getItem('warrantly.theme')
+        if (theme === 'light' || theme === 'dark') {
+          document.documentElement.setAttribute('data-theme', theme)
+        }
+      } catch (e) {}
+    </script>
   </head>
   <body>
     <div id="root"></div>
