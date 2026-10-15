@@ -22,7 +22,7 @@ dependencies = [
 [project.optional-dependencies]
 dev = [
     "pytest",
-    "httpx",
+    "httpx2",
 ]
 
 [build-system]
@@ -34,3 +34,5 @@ include = ["app*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# Avisos de APIs obsoletas do Starlette/FastAPI falham os testes, para serem resolvidos logo.
+filterwarnings = ["error::starlette.exceptions.StarletteDeprecationWarning"]
