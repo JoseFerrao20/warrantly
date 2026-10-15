@@ -12,7 +12,7 @@ test('regista uma compra com fatura e vê-a no painel', async ({ page }) => {
   await page.getByRole('link', { name: '+ Nova' }).click()
 
   await page.getByLabel('Produto').fill('Portátil Lenovo IdeaPad 5')
-  await page.getByLabel('Loja').fill('Fnac')
+  await page.getByLabel('Loja', { exact: true }).fill('Fnac')
   await page.getByLabel('Preço (€)').fill('749,99')
   await page.getByLabel('Data de compra').fill('2026-02-14')
   await expect(page.getByText('14 de fevereiro de 2029')).toBeVisible()
@@ -55,7 +55,7 @@ test('edita e apaga uma compra', async ({ page }) => {
   await page.goto(`/compras/${purchase.id}`)
   await page.getByRole('link', { name: 'Editar' }).click()
   await expect(page.getByLabel('Preço (€)')).toHaveValue('199,90')
-  await page.getByLabel('Loja').fill('Worten')
+  await page.getByLabel('Loja', { exact: true }).fill('Worten')
   await page.getByLabel('Garantia').selectOption('24')
   await page.getByRole('button', { name: 'Guardar' }).click()
   await expect(page.getByText(/^Worten · comprada a/)).toBeVisible()

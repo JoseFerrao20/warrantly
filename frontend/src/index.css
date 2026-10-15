@@ -501,6 +501,39 @@ textarea:focus-visible,
   white-space: pre-wrap;
 }
 
+.claim-result h3 {
+  font-size: 0.95rem;
+  margin: 0.5rem 0 0;
+}
+
+.send-steps {
+  margin: 0;
+  padding-left: 1.25rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+}
+
+.send-steps li::marker {
+  font-weight: 700;
+}
+
+.step-body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.send-steps label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  width: 100%;
+  font-size: 0.875rem;
+  color: var(--text-muted);
+}
+
 .warning {
   padding: 0.6rem 0.9rem;
   border-radius: var(--radius);

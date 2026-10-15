@@ -29,6 +29,7 @@ def warranty_status(warranty_end: date, today: date | None = None) -> WarrantySt
 Name = Annotated[str, Field(min_length=1, max_length=200)]
 Category = Annotated[str, Field(min_length=1, max_length=100)]
 InvoiceNumber = Annotated[str, Field(min_length=1, max_length=100)]
+StoreEmail = Annotated[EmailStr, Field(max_length=320)]
 FullName = Annotated[str, Field(min_length=1, max_length=200)]
 Price = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
 WarrantyMonths = Annotated[int, Field(gt=0, le=1200)]
@@ -42,6 +43,7 @@ class PurchaseCreate(BaseModel):
     price: Price
     warranty_months: WarrantyMonths = DEFAULT_WARRANTY_MONTHS
     invoice_number: InvoiceNumber | None = None
+    store_email: StoreEmail | None = None
 
 
 class PurchaseUpdate(BaseModel):
@@ -54,11 +56,12 @@ class PurchaseUpdate(BaseModel):
     price: Price | None = None
     warranty_months: WarrantyMonths | None = None
     invoice_number: InvoiceNumber | None = None
+    store_email: StoreEmail | None = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "PurchaseUpdate":
         # Omitir um campo deixa-o como está; enviá-lo a null só é válido nos campos opcionais.
-        nullable = {"category", "invoice_number"}
+        nullable = {"category", "invoice_number", "store_email"}
         nulls = [f for f in self.model_fields_set if getattr(self, f) is None and f not in nullable]
         if nulls:
             raise ValueError(f"Campos que não podem ser null: {', '.join(sorted(nulls))}")
@@ -77,6 +80,7 @@ class PurchaseRead(BaseModel):
     warranty_months: int
     warranty_end: date
     invoice_number: str | None
+    store_email: str | None
     invoice_filename: str | None
     invoice_content_type: str | None
     invoice_size: int | None

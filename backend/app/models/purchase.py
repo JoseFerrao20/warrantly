@@ -47,6 +47,8 @@ class Purchase(Base):
         Computed("(purchase_date + make_interval(months => warranty_months))::date", persisted=True),
         index=True,
     )
+    # Email da loja para onde enviar reclamações (o utilizador envia-o do seu próprio email).
+    store_email: Mapped[str | None] = mapped_column(String(320))
     # Número da fatura (ex.: "FT 2023/48213"), citado na reclamação.
     invoice_number: Mapped[str | None] = mapped_column(String(100))
     # Fatura (opcional): o ficheiro fica no disco com o nome `invoice_key`; guardamos também o nome

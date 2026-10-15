@@ -23,6 +23,7 @@ interface FormState {
   warranty_option: string // meses, ou "custom"
   custom_months: string
   invoice_number: string
+  store_email: string
 }
 
 const emptyForm = (): FormState => ({
@@ -34,6 +35,7 @@ const emptyForm = (): FormState => ({
   warranty_option: '36',
   custom_months: '',
   invoice_number: '',
+  store_email: '',
 })
 
 export function PurchaseFormPage() {
@@ -63,6 +65,7 @@ export function PurchaseFormPage() {
           warranty_option: preset ? String(p.warranty_months) : 'custom',
           custom_months: preset ? '' : String(p.warranty_months),
           invoice_number: p.invoice_number ?? '',
+          store_email: p.store_email ?? '',
         })
         setCurrentInvoice(p.invoice_filename)
       })
@@ -94,6 +97,7 @@ export function PurchaseFormPage() {
       price,
       warranty_months: months,
       invoice_number: form.invoice_number.trim() || null,
+      store_email: form.store_email.trim() || null,
     }
     setSubmitting(true)
     try {
@@ -218,6 +222,19 @@ export function PurchaseFormPage() {
           value={form.invoice_number}
           onChange={(e) => set('invoice_number')(e.target.value)}
           placeholder="FT 2026/12345"
+        />
+      </label>
+
+      <label>
+        <span>
+          Email da loja <span className="muted">(opcional, para enviares reclamações)</span>
+        </span>
+        <input
+          type="email"
+          maxLength={320}
+          value={form.store_email}
+          onChange={(e) => set('store_email')(e.target.value)}
+          placeholder="apoio@loja.pt"
         />
       </label>
 

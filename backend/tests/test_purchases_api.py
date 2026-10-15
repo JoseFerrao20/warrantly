@@ -180,3 +180,15 @@ def test_users_only_see_their_own_purchases(auth_client: TestClient, db_session:
     assert auth_client.patch(f"/purchases/{theirs['id']}", json={"store": "X"}).status_code == 404
     assert auth_client.delete(f"/purchases/{theirs['id']}").status_code == 404
     assert auth_client.get(f"/purchases/{theirs['id']}", headers=other_headers).status_code == 200
+
+
+def test_store_email_is_saved_validated_and_clearable(auth_client: TestClient):
+    created = create(auth_client, store_email="Apoio@Worten.pt")
+    assert created["store_email"] == "Apoio@worten.pt"  # o domínio é normalizado
+
+    invalid = auth_client.patch(f"/purchases/{created['id']}", json={"store_email": "nao-e-email"})
+    assert invalid.status_code == 422
+
+    cleared = auth_client.patch(f"/purchases/{created['id']}", json={"store_email": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["store_email"] is None
