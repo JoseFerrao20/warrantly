@@ -1,3 +1,5 @@
+import { statSync } from 'node:fs'
+
 import { expect, test } from '@playwright/test'
 
 import { createPurchase, dateFromToday, signUp } from './helpers'
@@ -23,12 +25,16 @@ test('regista uma compra com fatura e vê-a no painel', async ({ page }) => {
   await expect(page.getByText('fatura.pdf')).toBeVisible()
   await expect(page.getByText('FT 2026/77')).toBeVisible()
 
-  // "Ver fatura" abre o ficheiro noutro separador.
-  const [tab] = await Promise.all([
+  // "Ver fatura" vai buscar o ficheiro (com o token) e abre-o noutro separador. Não esperamos
+  // pela página do PDF: o Chromium headless do CI não tem visualizador e trata-o como download.
+  const [tab, invoice] = await Promise.all([
     page.waitForEvent('popup'),
+    page.waitForResponse((r) => r.url().endsWith('/invoice') && r.request().method() === 'GET'),
     page.getByRole('button', { name: 'Ver fatura' }).click(),
   ])
-  await tab.waitForURL(/^blob:/)
+  expect(invoice.status()).toBe(200)
+  expect(invoice.headers()['content-type']).toBe('application/pdf')
+  expect(Number(invoice.headers()['content-length'])).toBe(statSync(INVOICE).size)
   await tab.close()
 
   await page.getByRole('link', { name: '← Garantias' }).click()
