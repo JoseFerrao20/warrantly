@@ -5,6 +5,7 @@ import { Link, useNavigate, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { InvoicePicker } from '../components/InvoicePicker'
 import type { PurchaseInput } from '../types'
+import { usePageTitle } from '../usePageTitle'
 import { addMonths, formatLongDate, parsePrice, todayISO } from '../warranty'
 
 const WARRANTY_OPTIONS = [
@@ -41,6 +42,7 @@ const emptyForm = (): FormState => ({
 export function PurchaseFormPage() {
   const { id } = useParams()
   const editing = id !== undefined
+  usePageTitle(editing ? 'Editar compra' : 'Nova compra')
   const navigate = useNavigate()
 
   const [form, setForm] = useState<FormState>(emptyForm)

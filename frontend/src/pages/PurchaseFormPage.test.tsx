@@ -16,6 +16,20 @@ async function fillForm() {
 }
 
 describe('PurchaseFormPage', () => {
+  it('a zona da fatura é um botão que abre o seletor de ficheiros', async () => {
+    mockApi({ 'GET /auth/me': { body: USER } })
+    renderApp('/compras/nova')
+    const input = (await screen.findByLabelText('Fatura')) as HTMLInputElement
+    const click = vi.spyOn(input, 'click')
+
+    const dropzone = screen.getByRole('button', { name: /Arrasta a fatura/ })
+    dropzone.focus()
+    await userEvent.keyboard('{Enter}')
+
+    expect(click).toHaveBeenCalled()
+    expect(document.title).toBe('Nova compra · Warrantly')
+  })
+
   it('calcula a data de fim da garantia enquanto se preenche', async () => {
     mockApi({ 'GET /auth/me': { body: USER } })
     renderApp('/compras/nova')

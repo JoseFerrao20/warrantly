@@ -5,6 +5,7 @@ import { api, ApiError } from '../api'
 import { getTheme, setTheme } from '../theme'
 import type { Theme } from '../theme'
 import { useAuth } from '../useAuth'
+import { usePageTitle } from '../usePageTitle'
 
 function message(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
@@ -12,6 +13,7 @@ function message(err: unknown, fallback: string): string {
 
 export function AccountPage() {
   const { user, updateProfile, deleteAccount } = useAuth()
+  usePageTitle('A tua conta')
 
   const [fullName, setFullName] = useState(user?.full_name ?? '')
   const [saved, setSaved] = useState(false)

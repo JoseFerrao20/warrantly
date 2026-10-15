@@ -38,7 +38,9 @@ export function InvoicePicker({
 
   return (
     <div>
-      <div
+      {/* Um botão (e não uma div) para também funcionar com o teclado. */}
+      <button
+        type="button"
         className={`dropzone${dragging ? ' dropzone-active' : ''}`}
         onDragOver={(event) => {
           event.preventDefault()
@@ -58,7 +60,7 @@ export function InvoicePicker({
           </>
         )}
         {!file && currentName && <small>Atual: {currentName}</small>}
-      </div>
+      </button>
       <label className="visually-hidden" htmlFor="invoice-file">
         Fatura
       </label>
@@ -75,7 +77,11 @@ export function InvoicePicker({
           Remover ficheiro escolhido
         </button>
       )}
-      {error && <p className="field-error">{error}</p>}
+      {error && (
+        <p className="field-error" role="alert">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

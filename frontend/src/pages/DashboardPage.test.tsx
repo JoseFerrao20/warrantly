@@ -27,6 +27,27 @@ function productNames() {
 }
 
 describe('DashboardPage', () => {
+  it('tem título na página e no separador', async () => {
+    setup()
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'As tuas garantias' })).toBeInTheDocument()
+    expect(document.title).toBe('As tuas garantias · Warrantly')
+  })
+
+  it('passa o foco para o conteúdo ao mudar de página', async () => {
+    mockApi({
+      'GET /auth/me': { body: USER },
+      'GET /purchases': { body: PURCHASES },
+      'GET /purchases/1': { body: PURCHASES[2] },
+    })
+    renderApp('/')
+    await userEvent.click(await screen.findByRole('link', { name: 'Máquina de lavar Bosch' }))
+
+    expect(await screen.findByRole('heading', { level: 1, name: 'Máquina de lavar Bosch' })).toBeInTheDocument()
+    expect(screen.getByRole('main')).toHaveFocus()
+    expect(document.title).toBe('Máquina de lavar Bosch · Warrantly')
+  })
+
   it('mostra os totais por estado e as expiradas no fim da lista', async () => {
     setup()
 
