@@ -5,6 +5,7 @@ import { api, ApiError } from '../api'
 import { StatusBadge } from '../components/StatusBadge'
 import { WarrantyBar } from '../components/WarrantyBar'
 import type { Purchase, WarrantyStatus } from '../types'
+import { usePageTitle } from '../usePageTitle'
 import { todayISO } from '../warranty'
 
 const CARDS: { status: WarrantyStatus; label: string }[] = [
@@ -27,6 +28,7 @@ function panelOrder(purchases: Purchase[]): Purchase[] {
 
 export function DashboardPage() {
   const navigate = useNavigate()
+  usePageTitle('As tuas garantias')
   const [params, setParams] = useSearchParams()
   const statusFilter = params.get('estado') as WarrantyStatus | null
   const [query, setQuery] = useState('')
@@ -60,7 +62,12 @@ export function DashboardPage() {
     setParams(statusFilter === status ? {} : { estado: status })
   }
 
-  if (error) return <p className="form-error">{error}</p>
+  if (error)
+    return (
+      <p className="form-error" role="alert">
+        {error}
+      </p>
+    )
   if (!purchases) return <p className="page-message">A carregar…</p>
 
   if (purchases.length === 0) {
@@ -79,6 +86,7 @@ export function DashboardPage() {
 
   return (
     <>
+      <h1 className="visually-hidden">As tuas garantias</h1>
       <div className="cards">
         {CARDS.map(({ status, label }) => (
           <button

@@ -4,6 +4,7 @@ import { Navigate, useLocation, useNavigate } from 'react-router'
 
 import { ApiError } from '../api'
 import { useAuth } from '../useAuth'
+import { usePageTitle } from '../usePageTitle'
 
 export function LoginPage() {
   const { user, notice, login, register } = useAuth()
@@ -12,6 +13,7 @@ export function LoginPage() {
   const from = (location.state as { from?: string } | null)?.from ?? '/'
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
+  usePageTitle(mode === 'login' ? 'Entrar' : 'Criar conta')
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')

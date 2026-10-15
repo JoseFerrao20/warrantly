@@ -6,6 +6,7 @@ import { ClaimSection } from '../components/ClaimSection'
 import { InvoicePicker } from '../components/InvoicePicker'
 import { StatusBadge } from '../components/StatusBadge'
 import type { Purchase } from '../types'
+import { usePageTitle } from '../usePageTitle'
 import { formatDate, formatMonths, formatPrice, todayISO } from '../warranty'
 
 function message(err: unknown, fallback: string): string {
@@ -18,6 +19,7 @@ export function PurchaseDetailPage() {
   const navigate = useNavigate()
   const location = useLocation()
   const [purchase, setPurchase] = useState<Purchase | null>(null)
+  usePageTitle(purchase?.product_name ?? null)
   const [error, setError] = useState<string | null>(
     (location.state as { invoiceError?: string } | null)?.invoiceError ?? null,
   )

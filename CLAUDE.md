@@ -45,5 +45,7 @@ npm run e2e                                   # Playwright; arranca a API e o Vi
 - O Chromium não lê ficheiros de upload com acentos no caminho; nos testes, passar o ficheiro a partir da memória (`setInputFiles({ name, mimeType, buffer })`).
 - `getByLabel('Loja')` no Playwright também apanha "Email da loja": usar `{ exact: true }`.
 - As migrações geradas passam pelo ruff (hooks no `alembic.ini`), por isso o `ruff` tem de estar no PATH ao correr `alembic revision`. O isort do ruff trata `alembic` como pacote externo (`known-third-party`), apesar da pasta `alembic/`.
+- Acessibilidade: o `e2e/a11y.spec.ts` (axe, WCAG 2.2 AA) tem de continuar limpo. Cores novas passam pelos tokens em `src/index.css` com contraste ≥ 4.5:1 nos dois temas; cada página chama `usePageTitle` e tem um `h1`; nada clicável só com o rato (usar `button`/`a`).
+- O React StrictMode corre os efeitos duas vezes em desenvolvimento: não contar com "primeira execução" num `useEffect`.
 - O pytest trata `StarletteDeprecationWarning` como erro: o `TestClient` precisa do `httpx2`, não do `httpx`.
 - Variáveis vazias no `.env` contam como não definidas (`env_ignore_empty`); em produção, `ENVIRONMENT=production` recusa a `SECRET_KEY` de exemplo.

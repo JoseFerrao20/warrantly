@@ -3,7 +3,7 @@
 :root {
   --text: #1f2933;
   --text-muted: #52606d;
-  --text-subtle: #7b8794;
+  --text-subtle: #616d7a; /* 4.8:1 no --surface (o #7b8794 dos sketches tinha 3.4:1) */
   --text-faded: #6b7785; /* 4.6:1 no branco (o #9aa5b1 dos sketches ficava abaixo do mínimo de contraste) */
   --border: #c9ced6;
   --divider: #e4e7eb;
@@ -19,6 +19,7 @@
   --ok-bg: #e3f9f0;
   --ok-text: #147d64;
   --danger: #c81e1e;
+  --danger-contrast: #ffffff; /* texto do botão vermelho */
   --radius: 8px;
 
   color-scheme: light;
@@ -48,6 +49,7 @@
     --ok-bg: #0f3a2e;
     --ok-text: #6fdcb3;
     --danger: #f87171;
+    --danger-contrast: #11171d;
 
     color-scheme: dark;
   }
@@ -70,6 +72,7 @@
   --ok-bg: #0f3a2e;
   --ok-text: #6fdcb3;
   --danger: #f87171;
+  --danger-contrast: #11171d;
 
   color-scheme: dark;
 }
@@ -105,8 +108,32 @@ a {
   position: absolute;
   width: 1px;
   height: 1px;
+  margin: -1px;
   overflow: hidden;
   clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Só aparece quando recebe o foco do teclado (primeiro Tab da página). */
+.skip-link {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 10;
+  padding: 0.5rem 0.75rem;
+  border-radius: 6px;
+  background: var(--primary);
+  color: var(--primary-text);
+  transform: translateY(-200%);
+}
+
+.skip-link:focus {
+  transform: none;
+}
+
+/* O conteúdo recebe o foco ao mudar de página, mas não precisa de anel. */
+main:focus {
+  outline: none;
 }
 
 /* Barra de topo */
@@ -138,6 +165,16 @@ a {
   color: var(--text-subtle);
   font-size: 0.875rem;
   text-decoration: none;
+}
+
+.topbar-narrow {
+  display: none;
+}
+
+@media (max-width: 640px) {
+  .topbar-narrow {
+    display: inline;
+  }
 }
 
 .topbar-user:hover {
@@ -363,11 +400,7 @@ textarea {
   background: var(--background);
 }
 
-input:focus-visible,
-select:focus-visible,
-textarea:focus-visible,
-.button:focus-visible,
-.summary:focus-visible {
+:focus-visible {
   outline: 2px solid var(--link);
   outline-offset: 1px;
 }
@@ -406,6 +439,8 @@ textarea:focus-visible,
 }
 
 .dropzone {
+  width: 100%;
+  font: inherit;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -556,7 +591,7 @@ textarea:focus-visible,
 .button-danger {
   background: var(--danger);
   border-color: var(--danger);
-  color: var(--primary-text);
+  color: var(--danger-contrast);
 }
 
 .page-message {
@@ -578,7 +613,7 @@ textarea:focus-visible,
     padding-right: 1rem;
   }
 
-  .topbar-user {
+  .topbar-wide {
     display: none;
   }
 
