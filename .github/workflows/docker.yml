@@ -1,0 +1,76 @@
+name: Docker
+
+# Constrói a imagem de produção e corre os testes E2E contra o contentor.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  image:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      db:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: warrantly
+          POSTGRES_PASSWORD: warrantly
+          POSTGRES_DB: warrantly
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U warrantly -d warrantly"
+          --health-interval 5s
+          --health-timeout 3s
+          --health-retries 10
+
+    env:
+      DATABASE_URL: postgres://warrantly:warrantly@localhost:5432/warrantly
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Construir a imagem
+        run: docker build -t warrantly:ci .
+
+      - name: Migrações (como o release_command do Fly)
+        run: |
+          docker run --rm --network host \
+            -e DATABASE_URL -e SECRET_KEY="$(openssl rand -hex 32)" \
+            warrantly:ci alembic upgrade head
+
+      - name: Arrancar o contentor
+        run: |
+          docker run -d --name app --network host \
+            -e DATABASE_URL -e SECRET_KEY="$(openssl rand -hex 32)" \
+            warrantly:ci
+          for i in $(seq 1 30); do
+            curl -fsS http://localhost:8080/api/health && exit 0
+            sleep 1
+          done
+          docker logs app
+          exit 1
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Instalar o Playwright
+        working-directory: frontend
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+
+      - name: Testes E2E contra o contentor
+        working-directory: frontend
+        env:
+          E2E_BASE_URL: http://localhost:8080
+        run: npx playwright test
+
+      - name: Registos do contentor
+        if: failure()
+        run: docker logs app

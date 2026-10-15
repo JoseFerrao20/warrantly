@@ -1,0 +1,15 @@
+.git
+.github
+.devcontainer
+.env
+**/node_modules
+**/__pycache__
+**/.venv
+**/.pytest_cache
+**/*.egg-info
+frontend/dist
+frontend/test-results
+frontend/playwright-report
+backend/uploads
+backend/tests
+docs

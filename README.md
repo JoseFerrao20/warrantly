@@ -128,3 +128,39 @@ Se a API e o Vite já estiverem a correr, os testes usam-nos. Cada teste cria o 
 Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `http://localhost:8000` (configurável com `API_URL`), por isso não é preciso configurar CORS. Páginas: login e registo (`/entrar`), painel (`/`), nova compra (`/compras/nova`), detalhe (`/compras/:id`) e edição (`/compras/:id/editar`).
 
 O CI corre em cada PR e em cada push para o `main`: `.github/workflows/backend.yml` aplica as migrações e corre os testes com Postgres, `.github/workflows/frontend.yml` corre o lint, os tipos, os testes e o build do frontend, e `.github/workflows/e2e.yml` corre os testes do Playwright com Postgres (o relatório fica como artefacto quando falham).
+
+## Deploy (Fly.io)
+
+Em produção corre um só contentor (`Dockerfile`): a API fica em `/api` e o frontend (build do Vite) na raiz, servidos por `uvicorn app.server:server`. As faturas ficam num volume do Fly montado em `/data`, e as migrações correm antes de cada versão nova (`release_command` no `fly.toml`).
+
+Workflows do GitHub Actions:
+
+- `docker.yml`: constrói a imagem e corre os testes E2E contra o contentor (em cada PR e no `main`).
+- `deploy.yml`: publica no Fly quando o `docker.yml` passa no `main` (ou à mão em Actions → Deploy). Sem o segredo `FLY_API_TOKEN`, não faz nada.
+- `alerts.yml`: todos os dias às 07:47 UTC chama `POST /api/internal/alerts` para enviar os alertas de garantia. Sem `APP_URL` e `ALERTS_TOKEN`, não faz nada.
+
+### Configuração inicial (uma vez)
+
+1. Instalar o [flyctl](https://fly.io/docs/flyctl/install/) e entrar: `fly auth login`.
+2. Criar a app (se o nome estiver ocupado, troca-o também no `fly.toml`): `fly apps create warrantly`.
+3. Criar o volume das faturas: `fly volumes create warrantly_data --region mad --size 1 -a warrantly`.
+4. Postgres. Há duas opções; em ambas, a app aceita URLs `postgres://…`:
+   - Postgres gerido do Fly: `fly mpg create` e depois `fly mpg attach <id-do-cluster> -a warrantly` (cria o segredo `DATABASE_URL`).
+   - Outro fornecedor (ex.: Neon ou Supabase, com plano gratuito): `fly secrets set DATABASE_URL='postgres://…?sslmode=require' -a warrantly`.
+5. Segredos da app (gerar os tokens com `python -c "import secrets; print(secrets.token_urlsafe(32))"`):
+
+   ```bash
+   fly secrets set -a warrantly \
+     SECRET_KEY=<token> \
+     ALERTS_TOKEN=<outro-token> \
+     SMTP_HOST=<servidor> SMTP_PORT=587 SMTP_USER=<utilizador> SMTP_PASSWORD=<palavra-passe> \
+     MAIL_FROM='Warrantly <alertas@o-teu-dominio>'
+   ```
+
+6. Primeiro deploy, a partir do teu computador: `fly deploy`. A app fica em `https://warrantly.fly.dev`.
+7. No GitHub (Settings → Secrets and variables → Actions):
+   - segredo `FLY_API_TOKEN`, com o valor de `fly tokens create deploy -a warrantly`;
+   - segredo `ALERTS_TOKEN`, com o mesmo valor do passo 5;
+   - variável `APP_URL` = `https://warrantly.fly.dev`.
+
+A partir daí, cada merge no `main` que passe o `docker.yml` é publicado automaticamente. Para correr os alertas à mão: Actions → "Alertas diários" → Run workflow.
