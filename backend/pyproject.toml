@@ -23,7 +23,23 @@ dependencies = [
 dev = [
     "pytest",
     "httpx2",
+    "ruff",
 ]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP"]
+
+[tool.ruff.lint.isort]
+# A pasta alembic/ (migrações) não deve fazer o pacote alembic parecer local.
+known-third-party = ["alembic"]
+
+[tool.ruff.lint.flake8-bugbear]
+# Depends()/Query() como valor por omissão é o padrão do FastAPI.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.File", "fastapi.Form"]
 
 [build-system]
 requires = ["setuptools>=68"]

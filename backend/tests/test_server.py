@@ -51,7 +51,10 @@ def test_unknown_api_route_is_404_not_index(server_client: TestClient):
     ("url", "expected"),
     [
         ("postgres://u:p@host:5432/db", "postgresql+psycopg://u:p@host:5432/db"),
-        ("postgresql://u:p@host/db?sslmode=require", "postgresql+psycopg://u:p@host/db?sslmode=require"),
+        (
+            "postgresql://u:p@host/db?sslmode=require",
+            "postgresql+psycopg://u:p@host/db?sslmode=require",
+        ),
         ("postgresql+psycopg://u:p@host/db", "postgresql+psycopg://u:p@host/db"),
     ],
 )

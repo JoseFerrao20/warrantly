@@ -94,7 +94,9 @@ def test_claim_mentions_uploaded_invoice(auth_client: TestClient, db_session: Se
     assert "Junto cópia da fatura de compra." in body["body"]
 
 
-def test_claim_expired_purchase_is_flagged(auth_client: TestClient, db_session: Session, user: User):
+def test_claim_expired_purchase_is_flagged(
+    auth_client: TestClient, db_session: Session, user: User
+):
     user.full_name = "José Ferrão"
     purchase = make_purchase(db_session, user, purchase_date=date(2020, 1, 1))
 
@@ -119,7 +121,9 @@ def test_claim_rejects_invalid_description(
     user.full_name = "José Ferrão"
     purchase = make_purchase(db_session, user)
 
-    response = auth_client.post(f"/purchases/{purchase.id}/claim", json={"description": description})
+    response = auth_client.post(
+        f"/purchases/{purchase.id}/claim", json={"description": description}
+    )
 
     assert response.status_code == 422
 
@@ -129,7 +133,10 @@ def test_claim_on_other_users_purchase_is_404(auth_client: TestClient, db_sessio
     other.full_name = "Rui"
     theirs = make_purchase(db_session, other)
 
-    assert auth_client.post(f"/purchases/{theirs.id}/claim", json={"description": "X"}).status_code == 404
+    assert (
+        auth_client.post(f"/purchases/{theirs.id}/claim", json={"description": "X"}).status_code
+        == 404
+    )
     assert (
         auth_client.post(
             f"/purchases/{theirs.id}/claim", json={"description": "X"}, headers=auth_headers(other)

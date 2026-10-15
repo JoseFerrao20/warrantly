@@ -18,6 +18,7 @@ Nas sessões cloud, o hook `.claude/hooks/session-start.sh` arranca o Postgres, 
 ```bash
 # Backend (pasta backend/)
 pytest                                        # testes (precisam do Postgres)
+ruff check . && ruff format --check .         # lint e formatação (ruff format . corrige)
 alembic revision --autogenerate -m "..."      # nova migração depois de mudar um modelo
 alembic upgrade head && alembic downgrade -1 && alembic upgrade head && alembic check
 uvicorn app.main:app --reload --port 8000     # API para desenvolvimento
@@ -43,5 +44,6 @@ npm run e2e                                   # Playwright; arranca a API e o Vi
 - O Chromium "headless shell" do Playwright não tem visualizador de PDF, porque trata um PDF como download; testar o pedido da fatura, não a página.
 - O Chromium não lê ficheiros de upload com acentos no caminho; nos testes, passar o ficheiro a partir da memória (`setInputFiles({ name, mimeType, buffer })`).
 - `getByLabel('Loja')` no Playwright também apanha "Email da loja": usar `{ exact: true }`.
+- As migrações geradas passam pelo ruff (hooks no `alembic.ini`), por isso o `ruff` tem de estar no PATH ao correr `alembic revision`. O isort do ruff trata `alembic` como pacote externo (`known-third-party`), apesar da pasta `alembic/`.
 - O pytest trata `StarletteDeprecationWarning` como erro: o `TestClient` precisa do `httpx2`, não do `httpx`.
 - Variáveis vazias no `.env` contam como não definidas (`env_ignore_empty`); em produção, `ENVIRONMENT=production` recusa a `SECRET_KEY` de exemplo.
