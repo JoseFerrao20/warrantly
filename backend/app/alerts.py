@@ -119,7 +119,9 @@ def send_due_alerts(
             send(build_alert_email(user, alerts))
             for alert in alerts:
                 for days_before in alert.thresholds:
-                    session.add(WarrantyAlert(purchase_id=alert.purchase.id, days_before=days_before))
+                    session.add(
+                        WarrantyAlert(purchase_id=alert.purchase.id, days_before=days_before)
+                    )
             session.commit()
         except Exception:
             session.rollback()

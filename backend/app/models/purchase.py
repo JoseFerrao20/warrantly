@@ -44,7 +44,9 @@ class Purchase(Base):
     # ordenar pela garantia que expira primeiro.
     warranty_end: Mapped[date] = mapped_column(
         Date,
-        Computed("(purchase_date + make_interval(months => warranty_months))::date", persisted=True),
+        Computed(
+            "(purchase_date + make_interval(months => warranty_months))::date", persisted=True
+        ),
         index=True,
     )
     # Email da loja para onde enviar reclamações (o utilizador envia-o do seu próprio email).
@@ -63,4 +65,7 @@ class Purchase(Base):
     )
 
     def __repr__(self) -> str:
-        return f"<Purchase id={self.id} product_name={self.product_name!r} warranty_end={self.warranty_end}>"
+        return (
+            f"<Purchase id={self.id} product_name={self.product_name!r} "
+            f"warranty_end={self.warranty_end}>"
+        )

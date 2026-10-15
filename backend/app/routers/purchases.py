@@ -1,5 +1,4 @@
 from datetime import date, timedelta
-
 from pathlib import PurePath
 
 from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, status
@@ -7,11 +6,11 @@ from fastapi.responses import FileResponse
 from sqlalchemy import select
 
 from app import storage
+from app.claim_pdf import build_claim_pdf
+from app.claims import build_claim
 from app.config import settings
 from app.dependencies import CurrentUser, SessionDep
 from app.models import Purchase, User
-from app.claim_pdf import build_claim_pdf
-from app.claims import build_claim
 from app.schemas import (
     EXPIRING_SOON_DAYS,
     ClaimRead,
@@ -111,9 +110,10 @@ def upload_invoice(
 
     data = file.file.read(settings.max_invoice_bytes + 1)
     if len(data) > settings.max_invoice_bytes:
+        max_mb = settings.max_invoice_bytes // (1024 * 1024)
         raise HTTPException(
             status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=f"A fatura não pode ter mais de {settings.max_invoice_bytes // (1024 * 1024)} MB",
+            detail=f"A fatura não pode ter mais de {max_mb} MB",
         )
     content_type = storage.detect_content_type(data)
     if content_type is None:
@@ -125,11 +125,11 @@ def upload_invoice(
     if content_type == storage.HEIC:
         try:
             data = storage.heic_to_jpeg(data)
-        except Exception:
+        except Exception as err:
             raise HTTPException(
                 status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
                 detail="Não foi possível ler a fotografia HEIC",
-            )
+            ) from err
         content_type = "image/jpeg"
         filename = str(PurePath(filename).with_suffix(".jpg"))
 

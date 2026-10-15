@@ -182,7 +182,9 @@ def test_delete_account_removes_everything(
     assert login.status_code == 401
 
 
-def test_delete_account_requires_the_password(auth_client: TestClient, db_session: Session, user: User):
+def test_delete_account_requires_the_password(
+    auth_client: TestClient, db_session: Session, user: User
+):
     response = auth_client.request("DELETE", "/auth/me", json={"password": "errada-123"})
 
     assert response.status_code == 403

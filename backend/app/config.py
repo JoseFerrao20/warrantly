@@ -55,7 +55,9 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def check_production(self) -> "Settings":
         if self.environment == "production" and self.secret_key.startswith("dev-only-"):
-            raise ValueError("Em produção, define SECRET_KEY com um valor gerado (não o de exemplo)")
+            raise ValueError(
+                "Em produção, define SECRET_KEY com um valor gerado (não o de exemplo)"
+            )
         return self
 
 

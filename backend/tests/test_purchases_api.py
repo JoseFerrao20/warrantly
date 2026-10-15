@@ -2,7 +2,6 @@ from datetime import date, timedelta
 
 import pytest
 from fastapi.testclient import TestClient
-
 from sqlalchemy.orm import Session
 
 from app.schemas import WarrantyStatus, warranty_status
@@ -105,7 +104,8 @@ def test_list_filters_by_store_and_category(auth_client: TestClient):
 
     by_store = [p["id"] for p in auth_client.get("/purchases", params={"store": "Fnac"}).json()]
     by_category = [
-        p["id"] for p in auth_client.get("/purchases", params={"category": "Eletrodomésticos"}).json()
+        p["id"]
+        for p in auth_client.get("/purchases", params={"category": "Eletrodomésticos"}).json()
     ]
 
     assert fnac["id"] in by_store and worten["id"] not in by_store

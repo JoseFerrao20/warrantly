@@ -26,16 +26,20 @@ def register(data: UserCreate, session: SessionDep) -> User:
         session.commit()
     except IntegrityError:
         session.rollback()
-        raise HTTPException(status.HTTP_409_CONFLICT, detail="Já existe uma conta com este email")
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, detail="Já existe uma conta com este email"
+        ) from None
     session.refresh(user)
     return user
 
 
 @router.post("/login", response_model=Token)
 def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], session: SessionDep) -> Token:
-    """Login no formato OAuth2 (form com `username` = email e `password`), para funcionar no /docs."""
+    """Login no formato OAuth2 (`username` = email e `password`), para funcionar no /docs."""
     user = session.scalar(select(User).where(User.email == form.username.lower()))
-    password_ok = verify_password(form.password, user.password_hash if user else DUMMY_PASSWORD_HASH)
+    password_ok = verify_password(
+        form.password, user.password_hash if user else DUMMY_PASSWORD_HASH
+    )
     if user is None or not password_ok:
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
