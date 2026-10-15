@@ -10,6 +10,7 @@ from app import storage
 from app.config import settings
 from app.dependencies import CurrentUser, SessionDep
 from app.models import Purchase, User
+from app.claim_pdf import build_claim_pdf
 from app.claims import build_claim
 from app.schemas import (
     EXPIRING_SOON_DAYS,
@@ -164,17 +165,47 @@ def delete_invoice(purchase_id: int, user: CurrentUser, session: SessionDep) -> 
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+def require_full_name(user: User) -> None:
+    """A carta é assinada com o nome do utilizador."""
+    if not user.full_name:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Indica o teu nome no perfil antes de gerar a reclamação",
+        )
+
+
 @router.post("/{purchase_id}/claim", response_model=ClaimRead)
 def generate_claim(
     purchase_id: int, data: ClaimRequest, user: CurrentUser, session: SessionDep
 ) -> ClaimRead:
     """Gera o texto da reclamação à loja (não envia nada; o utilizador copia ou envia)."""
     purchase = get_purchase_or_404(purchase_id, user, session)
-    if not user.full_name:
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            detail="Indica o teu nome no perfil antes de gerar a reclamação",
-        )
+    require_full_name(user)
     today = date.today()
     subject, body = build_claim(purchase, user, data.description, today)
     return ClaimRead(subject=subject, body=body, within_warranty=purchase.warranty_end >= today)
+
+
+@router.post(
+    "/{purchase_id}/claim.pdf",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}}}},
+)
+def generate_claim_pdf(
+    purchase_id: int, data: ClaimRequest, user: CurrentUser, session: SessionDep
+) -> Response:
+    """A reclamação em PDF, com a fatura a seguir à carta (se houver)."""
+    purchase = get_purchase_or_404(purchase_id, user, session)
+    require_full_name(user)
+    today = date.today()
+    subject, body = build_claim(purchase, user, data.description, today)
+    pdf, invoice_included = build_claim_pdf(purchase, user, subject, body, today)
+    filename = f"reclamacao-{purchase.id}.pdf"
+    return Response(
+        pdf,
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "X-Invoice-Included": "true" if invoice_included else "false",
+        },
+    )

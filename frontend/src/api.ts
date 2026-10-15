@@ -66,6 +66,21 @@ async function request<T>(path: string, init: RequestInit & { json?: unknown } =
   return (await response.json()) as T
 }
 
+/** Para respostas que são ficheiros (fatura, PDF da reclamação). */
+async function requestBlob(path: string, init: RequestInit = {}): Promise<Blob> {
+  const token = getToken()
+  const response = await fetch(BASE + path, {
+    ...init,
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers },
+  })
+  if (response.status === 401 && token) onUnauthorized()
+  if (!response.ok) {
+    const body = await response.json().catch(() => null)
+    throw new ApiError(response.status, errorMessage(response.status, body))
+  }
+  return response.blob()
+}
+
 export const api = {
   async login(email: string, password: string): Promise<string> {
     const body = new URLSearchParams({ username: email, password })
@@ -100,16 +115,11 @@ export const api = {
     return request<Purchase>(`/purchases/${id}/invoice`, { method: 'PUT', body })
   },
   deleteInvoice: (id: number) => request<void>(`/purchases/${id}/invoice`, { method: 'DELETE' }),
-  async getInvoice(id: number): Promise<Blob> {
-    const token = getToken()
-    const response = await fetch(`${BASE}/purchases/${id}/invoice`, {
-      headers: token ? { Authorization: `Bearer ${token}` } : {},
-    })
-    if (response.status === 401 && token) onUnauthorized()
-    if (!response.ok) {
-      const body = await response.json().catch(() => null)
-      throw new ApiError(response.status, errorMessage(response.status, body))
-    }
-    return response.blob()
-  },
+  getInvoice: (id: number) => requestBlob(`/purchases/${id}/invoice`),
+  getClaimPdf: (id: number, description: string) =>
+    requestBlob(`/purchases/${id}/claim.pdf`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description }),
+    }),
 }

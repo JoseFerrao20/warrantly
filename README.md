@@ -81,10 +81,11 @@ Endpoints (documentação interativa em `/docs`):
 | `GET` | `/purchases/{id}/invoice` | Devolve a fatura |
 | `DELETE` | `/purchases/{id}/invoice` | Apaga a fatura |
 | `POST` | `/purchases/{id}/claim` | Gera o texto da reclamação à loja a partir da descrição da avaria |
+| `POST` | `/purchases/{id}/claim.pdf` | A mesma reclamação em PDF, com a fatura juntada a seguir à carta |
 
 Uma garantia está "a expirar" (`expiring`) quando faltam 60 dias ou menos.
 
-A reclamação é uma carta ao abrigo do Decreto-Lei n.º 84/2021 com os dados da compra (incluindo o n.º da fatura, se preenchido), a descrição da avaria e o nome do utilizador. A API só gera o texto: na app, o utilizador copia-o ou abre-o no email. Se a garantia já terminou, a resposta indica `within_warranty: false`.
+A reclamação é uma carta ao abrigo do Decreto-Lei n.º 84/2021 com os dados da compra (incluindo o n.º da fatura, se preenchido), a descrição da avaria e o nome do utilizador. A API só gera o texto: na app, o utilizador copia-o ou abre-o no email. Se a garantia já terminou, a resposta indica `within_warranty: false`. O PDF (ReportLab e pypdf) junta a fatura a seguir à carta: um PDF é anexado tal como está, e uma imagem passa a uma página A4. Se a fatura não puder ser lida, o PDF sai só com a carta e o cabeçalho `X-Invoice-Included` vem a `false`.
 
 Os endpoints `/purchases` e `/auth/me` pedem o cabeçalho `Authorization: Bearer <token>`, e cada utilizador só vê as suas compras. No `/docs`, o botão **Authorize** faz o login. O token é assinado com a `SECRET_KEY` (pelo menos 32 caracteres) e dura 60 minutos.
 
