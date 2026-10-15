@@ -42,7 +42,8 @@ export default defineConfig({
       command: `${python} -m alembic upgrade head && ${python} -m uvicorn app.main:app --port 8000`,
       cwd: '../backend',
       url: 'http://localhost:8000/health',
-      env: { UPLOAD_DIR: uploadDir },
+      // Os testes criam muitas contas seguidas a partir do mesmo IP.
+      env: { UPLOAD_DIR: uploadDir, RATE_LIMITS: 'false' },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

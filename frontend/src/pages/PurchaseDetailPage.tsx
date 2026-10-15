@@ -13,6 +13,8 @@ function message(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
 }
 
+const INVOICE_VIEW_TYPES = ['application/pdf', 'image/jpeg', 'image/png', 'image/webp']
+
 export function PurchaseDetailPage() {
   const { id } = useParams()
   const purchaseId = Number(id)
@@ -64,10 +66,17 @@ export function PurchaseDetailPage() {
     // Abre o separador já (para o browser não o bloquear) e só depois carrega o ficheiro.
     const tab = window.open('', '_blank')
     return run(async () => {
-      const blob = await api.getInvoice(purchaseId)
-      const url = URL.createObjectURL(blob)
-      if (tab) tab.location.href = url
-      else window.location.href = url
+      try {
+        const blob = await api.getInvoice(purchaseId)
+        // O blob abre com a origem da app: só PDF e imagens (nunca HTML, que correria cá dentro).
+        if (!INVOICE_VIEW_TYPES.includes(blob.type)) throw new Error('Tipo de ficheiro inesperado')
+        const url = URL.createObjectURL(blob)
+        if (tab) tab.location.href = url
+        else window.location.href = url
+      } catch (err) {
+        tab?.close() // não deixar um separador em branco aberto
+        throw err
+      }
     }, 'Erro ao abrir a fatura')
   }
 

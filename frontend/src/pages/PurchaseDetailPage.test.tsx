@@ -21,6 +21,24 @@ describe('PurchaseDetailPage', () => {
     expect(screen.getByRole('button', { name: 'Ver fatura' })).toBeInTheDocument()
   })
 
+  it('não abre a fatura se o ficheiro não for PDF nem imagem', async () => {
+    mockApi({
+      'GET /auth/me': { body: USER },
+      'GET /purchases/1': { body: makePurchase({ invoice_filename: 'fatura.pdf' }) },
+      // A simulação responde com application/json: um tipo que nunca se deve abrir.
+      'GET /purchases/1/invoice': { body: '<script>alert(1)</script>' },
+    })
+    const tab = { close: vi.fn(), location: { href: '' } }
+    vi.spyOn(window, 'open').mockReturnValue(tab as unknown as Window)
+    renderApp('/compras/1')
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Ver fatura' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Erro ao abrir a fatura')
+    expect(tab.close).toHaveBeenCalled()
+    expect(tab.location.href).toBe('')
+  })
+
   it('apaga a compra depois de confirmar e volta ao painel', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const fetchMock = mockApi({

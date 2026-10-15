@@ -40,6 +40,10 @@ class Settings(BaseSettings):
     # diário no GitHub Actions. Sem token, a rota não existe.
     alerts_token: str | None = Field(default=None, min_length=32)
 
+    # Limite de tentativas no login, no registo e ao apagar a conta (ver app/rate_limit.py).
+    # Só se desliga nos testes E2E, que criam muitas contas seguidas a partir do mesmo IP.
+    rate_limits: bool = True
+
     # Pasta com o build do frontend (frontend/dist). Em produção, a API serve-o na raiz.
     static_dir: Path | None = None
 

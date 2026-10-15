@@ -43,8 +43,9 @@ jobs:
 
       - name: Arrancar o contentor
         run: |
+          # RATE_LIMITS=false: os testes E2E criam muitas contas seguidas a partir do mesmo IP.
           docker run -d --name app --network host \
-            -e DATABASE_URL -e SECRET_KEY="$(openssl rand -hex 32)" \
+            -e DATABASE_URL -e SECRET_KEY="$(openssl rand -hex 32)" -e RATE_LIMITS=false \
             warrantly:ci
           for i in $(seq 1 30); do
             curl -fsS http://localhost:8080/api/health && exit 0
