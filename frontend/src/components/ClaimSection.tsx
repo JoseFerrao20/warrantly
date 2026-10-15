@@ -12,6 +12,8 @@ export function ClaimSection({ purchaseId }: { purchaseId: number }) {
   const [fullName, setFullName] = useState('')
   const [description, setDescription] = useState('')
   const [claim, setClaim] = useState<Claim | null>(null)
+  // Descrição usada na carta mostrada (o PDF tem de corresponder, mesmo que a caixa mude depois).
+  const [claimDescription, setClaimDescription] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -24,6 +26,7 @@ export function ClaimSection({ purchaseId }: { purchaseId: number }) {
     try {
       if (needsName) await updateProfile(fullName.trim())
       setClaim(await api.generateClaim(purchaseId, description))
+      setClaimDescription(description)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Não foi possível gerar a reclamação')
     } finally {
@@ -38,6 +41,24 @@ export function ClaimSection({ purchaseId }: { purchaseId: number }) {
       setCopied(true)
     } catch {
       setError('Não foi possível copiar; seleciona o texto e copia à mão')
+    }
+  }
+
+  async function downloadPdf() {
+    setError(null)
+    setBusy(true)
+    try {
+      const blob = await api.getClaimPdf(purchaseId, claimDescription)
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `reclamacao-${purchaseId}.pdf`
+      link.click()
+      setTimeout(() => URL.revokeObjectURL(url), 1000)
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Não foi possível gerar o PDF')
+    } finally {
+      setBusy(false)
     }
   }
 
@@ -102,6 +123,9 @@ export function ClaimSection({ purchaseId }: { purchaseId: number }) {
             <a className="button" href={mailto}>
               Abrir no email
             </a>
+            <button type="button" className="button" onClick={downloadPdf} disabled={busy}>
+              Descarregar PDF
+            </button>
             <button type="button" className="button button-primary" onClick={copy}>
               {copied ? 'Copiado!' : 'Copiar texto'}
             </button>

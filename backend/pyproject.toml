@@ -14,6 +14,8 @@ dependencies = [
     "pyjwt",
     "pwdlib[argon2]",
     "python-multipart",
+    "reportlab",
+    "pypdf",
 ]
 
 [project.optional-dependencies]
