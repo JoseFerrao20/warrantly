@@ -10,8 +10,11 @@ from app import storage
 from app.config import settings
 from app.dependencies import CurrentUser, SessionDep
 from app.models import Purchase, User
+from app.claims import build_claim
 from app.schemas import (
     EXPIRING_SOON_DAYS,
+    ClaimRead,
+    ClaimRequest,
     PurchaseCreate,
     PurchaseRead,
     PurchaseUpdate,
@@ -159,3 +162,19 @@ def delete_invoice(purchase_id: int, user: CurrentUser, session: SessionDep) -> 
     session.commit()
     storage.delete(old_key)
     return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/{purchase_id}/claim", response_model=ClaimRead)
+def generate_claim(
+    purchase_id: int, data: ClaimRequest, user: CurrentUser, session: SessionDep
+) -> ClaimRead:
+    """Gera o texto da reclamação à loja (não envia nada; o utilizador copia ou envia)."""
+    purchase = get_purchase_or_404(purchase_id, user, session)
+    if not user.full_name:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            detail="Indica o teu nome no perfil antes de gerar a reclamação",
+        )
+    today = date.today()
+    subject, body = build_claim(purchase, user, data.description, today)
+    return ClaimRead(subject=subject, body=body, within_warranty=purchase.warranty_end >= today)

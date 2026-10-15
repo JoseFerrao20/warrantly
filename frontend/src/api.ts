@@ -1,4 +1,4 @@
-import type { Purchase, PurchaseInput, User } from './types'
+import type { Claim, Purchase, PurchaseInput, User } from './types'
 
 const BASE = '/api'
 const TOKEN_KEY = 'warrantly.token'
@@ -75,9 +75,14 @@ export const api = {
     })
     return access_token
   },
-  register: (email: string, password: string) =>
-    request<User>('/auth/register', { method: 'POST', json: { email, password } }),
+  register: (email: string, password: string, fullName: string | null) =>
+    request<User>('/auth/register', {
+      method: 'POST',
+      json: { email, password, full_name: fullName },
+    }),
   me: () => request<User>('/auth/me'),
+  updateMe: (data: { full_name: string | null }) =>
+    request<User>('/auth/me', { method: 'PATCH', json: data }),
 
   listPurchases: () => request<Purchase[]>('/purchases'),
   getPurchase: (id: number) => request<Purchase>(`/purchases/${id}`),
@@ -86,6 +91,8 @@ export const api = {
   updatePurchase: (id: number, data: Partial<PurchaseInput>) =>
     request<Purchase>(`/purchases/${id}`, { method: 'PATCH', json: data }),
   deletePurchase: (id: number) => request<void>(`/purchases/${id}`, { method: 'DELETE' }),
+  generateClaim: (id: number, description: string) =>
+    request<Claim>(`/purchases/${id}/claim`, { method: 'POST', json: { description } }),
 
   uploadInvoice(id: number, file: File) {
     const body = new FormData()

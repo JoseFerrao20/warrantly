@@ -31,16 +31,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const register = useCallback(
-    async (email: string, password: string) => {
-      await api.register(email, password)
+    async (email: string, password: string, fullName: string | null) => {
+      await api.register(email, password, fullName)
       await login(email, password)
     },
     [login],
   )
 
+  const updateProfile = useCallback(async (fullName: string | null) => {
+    setUser(await api.updateMe({ full_name: fullName }))
+  }, [])
+
   const value = useMemo(
-    () => ({ user, loading, login, register, logout }),
-    [user, loading, login, register, logout],
+    () => ({ user, loading, login, register, updateProfile, logout }),
+    [user, loading, login, register, updateProfile, logout],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

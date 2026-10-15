@@ -7,7 +7,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app.dependencies import CurrentUser, SessionDep
 from app.models import User
-from app.schemas import Token, UserCreate, UserRead
+from app.schemas import Token, UserCreate, UserRead, UserUpdate
 from app.security import DUMMY_PASSWORD_HASH, create_access_token, hash_password, verify_password
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -15,7 +15,11 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(data: UserCreate, session: SessionDep) -> User:
-    user = User(email=data.email.lower(), password_hash=hash_password(data.password))
+    user = User(
+        email=data.email.lower(),
+        password_hash=hash_password(data.password),
+        full_name=data.full_name.strip() if data.full_name else None,
+    )
     session.add(user)
     try:
         session.commit()
@@ -42,4 +46,13 @@ def login(form: Annotated[OAuth2PasswordRequestForm, Depends()], session: Sessio
 
 @router.get("/me", response_model=UserRead)
 def me(user: CurrentUser) -> User:
+    return user
+
+
+@router.patch("/me", response_model=UserRead)
+def update_me(data: UserUpdate, user: CurrentUser, session: SessionDep) -> User:
+    if "full_name" in data.model_fields_set:
+        user.full_name = data.full_name.strip() if data.full_name else None
+    session.commit()
+    session.refresh(user)
     return user

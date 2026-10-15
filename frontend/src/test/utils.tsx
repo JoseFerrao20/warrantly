@@ -28,7 +28,12 @@ export function mockApi(routes: Record<string, Handler | { status?: number; body
   return fetchMock
 }
 
-export const USER = { id: 1, email: 'ana@example.com', created_at: '2026-10-01T10:00:00Z' }
+export const USER = {
+  id: 1,
+  email: 'ana@example.com',
+  full_name: 'Ana Silva' as string | null,
+  created_at: '2026-10-01T10:00:00Z',
+}
 
 export function renderApp(path: string, { loggedIn = true } = {}) {
   if (loggedIn) localStorage.setItem('warrantly.token', 'token-de-teste')
@@ -51,6 +56,7 @@ export function makePurchase(overrides: Partial<Purchase> = {}): Purchase {
     price: '429.00',
     warranty_months: 36,
     warranty_end: '2026-11-03',
+    invoice_number: null,
     invoice_filename: null,
     invoice_content_type: null,
     invoice_size: null,

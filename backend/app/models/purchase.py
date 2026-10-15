@@ -47,6 +47,8 @@ class Purchase(Base):
         Computed("(purchase_date + make_interval(months => warranty_months))::date", persisted=True),
         index=True,
     )
+    # Número da fatura (ex.: "FT 2023/48213"), citado na reclamação.
+    invoice_number: Mapped[str | None] = mapped_column(String(100))
     # Fatura (opcional): o ficheiro fica no disco com o nome `invoice_key`; guardamos também o nome
     # original, o tipo e o tamanho para a mostrar e devolver.
     invoice_key: Mapped[str | None] = mapped_column(String(64))

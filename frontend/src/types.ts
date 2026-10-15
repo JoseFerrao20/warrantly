@@ -3,6 +3,7 @@ export type WarrantyStatus = 'active' | 'expiring' | 'expired'
 export interface User {
   id: number
   email: string
+  full_name: string | null
   created_at: string
 }
 
@@ -15,6 +16,7 @@ export interface Purchase {
   price: string // decimal em texto, ex.: "749.99"
   warranty_months: number
   warranty_end: string // AAAA-MM-DD
+  invoice_number: string | null
   invoice_filename: string | null
   invoice_content_type: string | null
   invoice_size: number | null
@@ -30,4 +32,11 @@ export interface PurchaseInput {
   purchase_date: string
   price: string
   warranty_months: number
+  invoice_number: string | null
+}
+
+export interface Claim {
+  subject: string
+  body: string
+  within_warranty: boolean
 }

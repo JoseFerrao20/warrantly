@@ -55,6 +55,7 @@ describe('PurchaseFormPage', () => {
       purchase_date: '2026-02-14',
       price: '749.99',
       warranty_months: 36,
+      invoice_number: null,
     })
     const upload = fetchMock.mock.calls.find((c) => c[1]?.method === 'PUT')
     expect((upload![1]!.body as FormData).get('file')).toBeInstanceOf(File)
@@ -94,4 +95,22 @@ describe('PurchaseFormPage', () => {
     const patch = fetchMock.mock.calls.find((c) => c[1]?.method === 'PATCH')
     expect(JSON.parse(patch![1]!.body as string)).toMatchObject({ store: 'Fnac', price: '429.00' })
   })
+})
+
+it('envia o número da fatura quando preenchido', async () => {
+  const created = makePurchase({ id: 8 })
+  const fetchMock = mockApi({
+    'GET /auth/me': { body: USER },
+    'POST /purchases': { status: 201, body: created },
+    'GET /purchases/8': { body: created },
+  })
+  renderApp('/compras/nova')
+  await fillForm()
+  await userEvent.type(screen.getByLabelText(/N\.º da fatura/), ' FT 2026/12345 ')
+
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+  await screen.findByRole('heading', { name: created.product_name })
+  const create = fetchMock.mock.calls.find((c) => c[1]?.method === 'POST')
+  expect(JSON.parse(create![1]!.body as string).invoice_number).toBe('FT 2026/12345')
 })

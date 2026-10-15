@@ -68,9 +68,10 @@ Endpoints (documentação interativa em `/docs`):
 | Método | Caminho | O que faz |
 | --- | --- | --- |
 | `GET` | `/health` | Estado da API e da base de dados |
-| `POST` | `/auth/register` | Cria uma conta (email e palavra-passe com 8 caracteres ou mais) |
+| `POST` | `/auth/register` | Cria uma conta (email, palavra-passe com 8 caracteres ou mais e, opcionalmente, o nome) |
 | `POST` | `/auth/login` | Devolve um token de acesso (form OAuth2: `username` = email, `password`) |
 | `GET` | `/auth/me` | Dados do utilizador autenticado |
+| `PATCH` | `/auth/me` | Altera o nome (usado para assinar as reclamações) |
 | `POST` | `/purchases` | Regista uma compra (garantia de 36 meses por omissão) |
 | `GET` | `/purchases` | Lista as compras pela garantia que expira primeiro; filtros `store`, `category` e `status` (`active`, `expiring`, `expired`) |
 | `GET` | `/purchases/{id}` | Detalhe de uma compra |
@@ -79,8 +80,11 @@ Endpoints (documentação interativa em `/docs`):
 | `PUT` | `/purchases/{id}/invoice` | Carrega a fatura (multipart, campo `file`); substitui a anterior |
 | `GET` | `/purchases/{id}/invoice` | Devolve a fatura |
 | `DELETE` | `/purchases/{id}/invoice` | Apaga a fatura |
+| `POST` | `/purchases/{id}/claim` | Gera o texto da reclamação à loja a partir da descrição da avaria |
 
 Uma garantia está "a expirar" (`expiring`) quando faltam 60 dias ou menos.
+
+A reclamação é uma carta ao abrigo do Decreto-Lei n.º 84/2021 com os dados da compra (incluindo o n.º da fatura, se preenchido), a descrição da avaria e o nome do utilizador. A API só gera o texto: na app, o utilizador copia-o ou abre-o no email. Se a garantia já terminou, a resposta indica `within_warranty: false`.
 
 Os endpoints `/purchases` e `/auth/me` pedem o cabeçalho `Authorization: Bearer <token>`, e cada utilizador só vê as suas compras. No `/docs`, o botão **Authorize** faz o login. O token é assinado com a `SECRET_KEY` (pelo menos 32 caracteres) e dura 60 minutos.
 
