@@ -27,6 +27,19 @@ describe('AccountPage', () => {
     expect(JSON.parse(patch![1]!.body as string)).toEqual({ full_name: 'Ana Sofia Silva' })
   })
 
+  it('muda o tema e lembra-se dele', async () => {
+    mockApi({ 'GET /auth/me': { body: USER } })
+    renderApp('/conta')
+
+    const select = await screen.findByLabelText('Tema')
+    expect(select).toHaveValue('system')
+    await userEvent.selectOptions(select, 'dark')
+
+    expect(document.documentElement.dataset.theme).toBe('dark')
+    expect(localStorage.getItem('warrantly.theme')).toBe('dark')
+    document.documentElement.removeAttribute('data-theme')
+  })
+
   it('apaga a conta com a palavra-passe e volta ao login', async () => {
     vi.spyOn(window, 'confirm').mockReturnValue(true)
     const fetchMock = mockApi({
