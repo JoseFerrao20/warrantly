@@ -127,7 +127,7 @@ npx playwright install chromium   # só da primeira vez
 npm run e2e
 ```
 
-Se a API e o Vite já estiverem a correr, os testes usam-nos. Cada teste cria o seu próprio utilizador (`e2e-…@example.com`); para limpar a base de dados de desenvolvimento: `DELETE FROM users WHERE email LIKE 'e2e-%@example.com'`.
+Se a API e o Vite já estiverem a correr, os testes usam-nos (nesse caso, arrancar a API com `RATE_LIMITS=false`, senão os registos seguidos batem no limite de tentativas). Cada teste cria o seu próprio utilizador (`e2e-…@example.com`); para limpar a base de dados de desenvolvimento: `DELETE FROM users WHERE email LIKE 'e2e-%@example.com'`.
 
 Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `http://localhost:8000` (configurável com `API_URL`), por isso não é preciso configurar CORS. Páginas: login e registo (`/entrar`), painel (`/`), nova compra (`/compras/nova`), detalhe (`/compras/:id`), edição (`/compras/:id/editar`) e conta (`/conta`: nome, tema e apagar conta). O tema segue o modo claro/escuro do sistema, mas pode ser fixado em "Claro" ou "Escuro" (fica guardado no browser).
 
@@ -142,6 +142,16 @@ Workflows do GitHub Actions:
 - `docker.yml`: constrói a imagem e corre os testes E2E contra o contentor (em cada PR e no `main`).
 - `deploy.yml`: publica no Fly quando o `docker.yml` passa no `main` (ou à mão em Actions → Deploy). Sem o segredo `FLY_API_TOKEN`, não faz nada.
 - `alerts.yml`: todos os dias às 07:47 UTC chama `POST /api/internal/alerts` para enviar os alertas de garantia. Sem `APP_URL` e `ALERTS_TOKEN`, não faz nada.
+
+### Segurança
+
+- **Palavras-passe:** Argon2. No login com um email que não existe, a resposta demora o mesmo, para não revelar que emails estão registados.
+- **Sessão:** token JWT (HS256) válido 60 minutos. Em produção, a app recusa arrancar com a `SECRET_KEY` de exemplo.
+- **Limite de tentativas** (em memória, `app/rate_limit.py`): 5 falhas de login por IP e email em 15 minutos, 30 por IP, 20 por email (de qualquer IP), 10 registos por IP por hora e 5 palavras-passe erradas ao apagar a conta. Depois disso, a resposta é 429 com `Retry-After`. Com várias máquinas, cada uma conta à parte. `RATE_LIMITS=false` desliga os limites (só nos testes E2E).
+- **Pedidos grandes:** a API corta qualquer pedido acima de 11 MB (413), mesmo sem `Content-Length`, antes de o guardar em disco.
+- **Faturas:** o tipo é reconhecido pelos primeiros bytes (só PDF, JPEG, PNG, WebP e HEIC), o ficheiro fica com um nome aleatório e o download sai com `nosniff`.
+- **Cabeçalhos** (servidor de produção): CSP sem scripts inline (`script-src 'self'`), `frame-ancestors 'none'`, `X-Frame-Options`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` e HSTS. O `/api/docs` e o `/api/openapi.json` não existem em produção.
+- **Dependências:** `pip-audit` (backend) e `npm audit` (frontend), sem vulnerabilidades conhecidas a 2026-10-15.
 
 ### Configuração inicial (uma vez)
 

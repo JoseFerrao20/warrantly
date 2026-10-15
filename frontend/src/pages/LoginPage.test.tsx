@@ -45,6 +45,22 @@ describe('LoginPage', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('Email ou palavra-passe incorretos')
   })
 
+  it('avisa quando há demasiadas tentativas', async () => {
+    mockApi({
+      'POST /auth/login': {
+        status: 429,
+        body: { detail: 'Demasiadas tentativas. Tenta outra vez dentro de 15 min.' },
+      },
+    })
+    renderApp('/entrar', { loggedIn: false })
+
+    await userEvent.type(screen.getByLabelText('Email'), 'ana@example.com')
+    await userEvent.type(screen.getByLabelText('Palavra-passe'), 'errada')
+    await userEvent.click(screen.getByRole('button', { name: 'Entrar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent('Tenta outra vez dentro de 15 min.')
+  })
+
   it('cria conta e entra logo', async () => {
     const fetchMock = mockApi({
       'POST /auth/register': { status: 201, body: USER },
