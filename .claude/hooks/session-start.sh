@@ -1,6 +1,6 @@
 #!/bin/bash
 # Prepara uma sessão cloud do Claude Code para trabalhar no Warrantly:
-# Postgres a correr com a base de dados da app, dependências do backend e do frontend,
+# Postgres a correr com a base de dados da app, dependências do backend, do frontend e da app móvel,
 # migrações aplicadas e variáveis de ambiente para os testes (incluindo os E2E).
 # Só corre nas sessões cloud; no dev container e no Codespace quem prepara é o post-create.sh.
 set -euo pipefail
@@ -44,8 +44,10 @@ cd "$ROOT/backend"
 .venv/bin/pip install --quiet --disable-pip-version-check -e '.[dev]'
 .venv/bin/alembic upgrade head >/dev/null
 
-# 3. Frontend (npm install aproveita a cache do contentor entre sessões).
+# 3. Frontend e app móvel (npm install aproveita a cache do contentor entre sessões).
 cd "$ROOT/frontend"
+npm install --no-audit --no-fund --loglevel=error
+cd "$ROOT/mobile"
 npm install --no-audit --no-fund --loglevel=error
 
 # 4. Variáveis para o resto da sessão: venv no PATH e o Chromium já instalado para o Playwright.

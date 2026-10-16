@@ -16,6 +16,7 @@ if ! command -v tesseract >/dev/null; then
   sudo apt-get install -y -q --no-install-recommends tesseract-ocr tesseract-ocr-por
 fi
 
-# Dependências do backend e do frontend.
+# Dependências do backend, do frontend e da app móvel.
 pip install --quiet -e './backend[dev]'
 npm ci --prefix frontend
+npm ci --prefix mobile
