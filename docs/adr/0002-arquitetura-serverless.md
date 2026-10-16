@@ -35,7 +35,7 @@ GitHub Actions ──OIDC──▶ papel IAM de deploy: ECR, Lambda, S3 e CloudF
 
 ## Consequências e limites conhecidos
 
-- **Pedidos até 6 MB** (limite do Lambda, com o corpo em base64): no Lambda, `MAX_INVOICE_BYTES` fica em 4 MB. A solução definitiva é o upload direto do browser para o S3 com um URL pré-assinado, que fica num PR à parte.
+- **Pedidos até 6 MB** (limite do Lambda, com o corpo em base64). *Atualização (2026-10-16):* resolvido com o upload direto do browser para o S3 (POST pré-assinado); as faturas voltam a poder ter 10 MB e não passam pelo Lambda.
 - **Arranque a frio:** a primeira chamada depois de algum tempo parado demora alguns segundos (imagem com o Tesseract, e o Neon a acordar). Para uma app pessoal, é aceitável.
 - **Limite de tentativas** (`app/rate_limit.py`) em memória, por instância do Lambda: com várias instâncias, cada uma conta à parte. Passa para o DynamoDB se for preciso.
 - **Function URL pública:** a autenticação é a da própria API (JWT), e o CloudFront fica à frente para HTTPS e cache. Não se usa OAC para o Lambda, porque obrigaria o browser a enviar o hash do corpo nos POST/PUT.

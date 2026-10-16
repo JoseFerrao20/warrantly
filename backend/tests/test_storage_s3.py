@@ -1,39 +1,14 @@
 """Armazenamento das faturas no S3, com o moto (S3 simulado em memória, sem rede)."""
 
-from collections.abc import Iterator
-
-import boto3
 import pytest
 from fastapi.testclient import TestClient
-from moto import mock_aws
 
 from app import storage
-from app.config import Settings, settings
+from app.config import Settings
+from tests.conftest import S3_BUCKET as BUCKET
+from tests.conftest import s3_objects as objects
 
-BUCKET = "warrantly-faturas-teste"
 PDF = b"%PDF-1.7\n1 0 obj\n<<>>\nendobj\n%%EOF\n"
-
-
-@pytest.fixture
-def s3(monkeypatch: pytest.MonkeyPatch, upload_dir) -> Iterator[object]:
-    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "teste")
-    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "teste")
-    monkeypatch.delenv("AWS_PROFILE", raising=False)
-    with mock_aws():
-        client = boto3.client("s3", region_name="eu-west-1")
-        client.create_bucket(
-            Bucket=BUCKET, CreateBucketConfiguration={"LocationConstraint": "eu-west-1"}
-        )
-        monkeypatch.setattr(settings, "storage_backend", "s3")
-        monkeypatch.setattr(settings, "s3_bucket", BUCKET)
-        monkeypatch.setattr(settings, "aws_region", "eu-west-1")
-        storage._s3.cache_clear()
-        yield client
-        storage._s3.cache_clear()
-
-
-def objects(client) -> list[str]:
-    return [o["Key"] for o in client.list_objects_v2(Bucket=BUCKET).get("Contents", [])]
 
 
 def test_save_load_delete(s3, upload_dir):

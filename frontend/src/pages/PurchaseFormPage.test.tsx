@@ -78,6 +78,77 @@ describe('PurchaseFormPage', () => {
     expect(screen.getByLabelText('Loja')).toHaveValue('')
   })
 
+  it('com S3, envia a fatura diretamente para o bucket uma só vez', async () => {
+    const created = makePurchase({ id: 7, product_name: 'Portátil Lenovo IdeaPad 5', store: 'Fnac' })
+    const token = 'a'.repeat(32)
+    const fetchMock = mockApi({
+      'GET /auth/me': { body: USER },
+      'POST /purchases/uploads': {
+        body: {
+          direct: true,
+          max_bytes: 10 * 1024 * 1024,
+          token,
+          url: 'https://faturas.s3.eu-central-1.amazonaws.com/',
+          fields: { key: `uploads/1/${token}`, policy: 'p', 'x-amz-signature': 's' },
+        },
+      },
+      'POST https://faturas.s3.eu-central-1.amazonaws.com/': { status: 204 },
+      [`POST /purchases/uploads/${token}/scan`]: {
+        body: {
+          text_found: true,
+          ocr_available: true,
+          product_name: null,
+          store: 'Fnac',
+          purchase_date: null,
+          price: null,
+          invoice_number: null,
+          store_email: null,
+        },
+      },
+      'POST /purchases': { status: 201, body: created },
+      'PUT /purchases/7/invoice/upload': { body: { ...created, invoice_filename: 'fatura.pdf' } },
+      'GET /purchases/7': { body: { ...created, invoice_filename: 'fatura.pdf' } },
+    })
+    renderApp('/compras/nova')
+    const file = new File(['%PDF-1.4'], 'fatura.pdf', { type: 'application/pdf' })
+    await userEvent.upload(await screen.findByLabelText('Fatura'), file)
+    expect(await screen.findByRole('status')).toHaveTextContent('preenchemos: loja')
+    await fillForm()
+
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    expect(await screen.findByRole('heading', { name: 'Portátil Lenovo IdeaPad 5' })).toBeInTheDocument()
+    const s3Calls = fetchMock.mock.calls.filter((c) => String(c[0]).startsWith('https://faturas'))
+    expect(s3Calls).toHaveLength(1) // a leitura e a gravação usam o mesmo envio
+    const sent = s3Calls[0][1]!.body as FormData
+    expect([...sent.keys()]).toEqual(['key', 'policy', 'x-amz-signature', 'file'])
+    expect(sent.get('file')).toBe(file)
+    expect(new Headers(s3Calls[0][1]!.headers).get('Authorization')).toBeNull()
+    const attach = fetchMock.mock.calls.find((c) => c[0] === '/api/purchases/7/invoice/upload')
+    expect(JSON.parse(attach![1]!.body as string)).toEqual({ token, filename: 'fatura.pdf' })
+  })
+
+  it('recusa logo uma fatura maior do que o limite', async () => {
+    mockApi({
+      'GET /auth/me': { body: USER },
+      'POST /purchases/uploads': {
+        body: { direct: true, max_bytes: 4, token: 'b'.repeat(32), url: 'https://s3/', fields: {} },
+      },
+      'POST /purchases': { status: 201, body: makePurchase({ id: 8 }) },
+      'GET /purchases/8': { body: makePurchase({ id: 8 }) },
+    })
+    renderApp('/compras/nova')
+    await userEvent.upload(
+      await screen.findByLabelText('Fatura'),
+      new File(['%PDF-1.4 grande'], 'f.pdf', { type: 'application/pdf' }),
+    )
+    await fillForm()
+    await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+    // A compra fica guardada; o erro da fatura aparece no detalhe.
+    expect(await screen.findByRole('alert')).toHaveTextContent('não pode ter mais de 0 MB')
+  })
+
   it('a zona da fatura é um botão que abre o seletor de ficheiros', async () => {
     mockApi({ 'GET /auth/me': { body: USER } })
     renderApp('/compras/nova')

@@ -12,11 +12,21 @@ type Handler = (init: RequestInit | undefined) => { status?: number; body?: unkn
  * Simula a API: cada chave é "MÉTODO /caminho" (sem o /api). Devolve o mock do fetch
  * para os testes verificarem os pedidos feitos.
  */
+// Como o backend em desenvolvimento (faturas em disco): sem upload direto para o S3.
+export const NO_DIRECT_UPLOAD = {
+  direct: false,
+  max_bytes: 10 * 1024 * 1024,
+  token: null,
+  url: null,
+  fields: null,
+}
+
 export function mockApi(routes: Record<string, Handler | { status?: number; body?: unknown }>) {
+  const allRoutes: typeof routes = { 'POST /purchases/uploads': { body: NO_DIRECT_UPLOAD }, ...routes }
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input).replace(/^\/api/, '')
     const key = `${init?.method ?? 'GET'} ${path}`
-    const route = routes[key]
+    const route = allRoutes[key]
     if (!route) throw new Error(`Pedido inesperado: ${key}`)
     const { status = 200, body } = typeof route === 'function' ? route(init) : route
     return new Response(status === 204 ? null : JSON.stringify(body ?? null), {

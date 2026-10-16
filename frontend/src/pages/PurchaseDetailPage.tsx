@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate, useParams } from 'react-router'
 import { api, ApiError } from '../api'
 import { ClaimSection } from '../components/ClaimSection'
 import { InvoicePicker } from '../components/InvoicePicker'
+import { attachStaged, stageInvoice } from '../invoiceUpload'
 import { StatusBadge } from '../components/StatusBadge'
 import type { Purchase } from '../types'
 import { usePageTitle } from '../usePageTitle'
@@ -51,7 +52,7 @@ export function PurchaseDetailPage() {
   const uploadInvoice = () =>
     run(async () => {
       if (!newInvoice) return
-      setPurchase(await api.uploadInvoice(purchaseId, newInvoice))
+      setPurchase(await attachStaged(purchaseId, await stageInvoice(newInvoice)))
       setNewInvoice(null)
     }, 'Erro ao enviar a fatura')
 

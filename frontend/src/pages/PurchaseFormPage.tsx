@@ -4,6 +4,8 @@ import { Link, useNavigate, useParams } from 'react-router'
 
 import { api, ApiError } from '../api'
 import { InvoicePicker } from '../components/InvoicePicker'
+import { attachStaged, scanStaged, stageInvoice } from '../invoiceUpload'
+import type { StagedInvoice } from '../invoiceUpload'
 import type { InvoiceScan, PurchaseInput } from '../types'
 import { usePageTitle } from '../usePageTitle'
 import { addMonths, formatLongDate, parsePrice, todayISO } from '../warranty'
@@ -74,6 +76,8 @@ export function PurchaseFormPage() {
   }, [form])
   const touched = useRef(new Set<keyof FormState>())
   const scanRequest = useRef(0)
+  // A fatura escolhida, já enviada (ou a caminho): a leitura e a gravação usam o mesmo envio.
+  const staged = useRef<Promise<StagedInvoice> | null>(null)
 
   useEffect(() => {
     if (!editing) return
@@ -107,12 +111,13 @@ export function PurchaseFormPage() {
   async function chooseInvoice(file: File | null) {
     setInvoice(file)
     setScanStatus(null)
-    if (!file) return
+    staged.current = file ? stageInvoice(file) : null
+    if (!file || !staged.current) return
     const request = ++scanRequest.current
     setScanStatus('A ler a fatura…')
     let scan: InvoiceScan
     try {
-      scan = await api.scanInvoice(file)
+      scan = await scanStaged(await staged.current)
     } catch {
       // Ler é só uma ajuda: se falhar, preenche-se à mão (e o envio mostra o erro da fatura).
       if (request === scanRequest.current) setScanStatus(null)
@@ -165,9 +170,9 @@ export function PurchaseFormPage() {
       const saved = editing
         ? await api.updatePurchase(Number(id), data)
         : await api.createPurchase(data)
-      if (invoice) {
+      if (invoice && staged.current) {
         try {
-          await api.uploadInvoice(saved.id, invoice)
+          await attachStaged(saved.id, await staged.current)
         } catch (err) {
           // A compra ficou guardada; mostramos o erro da fatura no detalhe.
           const message = err instanceof ApiError ? err.message : 'Erro ao enviar a fatura'

@@ -1,4 +1,4 @@
-import type { Claim, InvoiceScan, Purchase, PurchaseInput, User } from './types'
+import type { Claim, InvoiceScan, Purchase, PurchaseInput, UploadTicket, User } from './types'
 
 const BASE = '/api'
 const TOKEN_KEY = 'warrantly.token'
@@ -121,6 +121,22 @@ export const api = {
     body.append('file', file)
     return request<InvoiceScan>('/purchases/scan-invoice', { method: 'POST', body })
   },
+  createUpload: () => request<UploadTicket>('/purchases/uploads', { method: 'POST' }),
+  /** Envia o ficheiro diretamente para o S3 (sem passar pela API, nem levar o token da sessão). */
+  async uploadToStorage(ticket: UploadTicket, file: File): Promise<void> {
+    const body = new FormData()
+    for (const [name, value] of Object.entries(ticket.fields ?? {})) body.append(name, value)
+    body.append('file', file) // o S3 exige o ficheiro em último lugar
+    const response = await fetch(ticket.url!, { method: 'POST', body })
+    if (!response.ok) throw new ApiError(response.status, 'Não foi possível enviar a fatura')
+  },
+  scanUpload: (token: string) =>
+    request<InvoiceScan>(`/purchases/uploads/${token}/scan`, { method: 'POST' }),
+  attachUpload: (id: number, token: string, filename: string) =>
+    request<Purchase>(`/purchases/${id}/invoice/upload`, {
+      method: 'PUT',
+      json: { token, filename },
+    }),
   deleteInvoice: (id: number) => request<void>(`/purchases/${id}/invoice`, { method: 'DELETE' }),
   getInvoice: (id: number) => requestBlob(`/purchases/${id}/invoice`),
   exportPurchases: () => requestBlob('/purchases/export'),

@@ -1,13 +1,15 @@
 from collections.abc import Iterator
 from pathlib import Path
 
+import boto3
 import pytest
 from alembic import command
 from alembic.config import Config
 from fastapi.testclient import TestClient
+from moto import mock_aws
 from sqlalchemy.orm import Session
 
-from app import rate_limit
+from app import rate_limit, storage
 from app.config import settings
 from app.db import engine, get_session
 from app.main import app
@@ -80,3 +82,29 @@ def reset_rate_limits() -> Iterator[None]:
     rate_limit.reset_all()
     yield
     rate_limit.reset_all()
+
+
+S3_BUCKET = "warrantly-faturas-teste"
+
+
+@pytest.fixture
+def s3(monkeypatch: pytest.MonkeyPatch, upload_dir: Path) -> Iterator[object]:
+    """Faturas no S3 simulado pelo moto (em memória, sem rede e sem a AWS real)."""
+    monkeypatch.setenv("AWS_ACCESS_KEY_ID", "teste")
+    monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "teste")
+    monkeypatch.delenv("AWS_PROFILE", raising=False)
+    with mock_aws():
+        client = boto3.client("s3", region_name="eu-west-1")
+        client.create_bucket(
+            Bucket=S3_BUCKET, CreateBucketConfiguration={"LocationConstraint": "eu-west-1"}
+        )
+        monkeypatch.setattr(settings, "storage_backend", "s3")
+        monkeypatch.setattr(settings, "s3_bucket", S3_BUCKET)
+        monkeypatch.setattr(settings, "aws_region", "eu-west-1")
+        storage._s3.cache_clear()
+        yield client
+        storage._s3.cache_clear()
+
+
+def s3_objects(client) -> list[str]:
+    return [o["Key"] for o in client.list_objects_v2(Bucket=S3_BUCKET).get("Contents", [])]
