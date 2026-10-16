@@ -1,11 +1,10 @@
-name: Alertas diários
+name: Alertas (à mão)
 
-# Pede à app em produção que envie os alertas de garantia (60 e 15 dias antes do fim).
+# Os alertas diários correm na AWS, com o EventBridge Scheduler (infra/app/scheduler.tf).
+# Este workflow serve para os correr à mão (Actions → Run workflow), por exemplo para testar.
 # Precisa da variável APP_URL (o output app_url do Terraform, https://<id>.cloudfront.net) e
 # do segredo ALERTS_TOKEN (o mesmo valor que /warrantly/prod/ALERTS_TOKEN no SSM).
 on:
-  schedule:
-    - cron: "47 7 * * *" # 07:47 UTC (08:47 em Lisboa no verão, 07:47 no inverno)
   workflow_dispatch:
 
 jobs:

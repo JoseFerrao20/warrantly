@@ -10,8 +10,8 @@ Objetivo: aprender cloud a partir de zero, pondo o Warrantly a correr na AWS da 
 | 4 | Terraform | o que é IaC, estado remoto (bucket S3), `plan`/`apply`; ECR, Lambda + Function URL, S3 (faturas e frontend), CloudFront, SES, papéis IAM com o mínimo de permissões, orçamento | código aqui, `apply` em casa |
 | 5 | CI/CD com OIDC | o GitHub Actions entra na AWS com credenciais temporárias (sem chaves no repositório); `terraform plan` comentado em cada PR; deploy da imagem depois do merge | código aqui |
 | 6 | Upload direto para o S3 | POST pré-assinado (o browser envia a fatura para o bucket, até 10 MB, sem passar pelo Lambda), CORS, regra de ciclo de vida para os temporários | ✅ feito |
-| 6b | Alertas agendados | EventBridge Scheduler em vez do `alerts.yml` | código aqui |
-| 7 | Observabilidade | logs estruturados (JSON), CloudWatch, métricas e traces com OpenTelemetry, alarmes e um runbook de incidentes | código aqui |
+| 6b | Alertas agendados ([ADR 0006](adr/0006-alertas-com-eventbridge-scheduler.md)) | EventBridge Scheduler com fuso horário, papel IAM para invocar o Lambda, eventos que não são HTTP pelo Lambda Web Adapter | ✅ código, `apply` em casa |
+| 7 | Observabilidade ([ADR 0005](adr/0005-observabilidade.md)) | logs estruturados (JSON), métricas EMF, alarmes por email (SNS) e dashboard no CloudWatch; mais tarde, traces com OpenTelemetry e um runbook de incidentes | ✅ código, `apply` em casa |
 | 8 | Extra: Kubernetes local | k3d + chart Helm do Warrantly, para perceber os conceitos sem pagar EKS | em casa (precisa de Docker) |
 
 Em paralelo, para o CV: certificação **AWS Certified Cloud Practitioner** (entrada) e, mais tarde, **Solutions Architect – Associate**.
@@ -96,7 +96,7 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
 6. **Primeiro deploy**: Actions → Deploy → Run workflow.
    - O workflow cria o ECR, publica a imagem, aplica as migrações no Neon, cria o resto com o Terraform e publica o frontend.
    - O endereço aparece no resumo da execução: `https://<id>.cloudfront.net`.
-   - Pôr esse endereço na variável `APP_URL`, para os alertas diários.
+   - Pôr esse endereço na variável `APP_URL`, para correr os alertas à mão (Actions → Alertas). Os diários correm sozinhos, com o EventBridge Scheduler.
 7. **SES**: confirmar o email de verificação que a AWS envia para `MAIL_FROM_ADDRESS`. Enquanto o SES estiver em "sandbox", só envia para endereços verificados, por isso verifica também o teu (SES → Identities).
 8. **Verificações**
    - Criar conta e registar uma compra com uma fatura PDF; a fatura abre inteira.
@@ -105,6 +105,8 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    - `<APP_URL>/api/docs` dá 404.
    - 6 logins errados seguidos dão "Demasiadas tentativas".
    - Em CloudWatch → Log groups → `/aws/lambda/warrantly-api`, os logs aparecem.
+   - Alertas agendados: Lambda → `warrantly-api` → Testar, com o evento `{"task": "alerts"}`; a resposta tem `emails_sent`. Ver também o agendamento em EventBridge → Scheduler → Schedules.
+   - `curl -s -X POST <APP_URL>/api/internal/events -H 'Content-Type: application/json' -d '{"task":"alerts"}'` dá 403: a rota só aceita eventos do próprio Lambda.
 9. **Lock files do Terraform**: depois do primeiro `terraform init` em `infra/bootstrap` e `infra/app`, fazer commit dos ficheiros `.terraform.lock.hcl`. Fixam as versões exatas dos providers; não foi possível gerá-los na sessão cloud.
 
 A partir daqui, cada merge no `main` com o CI verde é publicado sozinho. Em cada PR que mexa em `infra/`, o workflow Infra mostra o `terraform plan`.

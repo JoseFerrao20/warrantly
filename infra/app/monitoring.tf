@@ -133,8 +133,7 @@ resource "aws_cloudwatch_metric_alarm" "latency" {
 }
 
 # Os alertas diários não correram: cada corrida escreve a métrica AlertEmailsSent (mesmo que
-# seja 0). Sem nenhum valor num dia inteiro, o agendamento parou (por exemplo, o GitHub
-# desliga os workflows agendados de repositórios sem atividade há 60 dias).
+# seja 0). Sem nenhum valor num dia inteiro, o agendamento (scheduler.tf) parou ou falhou.
 resource "aws_cloudwatch_metric_alarm" "alerts_not_running" {
   alarm_name          = "${var.project}-alerts-not-running"
   alarm_description   = "Os alertas diários de garantia não correram nas últimas 24 horas."

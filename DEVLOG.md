@@ -79,9 +79,21 @@
     - O `fileConfig` do Alembic desligava os loggers que já existiam; nos testes, as migrações correm depois de a app ser importada, e os logs desapareciam. Com `disable_existing_loggers=False` no `alembic/env.py`, saiu também o remendo do teste do push.
     - O contexto do pedido (`contextvars`) já foi limpo quando o teste formata o log, por isso o `request_id` vai também nos campos da linha.
 
+- **2026-10-16 (sessão cloud do Claude Code):** alertas diários com o **EventBridge Scheduler** em vez do cron do GitHub Actions ([ADR 0006](docs/adr/0006-alertas-com-eventbridge-scheduler.md)).
+  - **Porquê:** o cron do GitHub é em UTC (a hora em Lisboa mudava com a hora de verão), atrasa nas horas de muito trabalho e desliga-se em repositórios sem atividade. Além disso, obrigava a copiar um segredo para o GitHub.
+  - **Terraform (`scheduler.tf`):**
+    - um agendamento às 08:47 com o fuso `Europe/Lisbon`, que invoca o Lambda com `{"task": "alerts"}`;
+    - um papel IAM que só o Scheduler desta conta pode assumir (`aws:SourceAccount`) e que só pode invocar este Lambda;
+    - novas tentativas durante uma hora se a entrega falhar.
+  - **App:** não há um Lambda novo. O Lambda Web Adapter entrega os eventos que não são HTTP como `POST` em `AWS_LWA_PASS_THROUGH_PATH` (`/api/internal/events`, no Dockerfile). A rota só os aceita com o contexto do Lambda e sem o contexto de um pedido HTTP, que o adapter põe em tudo o que chega pela Function URL. Assim não há segredos no agendamento. O risco que fica está escrito no ADR e é baixo, porque os avisos não se repetem.
+  - **GitHub:** o `alerts.yml` fica só para correr os alertas à mão.
+  - **Testes:** 247 no backend (5 novos: o evento envia os alertas, pedidos HTTP recusados (dois casos), tarefa desconhecida, email por configurar). `terraform validate` passa.
+  - **Lição:** um ponto de entrada novo não obriga a um serviço novo. Com o pass-through do adapter, a mesma imagem trata pedidos HTTP e eventos da AWS.
+  - **Fica para o deploy:** confirmar que o adapter se comporta como esperado (passos novos no runbook: testar o Lambda com o evento, e confirmar que `POST /api/internal/events` pelo CloudFront dá 403).
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 30 PRs. Tudo está testado no CI: backend com 242 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 31 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -90,7 +102,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (242 testes, sem avisos) e `cd frontend && npm test` (80 testes).
+  - `cd backend && alembic upgrade head && pytest` (247 testes, sem avisos) e `cd frontend && npm test` (80 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -107,14 +119,14 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   4. segredos no SSM (`SECRET_KEY`, `ALERTS_TOKEN`, `DATABASE_URL`);
   5. variáveis e segredo no GitHub;
   6. Actions → Deploy → Run workflow; confirmar o email do SES;
-  7. verificações: fatura PDF inteira (CSP), cabeçalhos, `/api/docs` com 404, 6 logins errados dão "Demasiadas tentativas", o cookie `warrantly_refresh` com `Secure` e `HttpOnly` (DevTools → Application → Cookies) e a sessão a continuar depois de 15 minutos, o dashboard do CloudWatch (output `dashboard_url`), uma pesquisa por `request_id` no Logs Insights e o email de confirmação dos alarmes (variável `ALARM_EMAIL`);
+  7. verificações: fatura PDF inteira (CSP), cabeçalhos, `/api/docs` com 404, 6 logins errados dão "Demasiadas tentativas", o cookie `warrantly_refresh` com `Secure` e `HttpOnly` (DevTools → Application → Cookies) e a sessão a continuar depois de 15 minutos, o dashboard do CloudWatch (output `dashboard_url`), uma pesquisa por `request_id` no Logs Insights e o email de confirmação dos alarmes (variável `ALARM_EMAIL`), o Lambda testado com o evento `{"task": "alerts"}` e o 403 em `POST /api/internal/events` (ver o runbook);
   8. commit dos `.terraform.lock.hcl`.
   - Se algo falhar, copiar o erro (do Actions ou do terminal) para a sessão do Claude Code e corrigir num PR.
 - [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério e ver o que a leitura preenche. Anotar o que correr mal.
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximos passos do roteiro (`docs/cloud.md`): alertas pelo EventBridge Scheduler (o alarme "alertas não correram" já existe para quando falharem). Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
+Próximos passos do roteiro (`docs/cloud.md`): segurança no CI (Dependabot, CodeQL, análise da imagem e do Terraform) e o README de portfólio. Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).
