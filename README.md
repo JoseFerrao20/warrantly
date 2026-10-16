@@ -17,6 +17,7 @@ Em Portugal, os bens novos têm 3 anos de garantia legal (Decreto-Lei n.º 84/20
 - **Reclamação pronta:** a partir de uma compra e de uma descrição da avaria, gera o texto da reclamação para a loja, com os dados da compra e a fatura em anexo.
 - **Pesquisa e filtros:** por loja, categoria e estado.
 - **Exportar:** um ZIP com todas as compras (CSV para o Excel e JSON) e as faturas.
+- **App móvel:** Android e iOS (Expo), para ver as garantias e registar uma compra fotografando a fatura na loja.
 
 Ideias para depois: partilhar o arquivo com a família.
 
@@ -37,6 +38,7 @@ Ideias para depois: partilhar o arquivo com a família.
 ## Stack prevista
 
 - **Frontend:** React com TypeScript
+- **App móvel:** Expo (React Native) com TypeScript
 - **Backend:** Python (API REST) com PostgreSQL e migrações Alembic
 - **Testes:** pytest, testes de componentes e Playwright (E2E)
 - **Ambiente:** dev container (VS Code no desktop, GitHub Codespaces no portátil)
@@ -135,7 +137,30 @@ Se a API e o Vite já estiverem a correr, os testes usam-nos (nesse caso, arranc
 
 Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `http://localhost:8000` (configurável com `API_URL`), por isso não é preciso configurar CORS. Páginas: login e registo (`/entrar`), painel (`/`), nova compra (`/compras/nova`), detalhe (`/compras/:id`), edição (`/compras/:id/editar`) e conta (`/conta`: nome, tema e apagar conta). O tema segue o modo claro/escuro do sistema, mas pode ser fixado em "Claro" ou "Escuro" (fica guardado no browser).
 
-O CI corre em cada PR e em cada push para o `main`: `.github/workflows/backend.yml` corre o ruff (lint e formatação), aplica as migrações e corre os testes com Postgres, `.github/workflows/frontend.yml` corre o lint, os tipos, os testes e o build do frontend, e `.github/workflows/e2e.yml` corre os testes do Playwright com Postgres (o relatório fica como artefacto quando falham).
+### App móvel
+
+App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo Router), na pasta `mobile/`. Usa a mesma API e a mesma conta do site. Faz o essencial para usar na loja ou em casa:
+- entrar (o token fica guardado no armazenamento seguro do telemóvel, com o `expo-secure-store`);
+- ver as garantias, com as que estão a expirar primeiro e o aviso de quantas terminam nos próximos 60 dias, e puxar para atualizar;
+- ver o detalhe de uma compra;
+- registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site.
+
+Ver a fatura, gerar a reclamação, editar e exportar continuam no site. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
+
+```bash
+cd mobile
+npm install
+cp .env.example .env.local   # EXPO_PUBLIC_API_URL: o endereço da API visto do telemóvel
+npx expo start               # QR code para abrir na app Expo Go (Android ou iOS)
+npm run lint && npm run typecheck && npm test
+```
+
+O telemóvel tem de chegar à API. Há três formas:
+- **Sem contentor:** o telemóvel e o computador na mesma rede Wi-Fi, a API com `uvicorn app.main:app --host 0.0.0.0` e `EXPO_PUBLIC_API_URL=http://<IP do computador>:8000`.
+- **No Codespace:** pôr a porta 8000 como pública e usar o endereço `https://…-8000.app.github.dev`, com `npx expo start --tunnel`.
+- **Contra a AWS:** `EXPO_PUBLIC_API_URL=https://<domínio do CloudFront>/api`.
+
+O CI corre em cada PR e em cada push para o `main`: `.github/workflows/backend.yml` corre o ruff (lint e formatação), aplica as migrações e corre os testes com Postgres, `.github/workflows/frontend.yml` corre o lint, os tipos, os testes e o build do frontend, `.github/workflows/mobile.yml` corre o lint, os tipos, os testes e o bundle de Android da app móvel, e `.github/workflows/e2e.yml` corre os testes do Playwright com Postgres (o relatório fica como artefacto quando falham).
 
 ## Cloud (AWS)
 

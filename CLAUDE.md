@@ -9,7 +9,8 @@ Arquivo de garantias: compras com fatura, prazo da garantia calculado, alertas p
   - `app/routers/`: `auth`, `purchases` (compras, fatura, reclamação, PDF, exportação) e `internal` (alertas por HTTP).
   - `app/claims.py` (texto da carta), `app/claim_pdf.py` (PDF com a fatura junta), `app/alerts.py` (`python -m app.alerts`), `app/storage.py` (faturas em disco ou no S3, por `STORAGE_BACKEND`, e conversão de HEIC), `app/export.py` (ZIP com CSV, JSON e faturas), `app/invoice_scan.py` (leitura da fatura: texto do PDF ou OCR com o Tesseract, e sugestão dos campos).
 - `frontend/`: Vite + React 19 + TypeScript + React Router 8, CSS próprio em `src/index.css` (tokens claro/escuro). Testes em `src/**/*.test.tsx` (Vitest) e `e2e/` (Playwright).
-- `infra/` (Terraform: `bootstrap/`, que corre uma vez à mão, e `app/`, com ECR, Lambda, S3, CloudFront e SES), `.devcontainer/` (dev container e Codespace, com Postgres, Mailpit, AWS CLI e Terraform), `Dockerfile` (fases `app` e `lambda`) e `.github/workflows/` (backend, frontend, e2e, docker, infra, deploy e alerts).
+- `mobile/`: app Expo (SDK 58, React Native, Expo Router com rotas em `src/app/`, que só pode ter ecrãs). `src/lib/` (API, token no `expo-secure-store`, sessão, upload da fatura, tema e componentes), `src/shared/` (cópias de `frontend/src/types.ts` e `warranty.ts`, mantidas iguais por um teste) e testes em `src/test/` (jest-expo e Testing Library, com o `fetch` simulado).
+- `infra/` (Terraform: `bootstrap/`, que corre uma vez à mão, e `app/`, com ECR, Lambda, S3, CloudFront e SES), `.devcontainer/` (dev container e Codespace, com Postgres, Mailpit, AWS CLI e Terraform), `Dockerfile` (fases `app` e `lambda`) e `.github/workflows/` (backend, frontend, mobile, e2e, docker, infra, deploy e alerts).
 
 ## Comandos
 
@@ -27,6 +28,11 @@ uvicorn app.main:app --reload --port 8000     # API para desenvolvimento
 npm run lint && npm run typecheck && npm test && npm run build
 npm run dev                                   # http://localhost:5173 (proxy /api → :8000)
 npm run e2e                                   # Playwright; arranca a API e o Vite sozinho
+
+# App móvel (pasta mobile/)
+npm run lint && npm run typecheck && npm test
+npx expo export --platform android --output-dir /tmp/expo-export   # bundle, como no CI
+EXPO_OFFLINE=1 npx expo install <pacote>      # versões compatíveis com o SDK; offline se a api.expo.dev estiver bloqueada
 
 # Infraestrutura (pasta infra/)
 terraform fmt -recursive && terraform -chdir=app init -backend=false && terraform -chdir=app validate
@@ -52,6 +58,7 @@ terraform fmt -recursive && terraform -chdir=app init -backend=false && terrafor
 - Segurança: o servidor de produção (`app/server.py`) envia uma CSP sem scripts inline, por isso nada de `<script>` inline no `index.html` (usar `public/`). Para testar a CSP, correr `uvicorn app.server:server` com `STATIC_DIR=../frontend/dist` e os E2E com `E2E_BASE_URL`. Os limites de tentativas (`app/rate_limit.py`) desligam-se com `RATE_LIMITS=false`, só nos E2E.
 - OCR: precisa do programa `tesseract` com o português (`tesseract-ocr-por`); o hook e o `post-create.sh` instalam-no. Sem ele, só as fotografias deixam de dar sugestões e o teste de OCR é saltado. A leitura só sugere: na dúvida, é melhor não sugerir nada.
 - Cloud: o alvo de produção é a AWS (roteiro em `docs/cloud.md`, decisões em `docs/adr/`, uma por ficheiro numerado). A app corre no Lambda (ADR 0002): não guardar nada em disco nem em memória que tenha de durar entre pedidos, e configurar por variáveis (`STORAGE_BACKEND`, `MAIL_BACKEND`, `DATABASE_POOL`, `SSM_PARAMETERS_PATH`). Testes que mexem em `os.environ` trabalham numa cópia (`monkeypatch.setattr(os, "environ", os.environ.copy())`). O código nunca lê ficheiros de faturas por caminho: usa `storage.save/load/delete`. Com S3, as faturas vão do browser diretamente para o bucket (POST pré-assinado, `uploads/<utilizador>/<token>`; `src/invoiceUpload.ts` no frontend); sem S3, pela API. Testes com S3 usam a fixture `s3` do `conftest.py` (moto), nunca a AWS real.
+- App móvel: na Testing Library 14 o `fireEvent` é assíncrono (`await fireEvent.press(...)`); sem o `await`, os testes falham de formas estranhas. Os testes não podem ficar em `src/app/` (o Expo Router trata-os como rotas e o bundle parte). O `FormData` dos testes é o do React Native (`jest.setup.ts`), para os ficheiros `{ uri, name, type }`. Ao mudar `frontend/src/types.ts` ou `warranty.ts`, copiar para `mobile/src/shared/`. O TypeScript 6 só carrega os tipos listados em `types` no `tsconfig.json`.
 - O React StrictMode corre os efeitos duas vezes em desenvolvimento: não contar com "primeira execução" num `useEffect`.
 - O pytest trata `StarletteDeprecationWarning` como erro: o `TestClient` precisa do `httpx2`, não do `httpx`.
 - Variáveis vazias no `.env` contam como não definidas (`env_ignore_empty`); em produção, `ENVIRONMENT=production` recusa a `SECRET_KEY` de exemplo.
