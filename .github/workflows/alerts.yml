@@ -7,6 +7,10 @@ name: Alertas (à mão)
 on:
   workflow_dispatch:
 
+# O token do GitHub só lê o repositório (o mínimo).
+permissions:
+  contents: read
+
 jobs:
   alerts:
     runs-on: ubuntu-latest

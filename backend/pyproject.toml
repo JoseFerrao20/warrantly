@@ -33,7 +33,12 @@ line-length = 100
 target-version = "py312"
 
 [tool.ruff.lint]
-select = ["E", "F", "I", "B", "UP"]
+# S: regras de segurança do Bandit (subprocessos, URLs, segredos no código, ...).
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# Nos testes, assert é a forma normal de verificar, e as palavras-passe são de exemplo.
+"tests/**" = ["S101", "S105", "S106", "S107", "S113"]
 
 [tool.ruff.lint.isort]
 # A pasta alembic/ (migrações) não deve fazer o pacote alembic parecer local.

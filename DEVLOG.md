@@ -91,9 +91,25 @@
   - **Lição:** um ponto de entrada novo não obriga a um serviço novo. Com o pass-through do adapter, a mesma imagem trata pedidos HTTP e eventos da AWS.
   - **Fica para o deploy:** confirmar que o adapter se comporta como esperado (passos novos no runbook: testar o Lambda com o evento, e confirmar que `POST /api/internal/events` pelo CloudFront dá 403).
 
+- **2026-10-16 (sessão cloud do Claude Code):** segurança no CI.
+  - **Workflow `security.yml`** (em cada PR, no `main` e às segundas, porque aparecem vulnerabilidades novas em dependências antigas):
+    - **Checkov** no Terraform, no Dockerfile e nos workflows;
+    - **pip-audit** no backend, num ambiente à parte, para não auditar as suas próprias dependências;
+    - **npm audit** no frontend (pára com "high") e na app (só com "critical": os 21 avisos "high" vêm do Metro, do node-forge e do braces, ferramentas de build do Expo, e a "correção" proposta era descer para o Expo 44).
+  - **Checkov:** a primeira passagem deu 42 falhas.
+    - **Corrigidas:** HSTS com `includeSubDomains` e `preload`; regra para apagar uploads multipart abandonados; tags **imutáveis** no ECR (o deploy reutiliza a imagem se o commit já tiver sido publicado); `HEALTHCHECK` no Dockerfile; `permissions: contents: read` em seis workflows.
+    - **Aceites (29):** ficam no `.checkov.yaml`, cada uma com a razão. Quase todas custam dinheiro todos os meses (WAF, chaves KMS próprias, NAT para a VPC, logs de acesso, replicação) ou não se aplicam (certificado próprio sem domínio, Function URL sem IAM, explicado no ADR 0002).
+  - **Python:** o ruff passa a correr as regras de segurança do Bandit (`S`).
+    - O Tesseract é chamado pelo caminho completo (`shutil.which`), para não depender do `PATH` no momento da chamada.
+    - O `assert` do `storage.py` passou a um erro explícito: com `python -O`, os `assert` desaparecem.
+    - Os falsos positivos ficaram com `noqa` e a razão.
+  - **Dependabot:** um PR por semana e por ecossistema (pip, npm, GitHub Actions, Docker e Terraform), com as atualizações agrupadas. Na app, o Expo, o React e o React Native só recebem correções, porque mudam com o SDK.
+  - **CodeQL:** fica pronto num `codeql.yml`, mas o job só corre em repositórios públicos (o code scanning é grátis aí). O repositório ainda é privado.
+  - **Lição:** instalar o Checkov no `.venv` do backend desceu a versão do botocore, e os testes passaram a mostrar 60 avisos de `datetime.utcnow()`. As ferramentas de análise ficam num ambiente à parte, aqui e no CI.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 31 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 32 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -126,7 +142,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximos passos do roteiro (`docs/cloud.md`): segurança no CI (Dependabot, CodeQL, análise da imagem e do Terraform) e o README de portfólio. Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
+Próximo passo: o README de portfólio (diagrama da arquitetura, capturas de ecrã, decisões técnicas) e tornar o repositório público, o que liga também o CodeQL. Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).

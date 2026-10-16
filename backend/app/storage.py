@@ -202,7 +202,8 @@ def _s3(bucket: str, region: str | None, endpoint_url: str | None) -> S3Storage:
 
 def backend() -> Storage:
     if settings.storage_backend == "s3":
-        assert settings.s3_bucket  # garantido pela validação em config.py
+        if not settings.s3_bucket:  # a validação em config.py já o impede
+            raise RuntimeError("STORAGE_BACKEND=s3 sem S3_BUCKET")
         return _s3(settings.s3_bucket, settings.aws_region, settings.s3_endpoint_url)
     return LocalStorage()
 

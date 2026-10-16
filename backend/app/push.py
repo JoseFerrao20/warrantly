@@ -46,7 +46,8 @@ def _post(messages: list[dict]) -> list[dict]:
     request = urllib.request.Request(
         EXPO_PUSH_URL, data=json.dumps(messages).encode(), headers=headers, method="POST"
     )
-    with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:
+    # URL fixo (https, o serviço do Expo): o S310 avisa para URLs vindos de fora.
+    with urllib.request.urlopen(request, timeout=TIMEOUT_SECONDS) as response:  # noqa: S310
         return json.load(response)["data"]
 
 

@@ -1,7 +1,9 @@
 # Registo das imagens Docker da API (o Lambda corre a partir daqui).
 resource "aws_ecr_repository" "api" {
-  name                 = "${var.project}-api"
-  image_tag_mutability = "MUTABLE"
+  name = "${var.project}-api"
+  # Cada imagem é publicada com o SHA do commit e nunca é substituída: o que está no Lambda é
+  # sempre o código daquele commit.
+  image_tag_mutability = "IMMUTABLE"
 
   image_scanning_configuration {
     scan_on_push = true # procura vulnerabilidades conhecidas em cada imagem

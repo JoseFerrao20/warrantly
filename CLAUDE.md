@@ -34,6 +34,9 @@ npm run lint && npm run typecheck && npm test
 npx expo export --platform android --output-dir /tmp/expo-export   # bundle, como no CI
 EXPO_OFFLINE=1 npx expo install <pacote>      # versões compatíveis com o SDK; offline se a api.expo.dev estiver bloqueada
 
+# Segurança (raiz do repositório; o CI corre o mesmo em security.yml)
+pip install checkov==3.3.29 && checkov --config-file .checkov.yaml   # num venv à parte, não no do backend
+
 # Infraestrutura (pasta infra/)
 terraform fmt -recursive && terraform -chdir=app init -backend=false && terraform -chdir=app validate
 ```
@@ -61,6 +64,7 @@ terraform fmt -recursive && terraform -chdir=app init -backend=false && terrafor
 - App móvel: na Testing Library 14 o `fireEvent` é assíncrono (`await fireEvent.press(...)`); sem o `await`, os testes falham de formas estranhas. Os testes não podem ficar em `src/app/` (o Expo Router trata-os como rotas e o bundle parte). O `FormData` dos testes é o do React Native (`jest.setup.ts`), para os ficheiros `{ uri, name, type }`. Ao mudar `frontend/src/types.ts` ou `warranty.ts`, copiar para `mobile/src/shared/`. O TypeScript 6 só carrega os tipos listados em `types` no `tsconfig.json`. Push (`docs/push.md`): a Expo Go no Android não o recebe (é preciso uma development build); nos testes, o `expo-notifications`, o `expo-device` e o `expo-constants` estão simulados no `jest.setup.ts` (`__tap(data)` simula tocar numa notificação), e o backend nunca chama o Expo (fixture `no_real_push`). O `expo prebuild` muda os scripts do `package.json`: não fazer commit disso nem da pasta `android/`.
 - Sessões: o token de acesso dura 15 minutos e os clientes (`frontend/src/api.ts`, `mobile/src/lib/api.ts`) renovam-no sozinhos com um 401. O cookie do refresh token tem o caminho `REFRESH_COOKIE_PATH` (`/api/auth`, como o browser vê a API); nos testes do backend, a API está em `/auth` e o `tests/test_sessions.py` muda o caminho. Os `mockApi` dos testes do frontend e da app respondem 401 ao `/auth/refresh` por omissão.
 - Métricas: cada nome novo em `metric(...)` é uma métrica personalizada no CloudWatch, e o nível gratuito tem 10 (já estão todas usadas; ver ADR 0005). Antes de criar outra, usar `properties` (ficam no log, sem custo) ou trocar uma existente. As rotas nos logs são o modelo (`/purchases/{purchase_id}`), nunca o caminho com ids.
+- Segurança no CI: o ruff tem as regras `S` (Bandit); um `# noqa: S…` leva sempre a razão ao lado. Uma falha nova do Checkov corrige-se ou, se não se aplicar, entra no `skip-check` do `.checkov.yaml` com a razão. Não instalar o Checkov no `.venv` do backend: muda versões do botocore e aparecem avisos nos testes. As tags do ECR são imutáveis: o deploy reutiliza a imagem se o SHA já existir.
 - O React StrictMode corre os efeitos duas vezes em desenvolvimento: não contar com "primeira execução" num `useEffect`.
 - O pytest trata `StarletteDeprecationWarning` como erro: o `TestClient` precisa do `httpx2`, não do `httpx`.
 - Variáveis vazias no `.env` contam como não definidas (`env_ignore_empty`); em produção, `ENVIRONMENT=production` recusa a `SECRET_KEY` de exemplo.

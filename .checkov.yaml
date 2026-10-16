@@ -1,0 +1,58 @@
+# Checkov: análise de segurança do Terraform, do Dockerfile e dos workflows (security.yml).
+# Correr localmente: checkov --config-file .checkov.yaml
+#
+# Cada exceção abaixo foi vista e aceite, com a razão ao lado. A maioria custa dinheiro todos os
+# meses (WAF, KMS próprio, NAT, logs de acesso) e não faz sentido num projeto pessoal sem
+# utilizadores; voltar a pensar nelas se a app tiver utilizadores a sério. Uma falha nova no CI
+# quer dizer: corrigir ou, se não se aplicar, acrescentar aqui com a razão.
+directory:
+  - .
+# O código das apps tem outras ferramentas (ruff, pip-audit, npm audit).
+skip-path:
+  - backend
+  - frontend
+  - mobile
+  - node_modules
+framework:
+  - terraform
+  - github_actions
+  - dockerfile
+compact: true
+quiet: true
+skip-check:
+  # --- CloudFront ---------------------------------------------------------------------------
+  - CKV_AWS_68 # WAF: ~6 USD/mês no mínimo; os limites de tentativas estão na app (rate_limit.py)
+  - CKV2_AWS_47 # regras do WAF para o Log4j: sem WAF (e a app não usa Java)
+  - CKV_AWS_86 # logs de acesso do CloudFront: os pedidos à API já ficam nos logs JSON da app
+  - CKV_AWS_374 # restrição geográfica: a app não tem razão para bloquear países
+  - CKV_AWS_310 # origem de recurso: um só Lambda e um só bucket (ADR 0002)
+  - CKV_AWS_174 # TLS 1.2 mínimo: o certificado *.cloudfront.net não deixa escolher (só com domínio próprio)
+  - CKV2_AWS_42 # certificado próprio: ainda não há domínio
+  # --- Lambda -------------------------------------------------------------------------------
+  - CKV_AWS_117 # Lambda numa VPC: obrigava a um NAT Gateway (~35 USD/mês) para chegar ao Neon e ao SES
+  - CKV_AWS_115 # concorrência reservada: contas novas têm limite 10, e a AWS não deixa reservar abaixo disso
+  - CKV_AWS_116 # DLQ: o único evento assíncrono (Scheduler) tem novas tentativas e um alarme se falhar
+  - CKV_AWS_272 # assinatura do código: a imagem vem do ECR desta conta, publicada pelo deploy com OIDC
+  - CKV_AWS_173 # KMS próprio nas variáveis: não há segredos nas variáveis (estão no SSM, cifrados)
+  - CKV_AWS_50 # X-Ray: um só serviço; os logs com request_id chegam (ADR 0005)
+  - CKV_AWS_258 # Function URL sem IAM: o CloudFront não assina POST com corpo; a API tem a sua autenticação (ADR 0002)
+  - CKV_AWS_301 # Lambda público pela Function URL: o mesmo motivo (e a permissão exige a Function URL)
+  # --- Cifragem com chaves KMS próprias (1 USD/mês cada; as chaves da AWS já cifram tudo) ---
+  - CKV_AWS_136 # ECR
+  - CKV_AWS_158 # CloudWatch Logs
+  - CKV_AWS_145 # S3
+  - CKV_AWS_297 # EventBridge Scheduler
+  - CKV_AWS_26 # SNS: com a chave da AWS, o CloudWatch deixava de conseguir publicar os alarmes
+  - CKV2_AWS_34 # SSM APP_URL: não é segredo (os segredos são SecureString, criados à mão)
+  # --- S3 -----------------------------------------------------------------------------------
+  - CKV_AWS_18 # logs de acesso: mais um bucket e custos de armazenamento; o CloudTrail regista a gestão
+  - CKV_AWS_144 # replicação noutra região: duplica o custo; o Neon e as faturas não são críticos
+  - CKV2_AWS_62 # notificações de eventos: nada as usa
+  - CKV_AWS_21 # versões no bucket das faturas e do frontend: o frontend publica-se outra vez e as faturas apagadas devem desaparecer (RGPD)
+  - CKV2_AWS_61 # ciclo de vida no frontend e no estado do Terraform: nada a expirar
+  # --- Logs ---------------------------------------------------------------------------------
+  - CKV_AWS_338 # 1 ano de logs: 14 dias chegam e não se pagam para sempre
+  # --- IAM (bootstrap) ----------------------------------------------------------------------
+  - CKV_AWS_274 # deploy com AdministratorAccess: só o ramo main pode assumir o papel (OIDC); reduzir quando a infra estabilizar
+  # --- Dockerfile ---------------------------------------------------------------------------
+  - CKV_DOCKER_3 # USER: o docker-entrypoint.sh larga o root (setpriv) depois de preparar a pasta das faturas; no Lambda não há root

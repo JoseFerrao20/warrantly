@@ -39,6 +39,10 @@ ENV ENVIRONMENT=production \
     AWS_LWA_PASS_THROUGH_PATH=/api/internal/events
 EXPOSE 8080
 
+# Fora do Lambda (docker run, Docker Compose), o Docker sabe se a app está viva.
+HEALTHCHECK --interval=30s --timeout=5s --start-period=20s \
+    CMD python -c "import os, urllib.request; urllib.request.urlopen(f'http://127.0.0.1:{os.environ[\"PORT\"]}/api/health/live', timeout=4)"
+
 ENTRYPOINT ["docker-entrypoint.sh"]
 # Sem o log de acessos do uvicorn: a app escreve uma linha por pedido, em JSON e com o id do
 # pedido (app/observability.py).

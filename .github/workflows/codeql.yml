@@ -1,0 +1,39 @@
+name: CodeQL
+
+# Análise estática do código (injeções, XSS, caminhos, ...) com o CodeQL do GitHub.
+# O code scanning é grátis em repositórios públicos; enquanto o repositório for privado, o job
+# é saltado (no Python, o ruff com as regras S do Bandit cobre o básico em todos os PRs).
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "41 6 * * 1" # segundas às 06:41 UTC
+
+permissions:
+  contents: read
+
+jobs:
+  analyze:
+    if: ${{ !github.event.repository.private }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      security-events: write # publicar os resultados no separador Security
+      actions: read
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [python, javascript-typescript, actions]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v4
+        with:
+          languages: ${{ matrix.language }}
+          build-mode: none
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@v4
+        with:
+          category: /language:${{ matrix.language }}
