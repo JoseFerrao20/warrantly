@@ -1,0 +1,2 @@
+# Copiar para terraform.tfvars (fora do git) e preencher.
+mail_from_address = "o-teu-email@example.com"

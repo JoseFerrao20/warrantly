@@ -136,23 +136,24 @@ O CI corre em cada PR e em cada push para o `main`: `.github/workflows/backend.y
 
 ## Cloud (AWS)
 
-O Warrantly está a passar do Fly.io para a AWS, como projeto de aprendizagem de cloud: roteiro em [`docs/cloud.md`](docs/cloud.md) e decisões em [`docs/adr/`](docs/adr/). Arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)): Lambda (a mesma imagem Docker, com o Lambda Web Adapter), S3 + CloudFront, Neon, SES e SSM Parameter Store. Já feito: faturas no S3 (`STORAGE_BACKEND=s3`) e a app pronta para o Lambda (segredos no SSM, email pelo SES e ligações sem pool).
+O Warrantly corre na AWS, como projeto de aprendizagem de cloud (antes estava preparado para o Fly.io; ver ADR 0001): roteiro em [`docs/cloud.md`](docs/cloud.md) e decisões em [`docs/adr/`](docs/adr/). Arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)): Lambda (a mesma imagem Docker, com o Lambda Web Adapter), S3 + CloudFront, Neon, SES e SSM Parameter Store. Já feito: faturas no S3 (`STORAGE_BACKEND=s3`) e a app pronta para o Lambda (segredos no SSM, email pelo SES e ligações sem pool).
 
-## Deploy (Fly.io)
+## Deploy (AWS)
 
-Em produção corre um só contentor (`Dockerfile`): a API fica em `/api` e o frontend (build do Vite) na raiz, servidos por `uvicorn app.server:server`. As faturas ficam num volume do Fly montado em `/data`, e as migrações correm antes de cada versão nova (`release_command` no `fly.toml`).
+Arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)): o CloudFront serve o frontend a partir do S3 e manda `/api/*` para um Lambda que corre a imagem Docker da app (com o Lambda Web Adapter). A base de dados é o Neon, as faturas ficam no S3, o email sai pelo SES e os segredos ficam no SSM Parameter Store. Toda a infraestrutura está em Terraform (`infra/`).
 
 Workflows do GitHub Actions:
 
 - `docker.yml`: constrói a imagem e corre os testes E2E contra o contentor (em cada PR e no `main`).
-- `deploy.yml`: publica no Fly quando o `docker.yml` passa no `main` (ou à mão em Actions → Deploy). Sem o segredo `FLY_API_TOKEN`, não faz nada.
+- `infra.yml`: `terraform fmt` e `validate` em cada PR que mexa em `infra/`, e o `plan` quando a AWS está configurada.
+- `deploy.yml`: depois do `docker.yml` no `main`, entra na AWS por OIDC, publica a imagem, aplica as migrações e o Terraform, e atualiza o Lambda e o frontend. Sem a variável `AWS_DEPLOY_ROLE_ARN`, não faz nada.
 - `alerts.yml`: todos os dias às 07:47 UTC chama `POST /api/internal/alerts` para enviar os alertas de garantia. Sem `APP_URL` e `ALERTS_TOKEN`, não faz nada.
 
 ### Segurança
 
 - **Palavras-passe:** Argon2. No login com um email que não existe, a resposta demora o mesmo, para não revelar que emails estão registados.
 - **Sessão:** token JWT (HS256) válido 60 minutos. Em produção, a app recusa arrancar com a `SECRET_KEY` de exemplo.
-- **Limite de tentativas** (em memória, `app/rate_limit.py`): 5 falhas de login por IP e email em 15 minutos, 30 por IP, 20 por email (de qualquer IP), 10 registos por IP por hora e 5 palavras-passe erradas ao apagar a conta. Depois disso, a resposta é 429 com `Retry-After`. Com várias máquinas, cada uma conta à parte. `RATE_LIMITS=false` desliga os limites (só nos testes E2E).
+- **Limite de tentativas** (em memória, `app/rate_limit.py`): 5 falhas de login por IP e email em 15 minutos, 30 por IP, 20 por email (de qualquer IP), 10 registos por IP por hora e 5 palavras-passe erradas ao apagar a conta. Depois disso, a resposta é 429 com `Retry-After`. Cada instância do Lambda conta à parte. `RATE_LIMITS=false` desliga os limites (só nos testes E2E).
 - **Pedidos grandes:** a API corta qualquer pedido acima de 11 MB (413), mesmo sem `Content-Length`, antes de o guardar em disco.
 - **Faturas:** o tipo é reconhecido pelos primeiros bytes (só PDF, JPEG, PNG, WebP e HEIC), o ficheiro fica com um nome aleatório e o download sai com `nosniff`.
 - **Cabeçalhos** (servidor de produção): CSP sem scripts inline (`script-src 'self'`), `frame-ancestors 'none'`, `X-Frame-Options`, `Referrer-Policy: no-referrer`, `Permissions-Policy`, `Cross-Origin-Opener-Policy` e HSTS. O `/api/docs` e o `/api/openapi.json` não existem em produção.
@@ -160,26 +161,4 @@ Workflows do GitHub Actions:
 
 ### Configuração inicial (uma vez)
 
-1. Instalar o [flyctl](https://fly.io/docs/flyctl/install/) e entrar: `fly auth login`.
-2. Criar a app (se o nome estiver ocupado, troca-o também no `fly.toml`): `fly apps create warrantly`.
-3. Criar o volume das faturas: `fly volumes create warrantly_data --region mad --size 1 -a warrantly`.
-4. Postgres. Há duas opções; em ambas, a app aceita URLs `postgres://…`:
-   - Postgres gerido do Fly: `fly mpg create` e depois `fly mpg attach <id-do-cluster> -a warrantly` (cria o segredo `DATABASE_URL`).
-   - Outro fornecedor (ex.: Neon ou Supabase, com plano gratuito): `fly secrets set DATABASE_URL='postgres://…?sslmode=require' -a warrantly`.
-5. Segredos da app (gerar os tokens com `python -c "import secrets; print(secrets.token_urlsafe(32))"`):
-
-   ```bash
-   fly secrets set -a warrantly \
-     SECRET_KEY=<token> \
-     ALERTS_TOKEN=<outro-token> \
-     SMTP_HOST=<servidor> SMTP_PORT=587 SMTP_USER=<utilizador> SMTP_PASSWORD=<palavra-passe> \
-     MAIL_FROM='Warrantly <alertas@o-teu-dominio>'
-   ```
-
-6. Primeiro deploy, a partir do teu computador: `fly deploy`. A app fica em `https://warrantly.fly.dev`.
-7. No GitHub (Settings → Secrets and variables → Actions):
-   - segredo `FLY_API_TOKEN`, com o valor de `fly tokens create deploy -a warrantly`;
-   - segredo `ALERTS_TOKEN`, com o mesmo valor do passo 5;
-   - variável `APP_URL` = `https://warrantly.fly.dev`.
-
-A partir daí, cada merge no `main` que passe o `docker.yml` é publicado automaticamente. Para correr os alertas à mão: Actions → "Alertas diários" → Run workflow.
+Passo a passo em [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez): conta AWS com MFA, Neon, bootstrap do Terraform, segredos no SSM, variáveis no GitHub e o primeiro deploy pelo Actions.

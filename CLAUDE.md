@@ -9,7 +9,7 @@ Arquivo de garantias: compras com fatura, prazo da garantia calculado, alertas p
   - `app/routers/`: `auth`, `purchases` (compras, fatura, reclamação, PDF, exportação) e `internal` (alertas por HTTP).
   - `app/claims.py` (texto da carta), `app/claim_pdf.py` (PDF com a fatura junta), `app/alerts.py` (`python -m app.alerts`), `app/storage.py` (faturas em disco ou no S3, por `STORAGE_BACKEND`, e conversão de HEIC), `app/export.py` (ZIP com CSV, JSON e faturas), `app/invoice_scan.py` (leitura da fatura: texto do PDF ou OCR com o Tesseract, e sugestão dos campos).
 - `frontend/`: Vite + React 19 + TypeScript + React Router 8, CSS próprio em `src/index.css` (tokens claro/escuro). Testes em `src/**/*.test.tsx` (Vitest) e `e2e/` (Playwright).
-- `.devcontainer/` (dev container e Codespace, com Postgres e Mailpit), `Dockerfile` e `fly.toml` (produção) e `.github/workflows/` (backend, frontend, e2e, docker, deploy e alerts).
+- `infra/` (Terraform: `bootstrap/`, que corre uma vez à mão, e `app/`, com ECR, Lambda, S3, CloudFront e SES), `.devcontainer/` (dev container e Codespace, com Postgres, Mailpit, AWS CLI e Terraform), `Dockerfile` (fases `app` e `lambda`) e `.github/workflows/` (backend, frontend, e2e, docker, infra, deploy e alerts).
 
 ## Comandos
 
@@ -27,6 +27,9 @@ uvicorn app.main:app --reload --port 8000     # API para desenvolvimento
 npm run lint && npm run typecheck && npm test && npm run build
 npm run dev                                   # http://localhost:5173 (proxy /api → :8000)
 npm run e2e                                   # Playwright; arranca a API e o Vite sozinho
+
+# Infraestrutura (pasta infra/)
+terraform fmt -recursive && terraform -chdir=app init -backend=false && terraform -chdir=app validate
 ```
 
 ## Convenções

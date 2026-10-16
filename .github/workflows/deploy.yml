@@ -1,7 +1,9 @@
 name: Deploy
 
-# Publica no Fly.io depois de o workflow "Docker" passar no main (ou à mão, em Actions).
-# Precisa do segredo FLY_API_TOKEN no repositório; sem ele, o job não faz nada.
+# Publica na AWS depois de o workflow "Docker" passar no main (ou à mão, em Actions).
+# Entra na AWS por OIDC (sem chaves guardadas): precisa das variáveis do repositório
+# AWS_DEPLOY_ROLE_ARN, TF_STATE_BUCKET e MAIL_FROM_ADDRESS (ver docs/cloud.md, "Primeiro deploy").
+# Sem AWS_DEPLOY_ROLE_ARN, o job não faz nada.
 on:
   workflow_run:
     workflows: [Docker]
@@ -13,33 +15,135 @@ concurrency:
   group: deploy
   cancel-in-progress: false
 
+permissions:
+  id-token: write # para pedir o token OIDC do GitHub
+  contents: read
+
 jobs:
-  fly:
+  aws:
     if: >-
       github.event_name == 'workflow_dispatch' ||
       (github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push')
     runs-on: ubuntu-latest
     env:
-      FLY_API_TOKEN: ${{ secrets.FLY_API_TOKEN }}
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-central-1' }}
+      ROLE_ARN: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+      TF_VAR_mail_from_address: ${{ vars.MAIL_FROM_ADDRESS }}
+      SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
     steps:
-      - name: Verificar o token do Fly
-        id: token
+      - name: Verificar a configuração
+        id: config
         run: |
-          if [ -z "$FLY_API_TOKEN" ]; then
-            echo "::notice::Sem FLY_API_TOKEN: deploy ignorado (ver README, secção Deploy)."
+          if [ -z "$ROLE_ARN" ]; then
+            echo "::notice::Sem AWS_DEPLOY_ROLE_ARN: deploy ignorado (ver docs/cloud.md)."
             echo "ready=false" >> "$GITHUB_OUTPUT"
           else
             echo "ready=true" >> "$GITHUB_OUTPUT"
           fi
 
       - uses: actions/checkout@v4
-        if: steps.token.outputs.ready == 'true'
+        if: steps.config.outputs.ready == 'true'
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ env.SHA }}
 
-      - uses: superfly/flyctl-actions/setup-flyctl@master
-        if: steps.token.outputs.ready == 'true'
+      - name: Credenciais temporárias da AWS (OIDC)
+        if: steps.config.outputs.ready == 'true'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
 
-      - name: Deploy
-        if: steps.token.outputs.ready == 'true'
-        run: flyctl deploy --remote-only
+      - uses: hashicorp/setup-terraform@v3
+        if: steps.config.outputs.ready == 'true'
+        with:
+          terraform_version: 1.13.4
+          terraform_wrapper: false
+
+      - name: Terraform init
+        if: steps.config.outputs.ready == 'true'
+        working-directory: infra/app
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="region=$AWS_REGION"
+
+      # O Lambda só pode ser criado com uma imagem já no ECR: primeiro o registo, depois a imagem.
+      - name: Registo das imagens (ECR)
+        if: steps.config.outputs.ready == 'true'
+        working-directory: infra/app
+        run: |
+          terraform apply -input=false -auto-approve \
+            -target=aws_ecr_repository.api -target=aws_ecr_lifecycle_policy.api
+          echo "ECR_URL=$(terraform output -raw ecr_repository_url)" >> "$GITHUB_ENV"
+
+      - name: Login no ECR
+        if: steps.config.outputs.ready == 'true'
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Construir e publicar a imagem
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          # Pull autenticado do public.ecr.aws (o Lambda Web Adapter): os anónimos têm limites
+          # que os runners partilhados do GitHub atingem. O token do ECR público é de us-east-1.
+          aws ecr-public get-login-password --region us-east-1 \
+            | docker login --username AWS --password-stdin public.ecr.aws
+          docker build -t "$ECR_URL:$SHA" .  # fase final "lambda" (com o adapter)
+          docker push "$ECR_URL:$SHA"
+
+      - name: Migrações (Neon)
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          DATABASE_URL=$(aws ssm get-parameter --name /warrantly/prod/DATABASE_URL \
+            --with-decryption --query Parameter.Value --output text)
+          echo "::add-mask::$DATABASE_URL"
+          docker run --rm -e DATABASE_URL="$DATABASE_URL" -e SECRET_KEY="$(openssl rand -hex 32)" \
+            "$ECR_URL:$SHA" alembic upgrade head
+
+      - name: Terraform apply
+        if: steps.config.outputs.ready == 'true'
+        working-directory: infra/app
+        run: |
+          terraform apply -input=false -auto-approve -var="image_tag=$SHA"
+          {
+            echo "FUNCTION=$(terraform output -raw lambda_function_name)"
+            echo "FRONTEND_BUCKET=$(terraform output -raw frontend_bucket)"
+            echo "DISTRIBUTION=$(terraform output -raw cloudfront_distribution_id)"
+            echo "APP_URL=$(terraform output -raw app_url)"
+          } >> "$GITHUB_ENV"
+
+      - name: Publicar a API (Lambda)
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          aws lambda update-function-code --function-name "$FUNCTION" \
+            --image-uri "$ECR_URL:$SHA" > /dev/null
+          aws lambda wait function-updated-v2 --function-name "$FUNCTION"
+
+      - uses: actions/setup-node@v4
+        if: steps.config.outputs.ready == 'true'
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Publicar o frontend (S3 + CloudFront)
+        if: steps.config.outputs.ready == 'true'
+        working-directory: frontend
+        run: |
+          npm ci
+          npm run build
+          # assets/ tem um hash no nome: cache para sempre. O resto (index.html, theme-init.js)
+          # tem de ser sempre a versão nova.
+          aws s3 sync dist/assets "s3://$FRONTEND_BUCKET/assets" --delete \
+            --cache-control "public, max-age=31536000, immutable"
+          aws s3 sync dist "s3://$FRONTEND_BUCKET" --delete --exclude "assets/*" \
+            --cache-control "no-cache"
+          aws cloudfront create-invalidation --distribution-id "$DISTRIBUTION" \
+            --paths "/*" > /dev/null
+
+      - name: Verificar a app publicada
+        if: steps.config.outputs.ready == 'true'
+        run: |
+          # O primeiro pedido acorda o Lambda e o Neon: pode demorar alguns segundos.
+          curl -fsS --retry 5 --retry-delay 10 --retry-all-errors "$APP_URL/api/health"
+          curl -fsS "$APP_URL/" | grep -q "<title>Warrantly</title>"
+          echo "### Publicado em $APP_URL" >> "$GITHUB_STEP_SUMMARY"
