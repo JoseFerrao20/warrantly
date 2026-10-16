@@ -136,7 +136,7 @@ O CI corre em cada PR e em cada push para o `main`: `.github/workflows/backend.y
 
 ## Cloud (AWS)
 
-O Warrantly está a passar do Fly.io para a AWS, como projeto de aprendizagem de cloud: roteiro em [`docs/cloud.md`](docs/cloud.md) e decisões em [`docs/adr/`](docs/adr/). Já feito: as faturas podem ficar no S3 (`STORAGE_BACKEND=s3`).
+O Warrantly está a passar do Fly.io para a AWS, como projeto de aprendizagem de cloud: roteiro em [`docs/cloud.md`](docs/cloud.md) e decisões em [`docs/adr/`](docs/adr/). Arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)): Lambda (a mesma imagem Docker, com o Lambda Web Adapter), S3 + CloudFront, Neon, SES e SSM Parameter Store. Já feito: faturas no S3 (`STORAGE_BACKEND=s3`) e a app pronta para o Lambda (segredos no SSM, email pelo SES e ligações sem pool).
 
 ## Deploy (Fly.io)
 

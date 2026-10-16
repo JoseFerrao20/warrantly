@@ -35,7 +35,12 @@ jobs:
       - name: Construir a imagem
         run: docker build -t warrantly:ci .
 
-      - name: Migrações (como o release_command do Fly)
+      - name: Imagem pronta para o Lambda
+        run: |
+          # A extensão do Lambda Web Adapter tem de estar na imagem e ser executável.
+          docker run --rm --entrypoint test warrantly:ci -x /opt/extensions/lambda-adapter
+
+      - name: Migrações
         run: |
           docker run --rm --network host \
             -e DATABASE_URL -e SECRET_KEY="$(openssl rand -hex 32)" \
@@ -48,7 +53,8 @@ jobs:
             -e DATABASE_URL -e SECRET_KEY="$(openssl rand -hex 32)" -e RATE_LIMITS=false \
             warrantly:ci
           for i in $(seq 1 30); do
-            curl -fsS http://localhost:8080/api/health && exit 0
+            # /api/health/live é o que o Lambda Web Adapter usa para saber que a app arrancou.
+            curl -fsS http://localhost:8080/api/health/live && curl -fsS http://localhost:8080/api/health && exit 0
             sleep 1
           done
           docker logs app

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Literal
 
@@ -17,6 +18,8 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     database_url: str = "postgresql+psycopg://warrantly:warrantly@localhost:5432/warrantly"
+    # "queue": pool de ligações normal; "null": sem pool (Lambda + pooler do Neon).
+    database_pool: Literal["queue", "null"] = "queue"
 
     # Chave para assinar os tokens (HS256 pede pelo menos 32 bytes). Em produção, gerar com:
     # python -c "import secrets; print(secrets.token_urlsafe(32))"
@@ -35,7 +38,9 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("uploads")
     max_invoice_bytes: int = 10 * 1024 * 1024
 
-    # Email (alertas de garantia). Sem SMTP_HOST, os alertas não são enviados.
+    # Email (alertas de garantia): "smtp" (SMTP_*) ou "ses" (Amazon SES pela API, na AWS).
+    # Com SMTP e sem SMTP_HOST, os alertas não são enviados.
+    mail_backend: Literal["smtp", "ses"] = "smtp"
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_user: str | None = None
@@ -77,5 +82,26 @@ class Settings(BaseSettings):
             )
         return self
 
+
+def load_ssm_parameters(path: str) -> None:
+    """Segredos guardados no SSM Parameter Store (ex.: /warrantly/prod/SECRET_KEY).
+
+    Cada parâmetro debaixo de `path` passa a variável de ambiente com o mesmo nome, se ainda
+    não estiver definida. Assim os segredos não ficam nas variáveis do Lambda nem no estado do
+    Terraform: só o papel IAM do Lambda os pode ler.
+    """
+    import boto3
+
+    client = boto3.client("ssm", region_name=os.environ.get("AWS_REGION"))
+    for page in client.get_paginator("get_parameters_by_path").paginate(
+        Path=path, WithDecryption=True
+    ):
+        for parameter in page["Parameters"]:
+            name = parameter["Name"].rsplit("/", 1)[-1]
+            os.environ.setdefault(name, parameter["Value"])
+
+
+if ssm_path := os.environ.get("SSM_PARAMETERS_PATH"):
+    load_ssm_parameters(ssm_path)
 
 settings = Settings()

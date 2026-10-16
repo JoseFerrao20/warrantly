@@ -23,8 +23,8 @@ def run_alerts(
         raise HTTPException(status.HTTP_404_NOT_FOUND)
     if not authorization or not secrets.compare_digest(authorization, f"Bearer {token}"):
         raise HTTPException(status.HTTP_401_UNAUTHORIZED)
-    if not settings.smtp_host:
-        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="SMTP_HOST não definido")
+    if not mailer.is_configured():
+        raise HTTPException(status.HTTP_503_SERVICE_UNAVAILABLE, detail="Email não configurado")
     result = send_due_alerts(session, send=mailer.send_email)
     return {
         "emails_sent": result.emails_sent,

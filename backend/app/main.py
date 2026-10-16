@@ -22,6 +22,12 @@ app.include_router(purchases.router)
 app.include_router(internal.router)
 
 
+@app.get("/health/live")
+def health_live() -> dict[str, str]:
+    """A app arrancou (sem tocar na base de dados): usado pelo Lambda Web Adapter."""
+    return {"status": "ok"}
+
+
 @app.get("/health")
 def health(session: Session = Depends(get_session)) -> dict[str, str]:
     session.execute(text("SELECT 1"))
