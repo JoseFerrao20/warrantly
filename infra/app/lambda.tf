@@ -72,7 +72,7 @@ resource "aws_lambda_function" "api" {
   environment {
     variables = {
       ENVIRONMENT         = "production"
-      SSM_PARAMETERS_PATH = local.ssm_path # SECRET_KEY, DATABASE_URL, ALERTS_TOKEN
+      SSM_PARAMETERS_PATH = local.ssm_path # SECRET_KEY, DATABASE_URL, ALERTS_TOKEN, EXPO_ACCESS_TOKEN
       DATABASE_POOL       = "null"
       STORAGE_BACKEND     = "s3"
       S3_BUCKET           = aws_s3_bucket.invoices.id

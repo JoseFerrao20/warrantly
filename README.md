@@ -13,7 +13,7 @@ Em Portugal, os bens novos têm 3 anos de garantia legal (Decreto-Lei n.º 84/20
 - **Registar compras:** carregas a fatura (PDF ou fotografia) e a app lê-a e sugere o produto, a loja, a data, o preço e o n.º da fatura (PDF com texto diretamente; fotografias com OCR, pelo Tesseract, sem sair do servidor). Confirmas e corriges antes de guardar.
 - **Calcular o prazo:** a data de fim da garantia é calculada automaticamente (3 anos por omissão, ajustável para garantias de marca ou bens usados).
 - **Painel:** todas as garantias ordenadas pela que expira primeiro, com o estado de cada uma (ativa, a expirar, expirada).
-- **Alertas:** aviso por email 60 e 15 dias antes de cada garantia expirar.
+- **Alertas:** aviso por email (e notificação na app móvel) 60 e 15 dias antes de cada garantia expirar.
 - **Reclamação pronta:** a partir de uma compra e de uma descrição da avaria, gera o texto da reclamação para a loja, com os dados da compra e a fatura em anexo.
 - **Pesquisa e filtros:** por loja, categoria e estado.
 - **Exportar:** um ZIP com todas as compras (CSV para o Excel e JSON) e as faturas.
@@ -77,6 +77,8 @@ Endpoints (documentação interativa em `/docs`):
 | `GET` | `/auth/me` | Dados do utilizador autenticado |
 | `PATCH` | `/auth/me` | Altera o nome (usado para assinar as reclamações) |
 | `DELETE` | `/auth/me` | Apaga a conta, as compras, os alertas e os ficheiros das faturas (pede a palavra-passe) |
+| `POST` | `/push-tokens` | Regista o token de push (Expo) do telemóvel (`{token, platform}`); se já existia noutra conta, passa para esta |
+| `DELETE` | `/push-tokens` | Apaga o token deste telemóvel (`{token}`), ao sair da conta na app |
 | `POST` | `/purchases` | Regista uma compra (garantia de 36 meses por omissão) |
 | `GET` | `/purchases` | Lista as compras pela garantia que expira primeiro; filtros `store`, `category` e `status` (`active`, `expiring`, `expired`) |
 | `GET` | `/purchases/export` | ZIP com `compras.csv` (`;` e vírgula decimal, para o Excel), `compras.json` e as faturas em `faturas/` |
@@ -101,9 +103,9 @@ Os endpoints `/purchases` e `/auth/me` pedem o cabeçalho `Authorization: Bearer
 
 As faturas podem ser PDF, JPEG, PNG, WebP ou HEIC (fotografias do iPhone), até 10 MB. O tipo é reconhecido pelo conteúdo do ficheiro, não pelo nome. As fotografias HEIC são convertidas para JPEG (com a orientação corrigida), porque a maioria dos browsers não as mostra. Ficam guardadas em disco na pasta `UPLOAD_DIR` (por omissão `backend/uploads/`, que não vai para o git), com um nome aleatório.
 
-### Alertas por email
+### Alertas por email e no telemóvel
 
-O comando `python -m app.alerts` (na pasta `backend/`) envia os avisos de garantias a acabar: um email por utilizador quando faltam 60 dias e outro quando faltam 15. Os avisos enviados ficam registados, por isso correr o comando várias vezes não repete emails. Deve correr uma vez por dia, por exemplo com cron:
+O comando `python -m app.alerts` (na pasta `backend/`) envia os avisos de garantias a acabar: um email por utilizador quando faltam 60 dias e outro quando faltam 15. Quem tiver a app móvel com as notificações ligadas recebe também o aviso no telemóvel (push pelo serviço do Expo; tocar abre a compra). Ver [`docs/push.md`](docs/push.md). Os avisos enviados ficam registados, por isso correr o comando várias vezes não repete emails. Deve correr uma vez por dia, por exemplo com cron:
 
 ```cron
 0 9 * * * cd /caminho/para/warrantly/backend && python -m app.alerts
@@ -143,7 +145,8 @@ App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo R
 - entrar (o token fica guardado no armazenamento seguro do telemóvel, com o `expo-secure-store`);
 - ver as garantias, com as que estão a expirar primeiro e o aviso de quantas terminam nos próximos 60 dias, e puxar para atualizar;
 - ver o detalhe de uma compra;
-- registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site.
+- registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site;
+- receber os **alertas de garantia como notificações** (tocar abre a compra). O push precisa de uma development build (EAS), porque a Expo Go no Android já não o recebe: ver [`docs/push.md`](docs/push.md).
 
 Ver a fatura, gerar a reclamação, editar e exportar continuam no site. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
 
@@ -151,7 +154,8 @@ Ver a fatura, gerar a reclamação, editar e exportar continuam no site. Os tipo
 cd mobile
 npm install
 cp .env.example .env.local   # EXPO_PUBLIC_API_URL: o endereço da API visto do telemóvel
-npx expo start               # QR code para abrir na app Expo Go (Android ou iOS)
+npx expo start --go          # QR code para abrir na app Expo Go (sem push no Android)
+npx expo start               # com a development build instalada (com push)
 npm run lint && npm run typecheck && npm test
 ```
 

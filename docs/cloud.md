@@ -28,7 +28,7 @@ A AWS cobra por uso, e alguns serviços custam dinheiro mesmo parados (Postgres 
 
 | Variável | No Lambda | Para quê |
 |---|---|---|
-| `SSM_PARAMETERS_PATH` | `/warrantly/prod/` | Lê os segredos (`SECRET_KEY`, `DATABASE_URL`, `ALERTS_TOKEN`) do SSM Parameter Store ao arrancar |
+| `SSM_PARAMETERS_PATH` | `/warrantly/prod/` | Lê os segredos (`SECRET_KEY`, `DATABASE_URL`, `ALERTS_TOKEN` e, opcional, `EXPO_ACCESS_TOKEN` para o push; ver [`push.md`](push.md)) do SSM Parameter Store ao arrancar |
 | `DATABASE_POOL` | `null` | Sem pool de ligações na app: o pooler do Neon trata disso |
 | `MAIL_BACKEND` | `ses` | Email pela API do SES, com o papel IAM |
 | `STATIC_DIR` | vazio | O frontend vem do S3/CloudFront, não do Lambda |

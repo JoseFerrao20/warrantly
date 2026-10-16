@@ -44,11 +44,19 @@ export interface Call {
   init: RequestInit
 }
 
+const NO_CONTENT = { status: 204, body: null }
+
 /**
  * Substitui o fetch: cada rota ("GET /purchases") devolve um corpo JSON, ou uma função que
- * recebe o pedido. Um `{ status, body }` simula um erro. Rotas desconhecidas dão 404.
+ * recebe o pedido. Um `{ status, body }` simula um erro. Rotas desconhecidas dão 404. Os
+ * tokens de push são aceites, a não ser que o teste diga outra coisa.
  */
-export function mockApi(routes: Record<string, unknown | Handler>): Call[] {
+export function mockApi(testRoutes: Record<string, unknown | Handler>): Call[] {
+  const routes: Record<string, unknown | Handler> = {
+    'POST /push-tokens': NO_CONTENT,
+    'DELETE /push-tokens': NO_CONTENT,
+    ...testRoutes,
+  }
   const calls: Call[] = []
   global.fetch = jest.fn(async (input: RequestInfo | URL, init: RequestInit = {}) => {
     const url = String(input)

@@ -3,11 +3,13 @@ import { StatusBar } from 'expo-status-bar'
 import { ActivityIndicator, View } from 'react-native'
 
 import { AuthProvider, useAuth } from '@/lib/auth'
+import { usePushNotifications } from '@/lib/push'
 import { useColors } from '@/lib/theme'
 
 function Navigation() {
   const { user } = useAuth()
   const colors = useColors()
+  usePushNotifications(Boolean(user))
 
   if (user === undefined) {
     // A ler o token guardado: um instante, antes de decidir entre o login e o painel.

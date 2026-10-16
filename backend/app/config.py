@@ -48,6 +48,11 @@ class Settings(BaseSettings):
     smtp_starttls: bool = True
     mail_from: str = "Warrantly <alertas@warrantly.local>"
 
+    # Notificações push da app móvel (serviço do Expo). O token de acesso é opcional: com ele
+    # ligado na conta do Expo, só este servidor consegue enviar para os tokens da app.
+    push_enabled: bool = True
+    expo_access_token: str | None = None
+
     # Token para correr os alertas por HTTP (POST /internal/alerts), usado pelo agendamento
     # diário no GitHub Actions. Sem token, a rota não existe.
     alerts_token: str | None = Field(default=None, min_length=32)

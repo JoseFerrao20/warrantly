@@ -192,7 +192,7 @@ test('valida o formulário antes de enviar', async () => {
   await fireEvent.press(screen.getByRole('button', { name: 'Guardar compra' }))
   expect(screen.getByRole('alert')).toHaveTextContent(/formato AAAA-MM-DD/)
 
-  expect(calls.some((c) => c.method === 'POST')).toBe(false)
+  expect(calls.some((c) => c.url.includes('/purchases'))).toBe(false)
 })
 
 test('se a fatura falhar depois de criar a compra, avisa e mostra a compra', async () => {

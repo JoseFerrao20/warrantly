@@ -28,6 +28,7 @@ def run_alerts(
     result = send_due_alerts(session, send=mailer.send_email)
     return {
         "emails_sent": result.emails_sent,
+        "pushes_sent": result.pushes_sent,
         "purchases_alerted": result.purchases_alerted,
         "failed_users": result.failed_users,
     }
