@@ -35,6 +35,34 @@ resource "aws_s3_bucket_server_side_encryption_configuration" "all" {
   }
 }
 
+# Upload direto: o browser envia as faturas para o bucket com um POST pré-assinado pela API.
+# O CORS só deixa a própria app fazê-lo (o POST pré-assinado continua a ser obrigatório).
+resource "aws_s3_bucket_cors_configuration" "invoices" {
+  bucket = aws_s3_bucket.invoices.id
+  cors_rule {
+    allowed_methods = ["POST"]
+    allowed_origins = ["https://${aws_cloudfront_distribution.app.domain_name}"]
+    allowed_headers = ["*"]
+    max_age_seconds = 3600
+  }
+}
+
+# Ficheiros enviados mas nunca associados a uma compra (ex.: o utilizador desistiu) não ficam
+# para sempre: a pasta uploads/ esvazia-se sozinha.
+resource "aws_s3_bucket_lifecycle_configuration" "invoices" {
+  bucket = aws_s3_bucket.invoices.id
+  rule {
+    id     = "apagar-uploads-por-usar"
+    status = "Enabled"
+    filter {
+      prefix = "uploads/"
+    }
+    expiration {
+      days = 1
+    }
+  }
+}
+
 # Só o CloudFront (esta distribuição) pode ler o frontend.
 data "aws_iam_policy_document" "frontend" {
   statement {

@@ -24,6 +24,8 @@ from app.schemas import (
     PurchaseCreate,
     PurchaseRead,
     PurchaseUpdate,
+    UploadAttach,
+    UploadTicketRead,
     WarrantyStatus,
 )
 
@@ -142,25 +144,33 @@ def delete_purchase(purchase_id: int, user: CurrentUser, session: SessionDep) ->
     return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
+def invoice_too_large() -> HTTPException:
+    max_mb = settings.max_invoice_bytes // (1024 * 1024)
+    return HTTPException(
+        status.HTTP_413_CONTENT_TOO_LARGE, detail=f"A fatura não pode ter mais de {max_mb} MB"
+    )
+
+
 def read_invoice_upload(file: UploadFile) -> tuple[bytes, str, str]:
-    """Lê e valida a fatura enviada: devolve os bytes, o tipo e o nome do ficheiro.
+    """Lê e valida a fatura enviada pela API (multipart)."""
+    data = file.file.read(settings.max_invoice_bytes + 1)
+    if len(data) > settings.max_invoice_bytes:
+        raise invoice_too_large()
+    return validate_invoice(data, file.filename)
+
+
+def validate_invoice(data: bytes, original_name: str | None) -> tuple[bytes, str, str]:
+    """Valida a fatura pelos primeiros bytes: devolve os bytes, o tipo e o nome do ficheiro.
 
     Aceita PDF, JPEG, PNG, WebP e HEIC (até 10 MB); o HEIC (iPhone) passa a JPEG.
     """
-    data = file.file.read(settings.max_invoice_bytes + 1)
-    if len(data) > settings.max_invoice_bytes:
-        max_mb = settings.max_invoice_bytes // (1024 * 1024)
-        raise HTTPException(
-            status.HTTP_413_CONTENT_TOO_LARGE,
-            detail=f"A fatura não pode ter mais de {max_mb} MB",
-        )
     content_type = storage.detect_content_type(data)
     if content_type is None:
         raise HTTPException(
             status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
             detail="A fatura tem de ser um PDF ou uma imagem (JPEG, PNG, WebP ou HEIC)",
         )
-    filename = PurePath(file.filename or "").name[:255] or "fatura"
+    filename = PurePath(original_name or "").name[:255] or "fatura"
     if content_type == storage.HEIC:
         try:
             data = storage.heic_to_jpeg(data)
@@ -174,6 +184,73 @@ def read_invoice_upload(file: UploadFile) -> tuple[bytes, str, str]:
     return data, content_type, filename
 
 
+# --- Upload direto para o S3 -------------------------------------------------------------
+# 1) POST /uploads dá um POST pré-assinado do S3 (válido 5 min, com o tamanho máximo assinado);
+# 2) o browser envia o ficheiro diretamente para o S3;
+# 3) /uploads/{token}/scan lê-o, e PUT /{id}/invoice/upload valida-o e associa-o à compra.
+# Assim a fatura não passa pela API (no Lambda, os pedidos estão limitados a 6 MB).
+
+
+def load_direct_upload(user: User, token: str) -> tuple[bytes, storage.S3Storage]:
+    s3 = storage.direct_uploads()
+    if s3 is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Upload direto indisponível")
+    try:
+        data = s3.get_upload(user.id, token, settings.max_invoice_bytes)
+    except storage.UploadTooLargeError:
+        s3.remove_upload(user.id, token)
+        raise invoice_too_large() from None
+    except ValueError:  # token com formato inválido
+        data = None
+    if data is None:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, detail="Ficheiro não encontrado; volta a escolher a fatura"
+        )
+    return data, s3
+
+
+@router.post("/uploads", response_model=UploadTicketRead)
+def create_upload(user: CurrentUser) -> UploadTicketRead:
+    """Prepara um upload direto para o S3. Sem S3 (desenvolvimento), `direct` vem a false e o
+    browser envia a fatura pela API, como antes."""
+    s3 = storage.direct_uploads()
+    if s3 is None:
+        return UploadTicketRead(direct=False, max_bytes=settings.max_invoice_bytes)
+    ticket = s3.presign_upload(user.id, storage.new_upload_token(), settings.max_invoice_bytes)
+    return UploadTicketRead(
+        direct=True,
+        max_bytes=settings.max_invoice_bytes,
+        token=ticket.token,
+        url=ticket.url,
+        fields=ticket.fields,
+    )
+
+
+@router.post("/uploads/{token}/scan", response_model=InvoiceScanRead)
+def scan_uploaded_invoice(token: str, user: CurrentUser) -> InvoiceScanRead:
+    """Como /scan-invoice, mas para uma fatura já enviada para o S3."""
+    raw, _ = load_direct_upload(user, token)
+    data, content_type, _ = validate_invoice(raw, None)
+    return scan_response(data, content_type)
+
+
+@router.put("/{purchase_id}/invoice/upload", response_model=PurchaseRead)
+def attach_uploaded_invoice(
+    purchase_id: int, body: UploadAttach, user: CurrentUser, session: SessionDep
+) -> Purchase:
+    """Associa à compra uma fatura enviada diretamente para o S3 (e apaga o ficheiro temporário)."""
+    purchase = get_purchase_or_404(purchase_id, user, session)
+    raw, s3 = load_direct_upload(user, body.token)
+    try:
+        data, content_type, filename = validate_invoice(raw, body.filename)
+    except HTTPException:
+        s3.remove_upload(user.id, body.token)
+        raise
+    attached = attach_invoice(purchase, data, content_type, filename, session)
+    s3.remove_upload(user.id, body.token)
+    return attached
+
+
 @router.post("/scan-invoice", response_model=InvoiceScanRead)
 def scan_invoice(file: UploadFile, user: CurrentUser) -> InvoiceScanRead:
     """Lê a fatura e sugere os campos da compra (não guarda nada).
@@ -182,6 +259,10 @@ def scan_invoice(file: UploadFile, user: CurrentUser) -> InvoiceScanRead:
     Os campos que não se conseguem ler vêm a null.
     """
     data, content_type, _ = read_invoice_upload(file)
+    return scan_response(data, content_type)
+
+
+def scan_response(data: bytes, content_type: str) -> InvoiceScanRead:
     result = invoice_scan.scan_invoice(data, content_type)
     return InvoiceScanRead(
         text_found=bool(result.text.strip()),
@@ -205,7 +286,13 @@ def upload_invoice(
     """
     purchase = get_purchase_or_404(purchase_id, user, session)
     data, content_type, filename = read_invoice_upload(file)
+    return attach_invoice(purchase, data, content_type, filename, session)
 
+
+def attach_invoice(
+    purchase: Purchase, data: bytes, content_type: str, filename: str, session: SessionDep
+) -> Purchase:
+    """Guarda a fatura (já validada) e associa-a à compra; apaga a anterior, se houver."""
     old_key = purchase.invoice_key
     new_key = storage.save(data, content_type)
     purchase.invoice_key = new_key

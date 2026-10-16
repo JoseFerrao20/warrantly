@@ -139,6 +139,21 @@ class InvoiceScanRead(BaseModel):
     store_email: str | None
 
 
+class UploadTicketRead(BaseModel):
+    """Upload direto para o S3: o browser faz POST de `fields` + o ficheiro para `url`."""
+
+    direct: bool
+    max_bytes: int
+    token: str | None = None
+    url: str | None = None
+    fields: dict[str, str] | None = None
+
+
+class UploadAttach(BaseModel):
+    token: str = Field(pattern=r"^[0-9a-f]{32}$")
+    filename: str = Field(min_length=1, max_length=255)
+
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"

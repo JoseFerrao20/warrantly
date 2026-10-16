@@ -37,7 +37,7 @@ resource "aws_cloudfront_response_headers_policy" "security" {
   security_headers_config {
     content_security_policy {
       override                = true
-      content_security_policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; object-src 'self' blob:; frame-src 'self' blob:; connect-src 'self'; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
+      content_security_policy = "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; object-src 'self' blob:; frame-src 'self' blob:; connect-src 'self' https://${aws_s3_bucket.invoices.bucket}.s3.${var.region}.amazonaws.com; font-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'"
     }
     content_type_options {
       override = true

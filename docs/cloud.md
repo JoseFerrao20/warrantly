@@ -9,7 +9,8 @@ Objetivo: aprender cloud a partir de zero, pondo o Warrantly a correr na AWS da 
 | 3 | App pronta para o Lambda ([ADR 0002](adr/0002-arquitetura-serverless.md)) | Lambda Web Adapter, segredos no SSM, email pelo SES com o papel IAM, ligações à base de dados sem pool (Neon) | ✅ feito |
 | 4 | Terraform | o que é IaC, estado remoto (bucket S3), `plan`/`apply`; ECR, Lambda + Function URL, S3 (faturas e frontend), CloudFront, SES, papéis IAM com o mínimo de permissões, orçamento | código aqui, `apply` em casa |
 | 5 | CI/CD com OIDC | o GitHub Actions entra na AWS com credenciais temporárias (sem chaves no repositório); `terraform plan` comentado em cada PR; deploy da imagem depois do merge | código aqui |
-| 6 | Upload direto para o S3 e alertas agendados | URLs pré-assinados (faturas até 10 MB, sem passar pelo Lambda); EventBridge Scheduler em vez do `alerts.yml` | código aqui |
+| 6 | Upload direto para o S3 | POST pré-assinado (o browser envia a fatura para o bucket, até 10 MB, sem passar pelo Lambda), CORS, regra de ciclo de vida para os temporários | ✅ feito |
+| 6b | Alertas agendados | EventBridge Scheduler em vez do `alerts.yml` | código aqui |
 | 7 | Observabilidade | logs estruturados (JSON), CloudWatch, métricas e traces com OpenTelemetry, alarmes e um runbook de incidentes | código aqui |
 | 8 | Extra: Kubernetes local | k3d + chart Helm do Warrantly, para perceber os conceitos sem pagar EKS | em casa (precisa de Docker) |
 
@@ -30,7 +31,6 @@ A AWS cobra por uso, e alguns serviços custam dinheiro mesmo parados (Postgres 
 | `SSM_PARAMETERS_PATH` | `/warrantly/prod/` | Lê os segredos (`SECRET_KEY`, `DATABASE_URL`, `ALERTS_TOKEN`) do SSM Parameter Store ao arrancar |
 | `DATABASE_POOL` | `null` | Sem pool de ligações na app: o pooler do Neon trata disso |
 | `MAIL_BACKEND` | `ses` | Email pela API do SES, com o papel IAM |
-| `MAX_INVOICE_BYTES` | `4194304` (4 MB) | Limite de 6 MB por pedido no Lambda, até haver upload direto para o S3 |
 | `STATIC_DIR` | vazio | O frontend vem do S3/CloudFront, não do Lambda |
 | `AWS_LWA_*` | já na imagem | Configuração do Lambda Web Adapter (porta, `/api/health/live` e streaming) |
 
@@ -82,7 +82,7 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
 7. **SES**: confirmar o email de verificação que a AWS envia para `MAIL_FROM_ADDRESS`. Enquanto o SES estiver em "sandbox", só envia para endereços verificados, por isso verifica também o teu (SES → Identities).
 8. **Verificações**
    - Criar conta e registar uma compra com uma fatura PDF; a fatura abre inteira.
-   - Fotografia até 4 MB, com a leitura a preencher os campos.
+   - Fotografia grande (até 10 MB), com a leitura a preencher os campos. Vai do browser diretamente para o S3; no browser, em Rede, o POST vai para `…s3.eu-central-1.amazonaws.com`.
    - `curl -sI <APP_URL> | grep -i content-security` mostra a CSP.
    - `<APP_URL>/api/docs` dá 404.
    - 6 logins errados seguidos dão "Demasiadas tentativas".

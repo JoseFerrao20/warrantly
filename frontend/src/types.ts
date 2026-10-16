@@ -37,6 +37,15 @@ export interface PurchaseInput {
   store_email: string | null
 }
 
+/** Upload direto browser → S3 (POST pré-assinado). Sem S3, `direct` é false. */
+export interface UploadTicket {
+  direct: boolean
+  max_bytes: number
+  token: string | null
+  url: string | null
+  fields: Record<string, string> | null
+}
+
 /** Sugestões lidas da fatura (null = não encontrado). */
 export interface InvoiceScan {
   text_found: boolean

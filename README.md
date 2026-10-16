@@ -81,6 +81,9 @@ Endpoints (documentação interativa em `/docs`):
 | `GET` | `/purchases/{id}` | Detalhe de uma compra |
 | `PATCH` | `/purchases/{id}` | Altera os campos enviados |
 | `DELETE` | `/purchases/{id}` | Apaga uma compra (e a fatura, se tiver) |
+| `POST` | `/purchases/uploads` | Upload direto para o S3: devolve um POST pré-assinado (válido 5 min, com o tamanho máximo assinado) para o browser enviar a fatura para `uploads/<utilizador>/<token>`. Sem S3, `direct` vem a `false` e usa-se o upload pela API |
+| `POST` | `/purchases/uploads/{token}/scan` | Como `/scan-invoice`, para uma fatura já enviada para o S3 |
+| `PUT` | `/purchases/{id}/invoice/upload` | Associa à compra uma fatura enviada para o S3 (`{token, filename}`); valida-a pelos bytes e apaga o temporário |
 | `POST` | `/purchases/scan-invoice` | Lê uma fatura (multipart, campo `file`) e devolve sugestões para os campos da compra; não guarda nada. Fotografias precisam do `tesseract` com o português (`tesseract-ocr-por`) |
 | `PUT` | `/purchases/{id}/invoice` | Carrega a fatura (multipart, campo `file`); substitui a anterior |
 | `GET` | `/purchases/{id}/invoice` | Devolve a fatura |

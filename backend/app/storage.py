@@ -8,6 +8,7 @@ utilizador, para não haver colisões nem caminhos manipulados (`../`). O resto 
 import os
 import re
 import secrets
+from dataclasses import dataclass
 from functools import cache
 from io import BytesIO
 from pathlib import Path
@@ -60,6 +61,22 @@ def heic_to_jpeg(data: bytes) -> bytes:
 
 # Só keys geradas por `new_key` (hex + extensão conhecida): nada de caminhos.
 KEY_PATTERN = re.compile(r"^[0-9a-f]{32}\.(pdf|jpg|png|webp)$")
+# Uploads diretos (browser → S3): um token aleatório por ficheiro, guardado por utilizador.
+UPLOAD_TOKEN_PATTERN = re.compile(r"^[0-9a-f]{32}$")
+UPLOAD_EXPIRES_SECONDS = 300
+
+
+class UploadTooLargeError(ValueError):
+    pass
+
+
+@dataclass
+class UploadTicket:
+    """O que o browser precisa para enviar o ficheiro diretamente para o S3 (POST pré-assinado)."""
+
+    token: str
+    url: str
+    fields: dict[str, str]
 
 
 def new_key(content_type: str) -> str:
@@ -110,12 +127,26 @@ class S3Storage:
     """
 
     PREFIX = "faturas/"
+    # Ficheiros enviados pelo browser e ainda não associados a uma compra. Uma regra do bucket
+    # (Terraform) apaga-os ao fim de 1 dia, se nunca forem usados.
+    UPLOADS_PREFIX = "uploads/"
 
     def __init__(self, bucket: str, region: str | None, endpoint_url: str | None) -> None:
         import boto3  # só é preciso com o S3
+        from botocore.config import Config
 
         self.bucket = bucket
-        self.client = boto3.client("s3", region_name=region, endpoint_url=endpoint_url)
+        if endpoint_url is None and region:
+            # Endereço regional (https://<bucket>.s3.<região>.amazonaws.com): o global pode
+            # redirecionar buckets novos, e o browser não segue redirecionamentos num POST com
+            # CORS (upload direto). É também o endereço que a CSP do frontend autoriza.
+            endpoint_url = f"https://s3.{region}.amazonaws.com"
+        self.client = boto3.client(
+            "s3",
+            region_name=region,
+            endpoint_url=endpoint_url,
+            config=Config(s3={"addressing_style": "virtual"}),
+        )
 
     def _object(self, key: str) -> str:
         return self.PREFIX + _check_key(key)
@@ -134,6 +165,34 @@ class S3Storage:
 
     def remove(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=self._object(key))
+
+    def _upload_object(self, user_id: int, token: str) -> str:
+        if not UPLOAD_TOKEN_PATTERN.match(token):
+            raise ValueError(f"Token de upload inválido: {token!r}")
+        return f"{self.UPLOADS_PREFIX}{user_id}/{token}"
+
+    def presign_upload(self, user_id: int, token: str, max_bytes: int) -> UploadTicket:
+        # O tamanho máximo faz parte da assinatura: o S3 recusa ficheiros maiores.
+        post = self.client.generate_presigned_post(
+            Bucket=self.bucket,
+            Key=self._upload_object(user_id, token),
+            Conditions=[["content-length-range", 1, max_bytes]],
+            ExpiresIn=UPLOAD_EXPIRES_SECONDS,
+        )
+        return UploadTicket(token=token, url=post["url"], fields=post["fields"])
+
+    def get_upload(self, user_id: int, token: str, max_bytes: int) -> bytes | None:
+        key = self._upload_object(user_id, token)
+        try:
+            head = self.client.head_object(Bucket=self.bucket, Key=key)
+        except self.client.exceptions.ClientError:
+            return None
+        if head["ContentLength"] > max_bytes:  # não confiar só na condição da assinatura
+            raise UploadTooLargeError(key)
+        return self.client.get_object(Bucket=self.bucket, Key=key)["Body"].read()
+
+    def remove_upload(self, user_id: int, token: str) -> None:
+        self.client.delete_object(Bucket=self.bucket, Key=self._upload_object(user_id, token))
 
 
 @cache
@@ -163,6 +222,17 @@ def load(key: str) -> bytes | None:
 def delete(key: str | None) -> None:
     if key:
         backend().remove(key)
+
+
+def direct_uploads() -> S3Storage | None:
+    """Com o S3, o browser envia as faturas diretamente para o bucket (sem passar pela API,
+    que no Lambda só aceita pedidos até 6 MB). Com a pasta local, não há upload direto."""
+    s3 = backend()
+    return s3 if isinstance(s3, S3Storage) else None
+
+
+def new_upload_token() -> str:
+    return secrets.token_hex(16)
 
 
 def extension(key: str) -> str:

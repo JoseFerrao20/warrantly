@@ -29,9 +29,14 @@ resource "aws_iam_role_policy_attachment" "api_logs" {
 
 data "aws_iam_policy_document" "api" {
   statement {
-    sid       = "Faturas"
-    actions   = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
-    resources = ["${aws_s3_bucket.invoices.arn}/faturas/*"]
+    sid     = "Faturas"
+    actions = ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"]
+    # uploads/: ficheiros enviados diretamente pelo browser (o POST pré-assinado é assinado
+    # com as credenciais deste papel, por isso o papel tem de poder escrever lá).
+    resources = [
+      "${aws_s3_bucket.invoices.arn}/faturas/*",
+      "${aws_s3_bucket.invoices.arn}/uploads/*",
+    ]
   }
   statement {
     sid     = "Segredos"
@@ -73,9 +78,9 @@ resource "aws_lambda_function" "api" {
       S3_BUCKET           = aws_s3_bucket.invoices.id
       MAIL_BACKEND        = "ses"
       MAIL_FROM           = "Warrantly <${var.mail_from_address}>"
-      # Pedidos ao Lambda até 6 MB (em base64): faturas até 4 MB, até haver upload direto para o S3.
-      MAX_INVOICE_BYTES = "4194304"
-      STATIC_DIR        = "" # o frontend vem do S3, pelo CloudFront
+      # As faturas (até 10 MB) vão do browser diretamente para o S3: os pedidos ao Lambda
+      # estão limitados a 6 MB e não servem para ficheiros grandes.
+      STATIC_DIR = "" # o frontend vem do S3, pelo CloudFront
     }
   }
 
