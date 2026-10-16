@@ -1,7 +1,7 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal
 from enum import StrEnum
-from typing import Annotated
+from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
 
@@ -101,6 +101,19 @@ class UserCreate(BaseModel):
 
 class UserUpdate(BaseModel):
     full_name: FullName | None = None
+
+
+# Token do Expo: "ExponentPushToken[xxxx]" (ou "ExpoPushToken[xxxx]").
+PUSH_TOKEN_PATTERN = r"^Expo(nent)?PushToken\[[A-Za-z0-9_-]{1,200}\]$"
+
+
+class PushTokenCreate(BaseModel):
+    token: str = Field(pattern=PUSH_TOKEN_PATTERN, max_length=255)
+    platform: Literal["ios", "android"]
+
+
+class PushTokenDelete(BaseModel):
+    token: str = Field(max_length=255)
 
 
 class AccountDelete(BaseModel):

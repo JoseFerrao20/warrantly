@@ -11,3 +11,48 @@ jest.mock('expo-secure-store', () => {
 
 // O FormData do Node transforma { uri, name, type } em texto; no telemóvel é o do React Native.
 global.FormData = jest.requireActual('react-native/Libraries/Network/FormData').default
+
+// Um build da app (não a Expo Go), com projeto do EAS, num telemóvel a sério.
+jest.mock('expo-constants', () => {
+  const actual = jest.requireActual('expo-constants')
+  const constants = {
+    ...actual.default,
+    executionEnvironment: 'standalone',
+    expoConfig: { ...actual.default.expoConfig, extra: { eas: { projectId: 'projeto-teste' } } },
+  }
+  return { __esModule: true, ...actual, default: constants }
+})
+jest.mock('expo-device', () => ({ isDevice: true }))
+
+// Notificações simuladas: autorização dada, um token fixo, e `__tap(data)` simula tocar numa.
+jest.mock('expo-notifications', () => {
+  const { useSyncExternalStore } = jest.requireActual('react')
+  let lastResponse: unknown = null
+  const listeners = new Set<() => void>()
+  const setResponse = (response: unknown) => {
+    lastResponse = response
+    listeners.forEach((listener) => listener())
+  }
+  return {
+    AndroidImportance: { HIGH: 4 },
+    setNotificationHandler: jest.fn(),
+    setNotificationChannelAsync: jest.fn(async () => null),
+    getPermissionsAsync: jest.fn(async () => ({ granted: true })),
+    requestPermissionsAsync: jest.fn(async () => ({ granted: true })),
+    getExpoPushTokenAsync: jest.fn(async () => ({
+      type: 'expo',
+      data: 'ExponentPushToken[telemovel]',
+    })),
+    useLastNotificationResponse: () =>
+      useSyncExternalStore(
+        (listener: () => void) => {
+          listeners.add(listener)
+          return () => listeners.delete(listener)
+        },
+        () => lastResponse,
+      ),
+    clearLastNotificationResponse: jest.fn(() => setResponse(null)),
+    __tap: (data: Record<string, unknown>) =>
+      setResponse({ notification: { request: { content: { data } } } }),
+  }
+})

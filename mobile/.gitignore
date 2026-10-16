@@ -40,3 +40,6 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+# Firebase (push no Android): no EAS, vem da variável GOOGLE_SERVICES_JSON
+google-services.json

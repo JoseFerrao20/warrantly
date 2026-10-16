@@ -33,6 +33,12 @@
           "cameraPermission": "O Warrantly usa a câmara para fotografar faturas.",
           "photosPermission": "O Warrantly acede às fotografias para escolheres a fatura."
         }
+      ],
+      [
+        "expo-notifications",
+        {
+          "color": "#2563eb"
+        }
       ]
     ],
     "scheme": "warrantly",

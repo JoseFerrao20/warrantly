@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 
 import { api, getToken, setToken, setUnauthorizedHandler } from './api'
+import { unregisterPush } from './push'
 import type { User } from '@/shared/types'
 
 interface AuthState {
@@ -16,19 +17,27 @@ const AuthContext = createContext<AuthState | null>(null)
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null | undefined>(undefined)
 
-  const logout = useCallback(async () => {
+  // Sessão expirada (401): só esquece o token da sessão. O telemóvel continua a receber os
+  // alertas da conta, porque a pessoa não saiu; ao entrar outra vez, o push volta a registar-se.
+  const endSession = useCallback(async () => {
     await setToken(null)
     setUser(null)
   }, [])
 
+  // "Sair": este telemóvel também deixa de receber os alertas da conta.
+  const logout = useCallback(async () => {
+    await unregisterPush().catch(() => {}) // sem rede, sai na mesma
+    await endSession()
+  }, [endSession])
+
   useEffect(() => {
-    setUnauthorizedHandler(() => void logout())
+    setUnauthorizedHandler(() => void endSession())
     // Ao abrir a app: há um token guardado e ainda é válido?
     getToken()
       .then((token) => (token ? api.me() : null))
       .then(setUser)
       .catch(() => setUser(null))
-  }, [logout])
+  }, [endSession])
 
   const login = useCallback(async (email: string, password: string) => {
     await setToken(await api.login(email.trim().toLowerCase(), password))

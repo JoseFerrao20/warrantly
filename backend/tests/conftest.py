@@ -108,3 +108,13 @@ def s3(monkeypatch: pytest.MonkeyPatch, upload_dir: Path) -> Iterator[object]:
 
 def s3_objects(client) -> list[str]:
     return [o["Key"] for o in client.list_objects_v2(Bucket=S3_BUCKET).get("Contents", [])]
+
+
+@pytest.fixture(autouse=True)
+def no_real_push(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Os testes nunca chamam o serviço de push do Expo (quem precisa, simula o `_post`)."""
+
+    def blocked(messages: list[dict]) -> list[dict]:
+        raise AssertionError("pedido real ao serviço de push do Expo num teste")
+
+    monkeypatch.setattr("app.push._post", blocked)

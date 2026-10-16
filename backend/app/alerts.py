@@ -8,6 +8,10 @@ Para cada utilizador, junta num só email as compras cuja garantia acaba dentro 
 15 dias e que ainda não tiveram esse aviso. Os avisos enviados ficam registados em
 `warranty_alerts`, por isso correr o comando mais de uma vez no mesmo dia não repete emails,
 e um dia em que não corra é apanhado no dia seguinte.
+
+Quem tiver a app móvel com as notificações ligadas recebe também o aviso no telemóvel (push,
+pelo serviço do Expo). O email é o canal principal: o push só segue depois de o email ter
+saído, e um push que falha não impede o registo do aviso.
 """
 
 import logging
@@ -18,12 +22,14 @@ from dataclasses import dataclass, field
 from datetime import date, timedelta
 from email.message import EmailMessage
 
-from sqlalchemy import select
+from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
 
+from app.config import settings
 from app.db import SessionLocal
 from app.mailer import build_message, is_configured, send_email
-from app.models import Purchase, User, WarrantyAlert
+from app.models import Purchase, PushToken, User, WarrantyAlert
+from app.push import PushMessage, send_push
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +47,7 @@ class DueAlert:
 @dataclass
 class AlertRunResult:
     emails_sent: int = 0
+    pushes_sent: int = 0
     purchases_alerted: int = 0
     failed_users: list[str] = field(default_factory=list)
 
@@ -105,13 +112,55 @@ def build_alert_email(user: User, alerts: list[DueAlert]) -> EmailMessage:
     return build_message(user.email, subject, "\n".join(lines))
 
 
+def build_alert_push(token: str, alerts: list[DueAlert]) -> PushMessage:
+    """Notificação curta; tocar nela abre a compra (ou o painel, se forem várias)."""
+    if len(alerts) == 1:
+        p = alerts[0].purchase
+        return PushMessage(
+            token=token,
+            title=f"A garantia de {p.product_name} está a acabar",
+            body=f"Termina a {p.warranty_end:%d/%m/%Y}, {format_days_left(alerts[0].days_left)}.",
+            data={"url": f"/compras/{p.id}"},
+        )
+    first = min(alerts, key=lambda a: a.days_left)
+    names = ", ".join(a.purchase.product_name for a in alerts)
+    return PushMessage(
+        token=token,
+        title=f"{len(alerts)} garantias estão a acabar",
+        body=f"{names}. A primeira termina {format_days_left(first.days_left)}.",
+        data={"url": "/"},
+    )
+
+
+PushSender = Callable[[list[PushMessage]], set[str]]
+
+
+def push_alerts(session: Session, user: User, alerts: list[DueAlert], push: PushSender) -> int:
+    """Envia o aviso para os telemóveis do utilizador; apaga os tokens que já não servem."""
+    tokens = session.scalars(select(PushToken.token).where(PushToken.user_id == user.id)).all()
+    if not tokens:
+        return 0
+    try:
+        invalid = push([build_alert_push(token, alerts) for token in tokens])
+    except Exception:
+        logger.exception("Falhou o push para %s", user.email)
+        return 0
+    if invalid:
+        session.execute(delete(PushToken).where(PushToken.token.in_(invalid)))
+        session.commit()
+    return len(tokens) - len(invalid)
+
+
 def send_due_alerts(
     session: Session,
     today: date | None = None,
     send: Callable[[EmailMessage], None] = send_email,
+    push: PushSender | None = None,
 ) -> AlertRunResult:
     """Envia os alertas devidos. Um email por utilizador; regista cada aviso só depois de enviar."""
     today = today or date.today()
+    if push is None and settings.push_enabled:
+        push = send_push
     result = AlertRunResult()
     for user, alerts in find_due_alerts(session, today).items():
         try:
@@ -129,6 +178,8 @@ def send_due_alerts(
             continue
         result.emails_sent += 1
         result.purchases_alerted += len(alerts)
+        if push is not None:
+            result.pushes_sent += push_alerts(session, user, alerts, push)
     return result
 
 
@@ -140,8 +191,9 @@ def main() -> int:
     with SessionLocal() as session:
         result = send_due_alerts(session)
     logger.info(
-        "Alertas: %d email(s) enviados, %d compra(s), %d falha(s)",
+        "Alertas: %d email(s) e %d push enviados, %d compra(s), %d falha(s)",
         result.emails_sent,
+        result.pushes_sent,
         result.purchases_alerted,
         len(result.failed_users),
     )

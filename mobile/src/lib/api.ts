@@ -114,4 +114,9 @@ export const api = {
     }),
   uploadInvoice: (id: number, file: PickedFile) =>
     request<Purchase>(`/purchases/${id}/invoice`, { method: 'PUT', body: fileForm(file) }),
+
+  registerPushToken: (token: string, platform: 'ios' | 'android') =>
+    request<void>('/push-tokens', { method: 'POST', json: { token, platform } }),
+  deletePushToken: (token: string) =>
+    request<void>('/push-tokens', { method: 'DELETE', json: { token } }),
 }
