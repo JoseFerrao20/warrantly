@@ -39,7 +39,9 @@ ENV ENVIRONMENT=production \
 EXPOSE 8080
 
 ENTRYPOINT ["docker-entrypoint.sh"]
-CMD ["sh", "-c", "exec uvicorn app.server:server --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]
+# Sem o log de acessos do uvicorn: a app escreve uma linha por pedido, em JSON e com o id do
+# pedido (app/observability.py).
+CMD ["sh", "-c", "exec uvicorn app.server:server --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*' --no-access-log"]
 
 # 3) A mesma imagem com o Lambda Web Adapter: no AWS Lambda, traduz os eventos do Lambda em
 # pedidos HTTP para o uvicorn (fora do Lambda, a extensão é ignorada). Fica numa fase à parte

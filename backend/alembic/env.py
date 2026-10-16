@@ -14,7 +14,8 @@ config = context.config
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    # Sem desligar os loggers que já existem (os da app, quando as migrações correm nos testes).
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # O URL da base de dados vem do DATABASE_URL (app/config.py), não do alembic.ini.
 config.set_main_option("sqlalchemy.url", settings.database_url)

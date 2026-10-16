@@ -176,6 +176,10 @@ O CI corre em cada PR e em cada push para o `main`: `.github/workflows/backend.y
 
 O Warrantly corre na AWS, como projeto de aprendizagem de cloud (antes estava preparado para o Fly.io; ver ADR 0001): roteiro em [`docs/cloud.md`](docs/cloud.md) e decisões em [`docs/adr/`](docs/adr/). Arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)): Lambda (a mesma imagem Docker, com o Lambda Web Adapter), S3 + CloudFront, Neon, SES e SSM Parameter Store. Já feito: faturas no S3 (`STORAGE_BACKEND=s3`) e a app pronta para o Lambda (segredos no SSM, email pelo SES e ligações sem pool).
 
+### Observabilidade
+
+Na AWS, a API escreve logs em JSON (uma linha por pedido com a rota, o estado, a duração e um `request_id`, também devolvido no cabeçalho `X-Request-ID`) e métricas (logins, recuperação da palavra-passe, leitura das faturas, alertas e erros) pelo Embedded Metric Format. O Terraform cria 7 alarmes por email, incluindo um para quando os alertas diários deixam de correr, e um dashboard no CloudWatch. Tudo cabe no nível gratuito ([ADR 0005](docs/adr/0005-observabilidade.md); consultas úteis em [`docs/cloud.md`](docs/cloud.md#observabilidade)).
+
 ## Deploy (AWS)
 
 Arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)): o CloudFront serve o frontend a partir do S3 e manda `/api/*` para um Lambda que corre a imagem Docker da app (com o Lambda Web Adapter). A base de dados é o Neon, as faturas ficam no S3, o email sai pelo SES e os segredos ficam no SSM Parameter Store. Toda a infraestrutura está em Terraform (`infra/`).

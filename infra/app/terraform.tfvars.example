@@ -1,2 +1,4 @@
 # Copiar para terraform.tfvars (fora do git) e preencher.
 mail_from_address = "o-teu-email@example.com"
+# Opcional: recebe os alarmes do CloudWatch (confirmar o email que a AWS envia).
+alarm_email = "o-teu-email@example.com"

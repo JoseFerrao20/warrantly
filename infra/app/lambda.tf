@@ -72,6 +72,7 @@ resource "aws_lambda_function" "api" {
   environment {
     variables = {
       ENVIRONMENT         = "production"
+      LOG_FORMAT          = "json"         # logs estruturados e métricas EMF (ver monitoring.tf)
       SSM_PARAMETERS_PATH = local.ssm_path # SECRET_KEY, DATABASE_URL, ALERTS_TOKEN, EXPO_ACCESS_TOKEN
       DATABASE_POOL       = "null"
       STORAGE_BACKEND     = "s3"

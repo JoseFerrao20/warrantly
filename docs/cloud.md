@@ -35,6 +35,23 @@ A AWS cobra por uso, e alguns serviços custam dinheiro mesmo parados (Postgres 
 | `STATIC_DIR` | vazio | O frontend vem do S3/CloudFront, não do Lambda |
 | `AWS_LWA_*` | já na imagem | Configuração do Lambda Web Adapter (porta, `/api/health/live` e streaming) |
 
+## Observabilidade
+
+[ADR 0005](adr/0005-observabilidade.md). No Lambda, a app escreve logs em JSON (`LOG_FORMAT=json`) e métricas no formato EMF, que o CloudWatch transforma em métricas no namespace `Warrantly`. O `infra/app/monitoring.tf` cria os alarmes (por email, por SNS) e o dashboard (output `dashboard_url`).
+
+Para investigar um erro: a resposta traz `X-Request-ID`. Depois, CloudWatch → Logs Insights, no grupo `/aws/lambda/warrantly-api`:
+
+```
+fields @timestamp, level, route, status, duration_ms, message, exception
+| filter request_id = "<o id>"
+| sort @timestamp
+```
+
+Outras perguntas úteis:
+- **Rotas mais lentas:** `filter logger = "app.requests" | stats avg(duration_ms), pct(duration_ms, 95), count() by route | sort pct(duration_ms, 95) desc`
+- **Erros por rota:** `filter status >= 500 | stats count() by route`
+- **Arranques a frio:** `filter @type = "REPORT" and ispresent(@initDuration) | stats count(), avg(@initDuration)`
+
 ## Armazenamento das faturas
 
 | Variável | Valor |
@@ -74,7 +91,7 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    aws ssm put-parameter --type SecureString --name /warrantly/prod/DATABASE_URL --value '<connection string do Neon>'
    ```
 5. **GitHub** (Settings → Secrets and variables → Actions)
-   - Variáveis: `AWS_DEPLOY_ROLE_ARN` e `AWS_PLAN_ROLE_ARN` (outputs do bootstrap), `TF_STATE_BUCKET` (output `state_bucket`) e `MAIL_FROM_ADDRESS` (o email que envia os alertas).
+   - Variáveis: `AWS_DEPLOY_ROLE_ARN` e `AWS_PLAN_ROLE_ARN` (outputs do bootstrap), `TF_STATE_BUCKET` (output `state_bucket`) e `MAIL_FROM_ADDRESS` (o email que envia os alertas). Opcional: `ALARM_EMAIL` (recebe os alarmes do CloudWatch; confirmar o email da AWS "Subscription Confirmation").
    - Segredo: `ALERTS_TOKEN`, com o mesmo valor do passo 4.
 6. **Primeiro deploy**: Actions → Deploy → Run workflow.
    - O workflow cria o ECR, publica a imagem, aplica as migrações no Neon, cria o resto com o Terraform e publica o frontend.

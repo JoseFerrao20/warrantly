@@ -29,6 +29,7 @@ from app.config import settings
 from app.db import SessionLocal
 from app.mailer import build_message, is_configured, send_email
 from app.models import Purchase, PushToken, User, WarrantyAlert
+from app.observability import configure_logging, metric
 from app.push import PushMessage, send_push
 
 logger = logging.getLogger(__name__)
@@ -180,11 +181,15 @@ def send_due_alerts(
         result.purchases_alerted += len(alerts)
         if push is not None:
             result.pushes_sent += push_alerts(session, user, alerts, push)
+    # Uma corrida por dia: o alarme "AlertFailures > 0" avisa se algum email falhou.
+    metric("AlertEmailsSent", result.emails_sent)
+    metric("AlertPushesSent", result.pushes_sent)
+    metric("AlertFailures", len(result.failed_users))
     return result
 
 
 def main() -> int:
-    logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    configure_logging()
     if not is_configured():
         logger.error("Falta definir SMTP_HOST (ou MAIL_BACKEND=ses); nenhum alerta foi enviado")
         return 1

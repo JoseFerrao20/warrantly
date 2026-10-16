@@ -22,6 +22,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.models import RefreshToken
+from app.observability import metric
 from app.security import create_access_token
 
 REUSE_GRACE = timedelta(seconds=30)
@@ -75,6 +76,7 @@ def refresh_session(session: Session, refresh_token: str) -> TokenPair | None:
         return None
     if stored.used_at is not None and now - stored.used_at > REUSE_GRACE:
         revoke_family(session, stored.family)  # token gasto outra vez: provavelmente roubado
+        metric("RefreshTokenReuse")
         return None
     if stored.used_at is None:
         stored.used_at = now
