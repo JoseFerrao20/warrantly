@@ -52,9 +52,21 @@
     - O caminho do cookie tem de ser o que o browser vê (`/api/auth`), não o da API (`/auth`), porque o proxy do Vite e o servidor de produção põem a API debaixo de `/api`. Ficou numa variável, `REFRESH_COOKIE_PATH`.
     - O corpo da resposta do refresh no browser não pode trazer o refresh token: um XSS que chamasse `/auth/refresh` ficava com ele.
 
+- **2026-10-16 (sessão cloud do Claude Code):** recuperar a palavra-passe por email. Até aqui, quem se esquecesse da palavra-passe perdia a conta.
+  - **Backend:**
+    - `POST /auth/password-reset` envia um link válido 1 hora e responde sempre o mesmo, para não revelar que emails têm conta. Tem limite de pedidos (10 por IP e 3 por email, por hora), e uma falha no envio só fica no log.
+    - `POST /auth/password-reset/confirm` muda a palavra-passe e **termina todas as sessões** (apaga os refresh tokens), para quem tivesse roubado a conta perder o acesso.
+  - **Decisão: sem tabela.** O token é um JWT com `purpose` e uma impressão do hash da palavra-passe atual. É de uso único por construção: depois de a palavra-passe mudar, a impressão já não bate certo, e os links antigos também morrem. O `decode_access_token` recusa tokens com `purpose`, por isso o link não serve como sessão (e vice-versa).
+  - **O token vai no fragmento do URL** (`/repor-palavra-passe#token=...`). O browser não o envia ao servidor, por isso não aparece nos logs do CloudFront nem no `Referer`, e a página tira-o da barra de endereço depois de o ler.
+  - **Site:** link "Esqueci-me da palavra-passe" no login e páginas `/recuperar-palavra-passe` e `/repor-palavra-passe` (confirmação da palavra-passe e "Pedir um novo link" quando expira). Ao acabar, volta ao login com o aviso.
+  - **AWS:** o endereço do site (`APP_URL`) vai para o SSM pelo Terraform. Nas variáveis do Lambda criava um ciclo, porque o CloudFront já depende do Lambda.
+  - **Testes com email a sério:** um `MAIL_BACKEND=file` novo grava cada email num `.eml`. Os E2E (com o Vite e contra o contentor de produção, com a pasta montada) pedem o link, leem o email, mudam a palavra-passe, entram com a nova e confirmam que o link já não serve.
+  - **Contagens:** 230 testes no backend (15 novos), 80 no frontend (7 novos) e 23 E2E. O axe passou a ver as duas páginas novas nos dois temas.
+  - **Lição:** o corpo do email vai em quoted-printable, onde o `=` de `#token=` aparece como `=3D`; o helper dos E2E descodifica o email antes de procurar o link.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 28 PRs. Tudo está testado no CI: backend com 215 testes, frontend com 73, app móvel com 29, 22 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 29 PRs. Tudo está testado no CI: backend com 230 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -63,15 +75,15 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (215 testes, sem avisos) e `cd frontend && npm test` (73 testes).
+  - `cd backend && alembic upgrade head && pytest` (230 testes, sem avisos) e `cd frontend && npm test` (80 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
-    - criar conta com nome;
+    - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
     - painel: filtros e pesquisa;
     - só com o teclado e, se possível, com o leitor de ecrã;
     - na conta: tema, e "Descarregar ZIP" (abrir o `compras.csv` no Excel ou no LibreOffice).
   - Uma compra com menos de 60 dias de garantia: `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025). Na mesma compra, gerar a reclamação e descarregar o PDF.
-  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (22 testes).
+  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (23 testes).
   - Anotar aqui o que falhar; não gastar mais de 35 min.
 - [ ] **0:45–2:30 · Primeiro deploy na AWS**: seguir [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez), passo a passo, lendo cada `terraform plan` antes do `apply`:
   1. conta AWS com MFA e utilizador no IAM Identity Center (`aws sso login`);

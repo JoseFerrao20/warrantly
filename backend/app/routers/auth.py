@@ -1,3 +1,4 @@
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response, status
@@ -6,12 +7,23 @@ from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
-from app import rate_limit, sessions, storage
+from app import mailer, password_reset, rate_limit, sessions, storage
 from app.config import settings
 from app.dependencies import CurrentUser, SessionDep
 from app.models import Purchase, User
-from app.schemas import AccountDelete, RefreshRequest, Token, UserCreate, UserRead, UserUpdate
+from app.schemas import (
+    AccountDelete,
+    PasswordResetConfirm,
+    PasswordResetRequest,
+    RefreshRequest,
+    Token,
+    UserCreate,
+    UserRead,
+    UserUpdate,
+)
 from app.security import DUMMY_PASSWORD_HASH, hash_password, verify_password
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -172,6 +184,51 @@ def logout(
     response = Response(status_code=status.HTTP_204_NO_CONTENT)
     clear_refresh_cookie(response)
     return response
+
+
+# A mesma resposta exista ou não a conta: não revela que emails estão registados.
+RESET_REQUESTED = (
+    "Se existir uma conta com este email, enviámos um link para repor a palavra-passe. "
+    "Vê a caixa de correio (e o spam)."
+)
+
+
+@router.post("/password-reset", status_code=status.HTTP_202_ACCEPTED)
+def request_password_reset(
+    data: PasswordResetRequest, request: Request, session: SessionDep
+) -> dict[str, str]:
+    """Envia um link para repor a palavra-passe (válido 1 hora, de uso único)."""
+    if not mailer.is_configured():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, detail="O envio de emails não está configurado"
+        )
+    email = data.email.lower()
+    ip = client_ip(request)
+    limits = [(rate_limit.password_resets_ip, ip), (rate_limit.password_resets_email, email)]
+    check_limits(*limits)
+    for limiter, key in limits:
+        limiter.hit(key)
+    user = session.scalar(select(User).where(User.email == email))
+    if user is not None:
+        token = password_reset.create_reset_token(user)
+        try:
+            mailer.send_email(password_reset.build_reset_email(user, token))
+        except Exception:
+            # A resposta não muda (não revela que a conta existe); o erro fica no log.
+            logger.exception("Falhou o email de recuperação da palavra-passe")
+    return {"detail": RESET_REQUESTED}
+
+
+@router.post("/password-reset/confirm", status_code=status.HTTP_204_NO_CONTENT)
+def confirm_password_reset(data: PasswordResetConfirm, session: SessionDep) -> Response:
+    """Muda a palavra-passe com o token do link e termina todas as sessões da conta."""
+    user = password_reset.user_for_token(session, data.token)
+    if user is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, detail="O link é inválido ou já expirou. Pede um novo."
+        )
+    password_reset.reset_password(session, user, data.password)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me", response_model=UserRead)

@@ -46,8 +46,13 @@ jobs:
       - name: Arrancar o contentor
         run: |
           # RATE_LIMITS=false: os testes E2E criam muitas contas seguidas a partir do mesmo IP.
+          # MAIL_BACKEND=file: os emails ficam numa pasta partilhada com o runner, onde os
+          # testes leem o link para repor a palavra-passe.
+          mkdir -p "$RUNNER_TEMP/emails" && chmod 777 "$RUNNER_TEMP/emails"
           docker run -d --name app --network host \
             -e DATABASE_URL -e SECRET_KEY="$(openssl rand -hex 32)" -e RATE_LIMITS=false \
+            -e MAIL_BACKEND=file -e MAIL_DIR=/emails -e APP_URL=http://localhost:8080 \
+            -v "$RUNNER_TEMP/emails:/emails" \
             warrantly:ci
           for i in $(seq 1 30); do
             # /api/health/live é o que o Lambda Web Adapter usa para saber que a app arrancou.
@@ -71,9 +76,7 @@ jobs:
 
       - name: Testes E2E contra o contentor
         working-directory: frontend
-        env:
-          E2E_BASE_URL: http://localhost:8080
-        run: npx playwright test
+        run: E2E_BASE_URL=http://localhost:8080 E2E_MAIL_DIR="$RUNNER_TEMP/emails" npx playwright test
 
       - name: Registos do contentor
         if: failure()

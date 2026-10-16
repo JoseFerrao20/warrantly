@@ -4,6 +4,7 @@ import { RequireAuth } from './auth'
 import { Layout } from './components/Layout'
 import { AccountPage } from './pages/AccountPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPages'
 import { LoginPage } from './pages/LoginPage'
 import { PurchaseDetailPage } from './pages/PurchaseDetailPage'
 import { PurchaseFormPage } from './pages/PurchaseFormPage'
@@ -12,6 +13,8 @@ export function App() {
   return (
     <Routes>
       <Route path="/entrar" element={<LoginPage />} />
+      <Route path="/recuperar-palavra-passe" element={<ForgotPasswordPage />} />
+      <Route path="/repor-palavra-passe" element={<ResetPasswordPage />} />
       <Route
         element={
           <RequireAuth>

@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { PASSWORD, uniqueEmail } from './helpers'
+import { lastEmailTo, PASSWORD, uniqueEmail } from './helpers'
 
 test('cria conta, sai e volta a entrar', async ({ page }) => {
   const email = uniqueEmail()
@@ -72,4 +72,38 @@ test('com o token de acesso expirado, a sessão renova-se pelo cookie', async ({
   await page.getByRole('button', { name: 'Sair' }).click()
   await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()
   await expect.poll(async () => (await page.request.post('/api/auth/refresh')).status()).toBe(401)
+})
+
+test('recupera a palavra-passe com o link do email', async ({ page }) => {
+  const email = uniqueEmail()
+  await page.request.post('/api/auth/register', { data: { email, password: PASSWORD } })
+
+  await page.goto('/entrar')
+  await page.getByRole('link', { name: 'Esqueci-me da palavra-passe' }).click()
+  await page.getByLabel('Email').fill(email)
+  await page.getByRole('button', { name: 'Enviar link' }).click()
+  await expect(page.getByRole('status')).toContainText('Se existir uma conta com este email')
+
+  // O link aponta para o APP_URL do servidor (o Vite em desenvolvimento, o contentor no CI).
+  const link = (await lastEmailTo(email)).match(/https?:\/\/\S+(\/repor-palavra-passe#token=[\w.-]+)/)
+  expect(link).not.toBeNull()
+
+  await page.goto(link![1])
+  await expect(page).toHaveURL(/\/repor-palavra-passe$/) // o token sai da barra de endereço
+  await page.getByLabel('Nova palavra-passe').fill('uma-palavra-passe-nova')
+  await page.getByLabel('Repetir a palavra-passe').fill('uma-palavra-passe-nova')
+  await page.getByRole('button', { name: 'Guardar palavra-passe' }).click()
+  await expect(page.getByRole('status')).toHaveText('A palavra-passe foi alterada. Entra com a nova.')
+
+  await page.getByLabel('Email').fill(email)
+  await page.getByLabel('Palavra-passe').fill('uma-palavra-passe-nova')
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page.getByText('Ainda não tens compras registadas')).toBeVisible()
+
+  // O mesmo link já não serve.
+  await page.goto(link![1])
+  await page.getByLabel('Nova palavra-passe').fill('mais-uma-palavra-passe')
+  await page.getByLabel('Repetir a palavra-passe').fill('mais-uma-palavra-passe')
+  await page.getByRole('button', { name: 'Guardar palavra-passe' }).click()
+  await expect(page.getByRole('alert')).toContainText('O link é inválido ou já expirou.')
 })

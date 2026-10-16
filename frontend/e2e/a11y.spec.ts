@@ -26,6 +26,14 @@ for (const colorScheme of ['light', 'dark'] as const) {
 
       await page.getByRole('button', { name: 'Ainda não tens conta? Cria uma' }).click()
       await expectNoViolations(page, 'criar conta')
+
+      await page.goto('/recuperar-palavra-passe')
+      await expect(page.getByRole('heading', { name: 'Recuperar a palavra-passe' })).toBeVisible()
+      await expectNoViolations(page, 'recuperar a palavra-passe')
+
+      await page.goto('/repor-palavra-passe#token=exemplo')
+      await expect(page.getByLabel('Nova palavra-passe')).toBeVisible()
+      await expectNoViolations(page, 'nova palavra-passe')
     })
 
     test('painel, formulário, detalhe e conta', async ({ page }) => {

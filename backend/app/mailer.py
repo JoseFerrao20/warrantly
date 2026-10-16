@@ -1,4 +1,6 @@
 import smtplib
+import time
+import uuid
 from email.message import EmailMessage
 
 from app.config import settings
@@ -19,15 +21,24 @@ def build_message(to: str, subject: str, body: str) -> EmailMessage:
 
 def is_configured() -> bool:
     """Com SES, chega a região (as credenciais vêm do papel IAM); com SMTP, falta o SMTP_HOST."""
-    return settings.mail_backend == "ses" or bool(settings.smtp_host)
+    return settings.mail_backend in ("ses", "file") or bool(settings.smtp_host)
 
 
 def send_email(message: EmailMessage) -> None:
     """Envia pelo SES (MAIL_BACKEND=ses) ou por SMTP (SMTP_HOST, SMTP_PORT, ...)."""
     if settings.mail_backend == "ses":
         _send_ses(message)
+    elif settings.mail_backend == "file":
+        _send_file(message)
     else:
         _send_smtp(message)
+
+
+def _send_file(message: EmailMessage) -> None:
+    """Grava o email em MAIL_DIR (um .eml por email, por ordem de envio no nome)."""
+    settings.mail_dir.mkdir(parents=True, exist_ok=True)
+    name = f"{time.time_ns()}-{uuid.uuid4().hex[:8]}.eml"
+    (settings.mail_dir / name).write_bytes(message.as_bytes())
 
 
 def _send_smtp(message: EmailMessage) -> None:

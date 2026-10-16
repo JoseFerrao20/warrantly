@@ -34,6 +34,8 @@ def decode_access_token(token: str) -> int | None:
         payload = jwt.decode(
             token, settings.secret_key, algorithms=[ALGORITHM], options={"require": ["exp", "sub"]}
         )
+        if "purpose" in payload:  # outro tipo de token (ex.: repor a palavra-passe)
+            return None
         return int(payload["sub"])
     except (jwt.InvalidTokenError, ValueError):
         return None

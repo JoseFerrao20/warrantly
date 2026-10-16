@@ -1,3 +1,6 @@
+import { readdirSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
+
 import { expect } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
@@ -30,6 +33,49 @@ export async function signUp(page: Page, fullName: string | null = null) {
   const { access_token: token } = (await login.json()) as { access_token: string }
   await page.addInitScript((value) => localStorage.setItem('warrantly.token', value), token)
   return { email, token }
+}
+
+const mailDir = () => process.env.E2E_MAIL_DIR!
+
+/** Corpo de um email .eml de uma só parte, descodificado (quoted-printable ou base64). */
+function emailBody(raw: string): string {
+  const [headers, ...rest] = raw.split(/\r?\n\r?\n/)
+  const body = rest.join('\n\n')
+  if (/Content-Transfer-Encoding: base64/i.test(headers)) {
+    return Buffer.from(body, 'base64').toString('utf8')
+  }
+  if (/Content-Transfer-Encoding: quoted-printable/i.test(headers)) {
+    const bytes = body
+      .replace(/=\r?\n/g, '') // quebras de linha "suaves"
+      .replace(/=([0-9A-F]{2})/g, (_, hex: string) => String.fromCharCode(parseInt(hex, 16)))
+    return Buffer.from(bytes, 'latin1').toString('utf8')
+  }
+  return body
+}
+
+/**
+ * O corpo do último email enviado para `to` (a API dos E2E grava os emails em ficheiros .eml).
+ * Espera um pouco, porque o email é escrito pelo servidor ao responder ao pedido.
+ */
+export async function lastEmailTo(to: string): Promise<string> {
+  let found: string | undefined
+  await expect
+    .poll(() => {
+      let names: string[] = []
+      try {
+        names = readdirSync(mailDir()).filter((name) => name.endsWith('.eml'))
+      } catch {
+        return false // a pasta só existe depois do primeiro email
+      }
+      found = names
+        .sort()
+        .reverse()
+        .map((name) => readFileSync(join(mailDir(), name), 'utf8'))
+        .find((raw) => raw.includes(`To: ${to}`))
+      return found !== undefined
+    })
+    .toBe(true)
+  return emailBody(found!)
 }
 
 export interface PurchaseData {
