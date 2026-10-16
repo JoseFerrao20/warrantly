@@ -69,6 +69,9 @@ login_failures_email = RateLimiter(limit=20, window=15 * MINUTE)
 registrations_ip = RateLimiter(limit=10, window=60 * MINUTE)
 # Palavra-passe errada ao apagar a conta, por utilizador.
 password_checks_user = RateLimiter(limit=5, window=15 * MINUTE)
+# Pedidos de recuperação da palavra-passe: emails enviados por IP e por endereço.
+password_resets_ip = RateLimiter(limit=10, window=60 * MINUTE)
+password_resets_email = RateLimiter(limit=3, window=60 * MINUTE)
 
 ALL = [
     login_failures_ip_email,
@@ -76,6 +79,8 @@ ALL = [
     login_failures_email,
     registrations_ip,
     password_checks_user,
+    password_resets_ip,
+    password_resets_email,
 ]
 
 

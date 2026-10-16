@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import type { FormEvent } from 'react'
-import { Navigate, useLocation, useNavigate } from 'react-router'
+import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 
 import { ApiError } from '../api'
 import { useAuth } from '../useAuth'
@@ -10,7 +10,10 @@ export function LoginPage() {
   const { user, notice, login, register } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const from = (location.state as { from?: string } | null)?.from ?? '/'
+  const state = location.state as { from?: string; notice?: string } | null
+  const from = state?.from ?? '/'
+  // Aviso de outra página (ex.: "A palavra-passe foi alterada") ou da sessão (conta apagada).
+  const message = state?.notice ?? notice
 
   const [mode, setMode] = useState<'login' | 'register'>('login')
   usePageTitle(mode === 'login' ? 'Entrar' : 'Criar conta')
@@ -42,9 +45,9 @@ export function LoginPage() {
     <main className="auth">
       <h1 className="brand">Warrantly</h1>
       <p className="muted">As tuas garantias, num só sítio.</p>
-      {notice && (
+      {message && (
         <p className="notice" role="status">
-          {notice}
+          {message}
         </p>
       )}
       <form className="card form" onSubmit={onSubmit}>
@@ -84,6 +87,11 @@ export function LoginPage() {
           />
         </label>
         {!isLogin && <small className="muted">Pelo menos 8 caracteres.</small>}
+        {isLogin && (
+          <Link to="/recuperar-palavra-passe" className="button-link">
+            Esqueci-me da palavra-passe
+          </Link>
+        )}
         {error && (
           <p className="form-error" role="alert">
             {error}

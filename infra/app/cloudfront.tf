@@ -137,3 +137,12 @@ resource "aws_cloudfront_distribution" "app" {
     cloudfront_default_certificate = true
   }
 }
+
+# Endereço do site para os links nos emails (repor a palavra-passe). O Lambda lê-o do SSM ao
+# arrancar, com os segredos: pô-lo nas variáveis do Lambda criava um ciclo (o CloudFront já
+# depende da Function URL do Lambda).
+resource "aws_ssm_parameter" "app_url" {
+  name  = "${local.ssm_path}APP_URL"
+  type  = "String"
+  value = "https://${aws_cloudfront_distribution.app.domain_name}"
+}

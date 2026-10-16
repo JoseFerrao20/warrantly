@@ -9,6 +9,11 @@ import { defineConfig, devices } from '@playwright/test'
 const venvPython = '../backend/.venv/bin/python'
 const python = existsSync(venvPython) ? '.venv/bin/python' : 'python'
 const uploadDir = join(tmpdir(), 'warrantly-e2e-uploads')
+// Os emails (ex.: recuperar a palavra-passe) ficam em ficheiros .eml, que os testes leem
+// (e2e/helpers.ts). Os processos dos testes herdam esta variável; contra o contentor
+// (E2E_BASE_URL), o workflow indica a pasta montada no contentor.
+process.env.E2E_MAIL_DIR ??= join(tmpdir(), 'warrantly-e2e-emails')
+const mailDir = process.env.E2E_MAIL_DIR
 // Com E2E_BASE_URL (ex.: http://localhost:8080, o contentor de produção), os testes usam essa
 // app e não arrancam a API nem o Vite.
 const externalBaseURL = process.env.E2E_BASE_URL
@@ -43,7 +48,7 @@ export default defineConfig({
       cwd: '../backend',
       url: 'http://localhost:8000/health',
       // Os testes criam muitas contas seguidas a partir do mesmo IP.
-      env: { UPLOAD_DIR: uploadDir, RATE_LIMITS: 'false' },
+      env: { UPLOAD_DIR: uploadDir, RATE_LIMITS: 'false', MAIL_BACKEND: 'file', MAIL_DIR: mailDir },
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

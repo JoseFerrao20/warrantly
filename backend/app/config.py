@@ -42,9 +42,11 @@ class Settings(BaseSettings):
     upload_dir: Path = Path("uploads")
     max_invoice_bytes: int = 10 * 1024 * 1024
 
-    # Email (alertas de garantia): "smtp" (SMTP_*) ou "ses" (Amazon SES pela API, na AWS).
-    # Com SMTP e sem SMTP_HOST, os alertas não são enviados.
-    mail_backend: Literal["smtp", "ses"] = "smtp"
+    # Email (alertas e recuperação da palavra-passe): "smtp" (SMTP_*), "ses" (Amazon SES pela
+    # API, na AWS) ou "file" (grava cada email num ficheiro .eml em MAIL_DIR: testes E2E e
+    # desenvolvimento sem Mailpit). Com SMTP e sem SMTP_HOST, os emails não são enviados.
+    mail_backend: Literal["smtp", "ses", "file"] = "smtp"
+    mail_dir: Path = Path("emails")
     smtp_host: str | None = None
     smtp_port: int = 587
     smtp_user: str | None = None
@@ -56,6 +58,10 @@ class Settings(BaseSettings):
     # ligado na conta do Expo, só este servidor consegue enviar para os tokens da app.
     push_enabled: bool = True
     expo_access_token: str | None = None
+
+    # Endereço do site, para os links nos emails (ex.: repor a palavra-passe). Na AWS vem do
+    # SSM (o Terraform escreve lá o domínio do CloudFront).
+    app_url: str = "http://localhost:5173"
 
     # Token para correr os alertas por HTTP (POST /internal/alerts), usado pelo agendamento
     # diário no GitHub Actions. Sem token, a rota não existe.

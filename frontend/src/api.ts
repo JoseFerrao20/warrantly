@@ -122,6 +122,10 @@ export const api = {
   async logout(): Promise<void> {
     await fetch(BASE + '/auth/logout', { method: 'POST' }).catch(() => undefined)
   },
+  requestPasswordReset: (email: string) =>
+    request<{ detail: string }>('/auth/password-reset', { method: 'POST', json: { email } }),
+  confirmPasswordReset: (token: string, password: string) =>
+    request<void>('/auth/password-reset/confirm', { method: 'POST', json: { token, password } }),
   register: (email: string, password: string, fullName: string | null) =>
     request<User>('/auth/register', {
       method: 'POST',

@@ -103,6 +103,15 @@ class UserUpdate(BaseModel):
     full_name: FullName | None = None
 
 
+class PasswordResetRequest(BaseModel):
+    email: EmailStr = Field(max_length=320)
+
+
+class PasswordResetConfirm(BaseModel):
+    token: str = Field(max_length=1000)
+    password: str = Field(min_length=8, max_length=128)
+
+
 # Token do Expo: "ExponentPushToken[xxxx]" (ou "ExpoPushToken[xxxx]").
 PUSH_TOKEN_PATTERN = r"^Expo(nent)?PushToken\[[A-Za-z0-9_-]{1,200}\]$"
 
