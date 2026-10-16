@@ -33,12 +33,9 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Construir a imagem
-        run: docker build -t warrantly:ci .
-
-      - name: Imagem pronta para o Lambda
-        run: |
-          # A extensão do Lambda Web Adapter tem de estar na imagem e ser executável.
-          docker run --rm --entrypoint test warrantly:ci -x /opt/extensions/lambda-adapter
+        # --target app: sem o Lambda Web Adapter (vem do public.ecr.aws, com limites para pulls
+        # anónimos); a fase "lambda" é construída no deploy, já com credenciais da AWS.
+        run: docker build --target app -t warrantly:ci .
 
       - name: Migrações
         run: |
