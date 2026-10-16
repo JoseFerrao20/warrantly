@@ -3,9 +3,10 @@ from collections.abc import Iterator
 from datetime import UTC, date, datetime, timedelta
 from pathlib import PurePath
 from typing import IO
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, status
-from fastapi.responses import FileResponse, StreamingResponse
+from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 
 from app import invoice_scan, storage
@@ -221,18 +222,33 @@ def upload_invoice(
     return purchase
 
 
-@router.get("/{purchase_id}/invoice", response_class=FileResponse)
-def download_invoice(purchase_id: int, user: CurrentUser, session: SessionDep) -> FileResponse:
+def content_disposition(disposition: str, filename: str) -> str:
+    """Cabeçalho Content-Disposition com o nome original (acentos em RFC 5987, como o Starlette)."""
+    quoted = quote(filename)
+    if quoted != filename:
+        return f"{disposition}; filename*=utf-8''{quoted}"
+    return f'{disposition}; filename="{filename}"'
+
+
+@router.get(
+    "/{purchase_id}/invoice",
+    response_class=Response,
+    responses={200: {"content": {"application/pdf": {}, "image/*": {}}}},
+)
+def download_invoice(purchase_id: int, user: CurrentUser, session: SessionDep) -> Response:
     purchase = get_purchase_or_404(purchase_id, user, session)
-    path = storage.path_for(purchase.invoice_key) if purchase.invoice_key else None
-    if path is None or not path.is_file():
+    data = storage.load(purchase.invoice_key) if purchase.invoice_key else None
+    if data is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Esta compra não tem fatura")
-    return FileResponse(
-        path,
+    return Response(
+        data,
         media_type=purchase.invoice_content_type,
-        filename=purchase.invoice_filename,
-        content_disposition_type="inline",
-        headers={"X-Content-Type-Options": "nosniff"},
+        headers={
+            "Content-Disposition": content_disposition(
+                "inline", purchase.invoice_filename or "fatura"
+            ),
+            "X-Content-Type-Options": "nosniff",
+        },
     )
 
 

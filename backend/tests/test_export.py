@@ -151,7 +151,7 @@ def test_export_skips_invoice_missing_on_disk(
 ):
     purchase = make_purchase(db_session, user)
     attach_invoice(db_session, purchase, PDF, "application/pdf")
-    storage.path_for(purchase.invoice_key).unlink()
+    (upload_dir / purchase.invoice_key).unlink()
 
     archive = export(auth_client)
 

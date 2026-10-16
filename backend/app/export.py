@@ -53,7 +53,7 @@ def _slug(text: str, max_length: int = 40) -> str:
 
 
 def invoice_archive_name(purchase: Purchase) -> str:
-    extension = storage.path_for(purchase.invoice_key).suffix if purchase.invoice_key else ""
+    extension = storage.extension(purchase.invoice_key) if purchase.invoice_key else ""
     return f"faturas/{purchase.id}-{_slug(purchase.product_name)}{extension}"
 
 
@@ -112,17 +112,17 @@ def _json(user: User, rows: list[tuple[Purchase, str | None]], now: datetime) ->
 
 
 def write_export(out: IO[bytes], user: User, purchases: Iterable[Purchase], now: datetime) -> None:
-    """Escreve o ZIP em `out`. Uma fatura em falta no disco fica de fora, sem falhar."""
+    """Escreve o ZIP em `out`. Uma fatura que já não exista fica de fora, sem falhar."""
     with zipfile.ZipFile(out, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         rows: list[tuple[Purchase, str | None]] = []
         for purchase in purchases:
             invoice_name = None
             if purchase.invoice_key:
-                path = storage.path_for(purchase.invoice_key)
-                if path.is_file():
+                data = storage.load(purchase.invoice_key)
+                if data is not None:
                     invoice_name = invoice_archive_name(purchase)
                     # PDF e imagens já vêm comprimidos: guardar sem voltar a comprimir.
-                    archive.write(path, invoice_name, compress_type=zipfile.ZIP_STORED)
+                    archive.writestr(invoice_name, data, compress_type=zipfile.ZIP_STORED)
             rows.append((purchase, invoice_name))
         archive.writestr("compras.csv", _csv(rows, now.date()))
         archive.writestr("compras.json", _json(user, rows, now))
