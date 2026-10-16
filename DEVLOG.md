@@ -42,9 +42,19 @@
     - O `expo prebuild` reescreve os scripts do `package.json`.
   - **Ainda não testado num telemóvel**, porque precisa da conta do Expo e de um projeto no Firebase.
 
+- **2026-10-16 (sessão cloud do Claude Code):** sessões longas com refresh tokens ([ADR 0004](docs/adr/0004-sessoes-com-refresh-token.md)). Antes, o JWT durava 60 minutos e depois era preciso entrar outra vez, o que na app móvel acontecia quase sempre.
+  - **Tokens:** o de acesso passa a 15 minutos, e o login começa uma sessão de 30 dias (contados desde o último uso) com um refresh token aleatório. Na tabela `refresh_tokens` fica só o hash SHA-256.
+  - **Rotação (`app/sessions.py`):** cada `POST /auth/refresh` gasta o token e devolve outro da mesma família (um aparelho). Um token gasto que volte a aparecer é sinal de cópia, e a família é revogada. A margem de 30 segundos evita falsos alarmes com dois separadores abertos, e os tokens gastos são apagados na rotação seguinte.
+  - **Browser:** o refresh token vai num cookie `HttpOnly`, `SameSite=Strict`, `Secure` em produção e só para `/api/auth`, nunca no corpo. O `src/api.ts` renova o token de acesso com um 401 (um só pedido de renovação, mesmo com vários 401 ao mesmo tempo) e repete o pedido. "Sair" chama `POST /auth/logout`, que revoga a sessão e apaga o cookie.
+  - **App:** pede o refresh token no corpo (`X-Client: mobile`) e guarda-o no `expo-secure-store`. Faz a mesma renovação automática; "Sair" revoga a sessão na API.
+  - **Testes:** 215 no backend (18 novos: rotação, roubo detetado, margem, limpeza, expiração, sair só neste aparelho, apagar a conta e os atributos do cookie), 73 no frontend (4 novos) e 29 na app (5 novos). Um E2E novo estraga o token de acesso, recarrega a página e confirma que a sessão continua pelo cookie através do proxy do Vite. Confirma também que o cookie é httpOnly e não aparece no `document.cookie`. 22 E2E.
+  - **Lições:**
+    - O caminho do cookie tem de ser o que o browser vê (`/api/auth`), não o da API (`/auth`), porque o proxy do Vite e o servidor de produção põem a API debaixo de `/api`. Ficou numa variável, `REFRESH_COOKIE_PATH`.
+    - O corpo da resposta do refresh no browser não pode trazer o refresh token: um XSS que chamasse `/auth/refresh` ficava com ele.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 27 PRs. Tudo está testado no CI: backend com 197 testes, frontend com 69, app móvel com 24, 21 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 28 PRs. Tudo está testado no CI: backend com 215 testes, frontend com 73, app móvel com 29, 22 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -53,7 +63,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (197 testes, sem avisos) e `cd frontend && npm test` (69 testes).
+  - `cd backend && alembic upgrade head && pytest` (215 testes, sem avisos) e `cd frontend && npm test` (73 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome;
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -61,7 +71,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
     - só com o teclado e, se possível, com o leitor de ecrã;
     - na conta: tema, e "Descarregar ZIP" (abrir o `compras.csv` no Excel ou no LibreOffice).
   - Uma compra com menos de 60 dias de garantia: `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025). Na mesma compra, gerar a reclamação e descarregar o PDF.
-  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (21 testes).
+  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (22 testes).
   - Anotar aqui o que falhar; não gastar mais de 35 min.
 - [ ] **0:45–2:30 · Primeiro deploy na AWS**: seguir [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez), passo a passo, lendo cada `terraform plan` antes do `apply`:
   1. conta AWS com MFA e utilizador no IAM Identity Center (`aws sso login`);
@@ -70,14 +80,14 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   4. segredos no SSM (`SECRET_KEY`, `ALERTS_TOKEN`, `DATABASE_URL`);
   5. variáveis e segredo no GitHub;
   6. Actions → Deploy → Run workflow; confirmar o email do SES;
-  7. verificações: fatura PDF inteira (CSP), cabeçalhos, `/api/docs` com 404, 6 logins errados dão "Demasiadas tentativas", logs no CloudWatch;
+  7. verificações: fatura PDF inteira (CSP), cabeçalhos, `/api/docs` com 404, 6 logins errados dão "Demasiadas tentativas", o cookie `warrantly_refresh` com `Secure` e `HttpOnly` (DevTools → Application → Cookies) e a sessão a continuar depois de 15 minutos, logs no CloudWatch;
   8. commit dos `.terraform.lock.hcl`.
   - Se algo falhar, copiar o erro (do Actions ou do terminal) para a sessão do Claude Code e corrigir num PR.
 - [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério e ver o que a leitura preenche. Anotar o que correr mal.
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximos passos do roteiro (`docs/cloud.md`): alertas pelo EventBridge Scheduler e observabilidade (logs estruturados, métricas e alarmes). Na app móvel: sessões mais longas (o token dura 60 minutos, o que na app obriga a entrar muitas vezes; um "refresh token" resolve isto), ícone próprio e ler os "receipts" do push.
+Próximos passos do roteiro (`docs/cloud.md`): alertas pelo EventBridge Scheduler e observabilidade (logs estruturados, métricas e alarmes). Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).

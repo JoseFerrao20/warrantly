@@ -73,7 +73,9 @@ Endpoints (documentação interativa em `/docs`):
 | --- | --- | --- |
 | `GET` | `/health` | Estado da API e da base de dados |
 | `POST` | `/auth/register` | Cria uma conta (email, palavra-passe com 8 caracteres ou mais e, opcionalmente, o nome) |
-| `POST` | `/auth/login` | Devolve um token de acesso (form OAuth2: `username` = email, `password`) |
+| `POST` | `/auth/login` | Devolve um token de acesso (form OAuth2: `username` = email, `password`) e começa uma sessão: refresh token num cookie httpOnly (browser) ou no corpo (app móvel, com `X-Client: mobile`) |
+| `POST` | `/auth/refresh` | Troca o refresh token (cookie ou `{refresh_token}`) por um token de acesso e um refresh token novos |
+| `POST` | `/auth/logout` | Revoga a sessão deste aparelho e apaga o cookie |
 | `GET` | `/auth/me` | Dados do utilizador autenticado |
 | `PATCH` | `/auth/me` | Altera o nome (usado para assinar as reclamações) |
 | `DELETE` | `/auth/me` | Apaga a conta, as compras, os alertas e os ficheiros das faturas (pede a palavra-passe) |
@@ -99,7 +101,7 @@ Uma garantia está "a expirar" (`expiring`) quando faltam 60 dias ou menos.
 
 A reclamação é uma carta ao abrigo do Decreto-Lei n.º 84/2021 com os dados da compra (incluindo o n.º da fatura, se preenchido), a descrição da avaria e o nome do utilizador. A API só gera o texto e o PDF; o envio é feito pelo email do próprio utilizador. Na app há três passos: descarregar o PDF (carta e fatura), abrir o programa de email com o email da loja, o assunto e a carta já preenchidos (link `mailto:`) e anexar o PDF. O email da loja é opcional e fica guardado na compra (`store_email`). Se a garantia já terminou, a resposta indica `within_warranty: false`. O PDF (ReportLab e pypdf) junta a fatura a seguir à carta: um PDF é anexado tal como está, e uma imagem passa a uma página A4. Se a fatura não puder ser lida, o PDF sai só com a carta e o cabeçalho `X-Invoice-Included` vem a `false`.
 
-Os endpoints `/purchases` e `/auth/me` pedem o cabeçalho `Authorization: Bearer <token>`, e cada utilizador só vê as suas compras. No `/docs`, o botão **Authorize** faz o login. O token é assinado com a `SECRET_KEY` (pelo menos 32 caracteres) e dura 60 minutos.
+Os endpoints `/purchases` e `/auth/me` pedem o cabeçalho `Authorization: Bearer <token>`, e cada utilizador só vê as suas compras. No `/docs`, o botão **Authorize** faz o login. O token de acesso é assinado com a `SECRET_KEY` (pelo menos 32 caracteres) e dura 15 minutos. Para não ser preciso entrar a toda a hora, o login começa uma sessão de 30 dias (renovada a cada uso) com um refresh token que muda a cada renovação. Se um refresh token já usado voltar a aparecer, a sessão desse aparelho é revogada ([ADR 0004](docs/adr/0004-sessoes-com-refresh-token.md)). O site e a app renovam o token de acesso sozinhos quando recebem um 401.
 
 As faturas podem ser PDF, JPEG, PNG, WebP ou HEIC (fotografias do iPhone), até 10 MB. O tipo é reconhecido pelo conteúdo do ficheiro, não pelo nome. As fotografias HEIC são convertidas para JPEG (com a orientação corrigida), porque a maioria dos browsers não as mostra. Ficam guardadas em disco na pasta `UPLOAD_DIR` (por omissão `backend/uploads/`, que não vai para o git), com um nome aleatório.
 

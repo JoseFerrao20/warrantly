@@ -22,7 +22,13 @@ export const NO_DIRECT_UPLOAD = {
 }
 
 export function mockApi(routes: Record<string, Handler | { status?: number; body?: unknown }>) {
-  const allRoutes: typeof routes = { 'POST /purchases/uploads': { body: NO_DIRECT_UPLOAD }, ...routes }
+  const allRoutes: typeof routes = {
+    'POST /purchases/uploads': { body: NO_DIRECT_UPLOAD },
+    // Por omissão, a sessão não se renova (o 401 volta ao login) e sair funciona.
+    'POST /auth/refresh': { status: 401, body: { detail: 'Sessão terminada. Entra outra vez.' } },
+    'POST /auth/logout': { status: 204 },
+    ...routes,
+  }
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const path = String(input).replace(/^\/api/, '')
     const key = `${init?.method ?? 'GET'} ${path}`

@@ -55,6 +55,8 @@ export function mockApi(testRoutes: Record<string, unknown | Handler>): Call[] {
   const routes: Record<string, unknown | Handler> = {
     'POST /push-tokens': NO_CONTENT,
     'DELETE /push-tokens': NO_CONTENT,
+    'POST /auth/logout': NO_CONTENT,
+    'POST /auth/refresh': { status: 401, body: { detail: 'Sessão terminada. Entra outra vez.' } },
     ...testRoutes,
   }
   const calls: Call[] = []

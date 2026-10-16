@@ -10,6 +10,7 @@ export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:800
 )
 
 const TOKEN_KEY = 'warrantly.token'
+const REFRESH_KEY = 'warrantly.refreshToken'
 
 export class ApiError extends Error {
   constructor(
@@ -28,9 +29,45 @@ export interface PickedFile {
   size?: number
 }
 
+/** Token de acesso (15 min) e refresh token (30 dias desde o último uso; ver app/sessions.py). */
+export interface Session {
+  access_token: string
+  refresh_token?: string | null
+}
+
 export const getToken = () => SecureStore.getItemAsync(TOKEN_KEY)
-export const setToken = (token: string | null) =>
-  token ? SecureStore.setItemAsync(TOKEN_KEY, token) : SecureStore.deleteItemAsync(TOKEN_KEY)
+
+/** Guarda a sessão no armazenamento seguro do telemóvel (null apaga-a). */
+export async function setSession(session: Session | null): Promise<void> {
+  const store = (key: string, value: string | null | undefined) =>
+    value ? SecureStore.setItemAsync(key, value) : SecureStore.deleteItemAsync(key)
+  await store(TOKEN_KEY, session?.access_token)
+  await store(REFRESH_KEY, session?.refresh_token)
+}
+
+// Um só pedido de renovação de cada vez, mesmo que vários pedidos recebam 401 juntos.
+let refreshing: Promise<boolean> | null = null
+
+/** Troca o refresh token por uma sessão nova (a API roda os dois). false: a sessão terminou. */
+function refreshSession(): Promise<boolean> {
+  refreshing ??= (async () => {
+    const refreshToken = await SecureStore.getItemAsync(REFRESH_KEY)
+    if (!refreshToken) return false
+    const response = await fetch(API_URL + '/auth/refresh', {
+      method: 'POST',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refresh_token: refreshToken }),
+    })
+    if (!response.ok) return false
+    await setSession((await response.json()) as Session)
+    return true
+  })()
+    .catch(() => false)
+    .finally(() => {
+      refreshing = null
+    })
+  return refreshing
+}
 
 let onUnauthorized: () => void = () => {}
 export function setUnauthorizedHandler(handler: () => void) {
@@ -44,7 +81,11 @@ function errorMessage(status: number, body: unknown): string {
   return `Erro inesperado (${status})`
 }
 
-async function request<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+async function request<T>(
+  path: string,
+  init: RequestInit & { json?: unknown } = {},
+  retry = true,
+): Promise<T> {
   const { json, headers, ...rest } = init
   const token = await getToken()
   let response: Response
@@ -62,7 +103,11 @@ async function request<T>(path: string, init: RequestInit & { json?: unknown } =
   } catch {
     throw new ApiError(0, 'Sem ligação ao servidor. Confirma a internet e tenta outra vez.')
   }
-  if (response.status === 401 && token) onUnauthorized()
+  if (response.status === 401 && token) {
+    // O token de acesso dura 15 minutos: renova-o uma vez e repete o pedido.
+    if (retry && (await refreshSession())) return request<T>(path, init, false)
+    onUnauthorized()
+  }
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new ApiError(response.status, errorMessage(response.status, body))
@@ -80,14 +125,20 @@ function fileForm(file: PickedFile, fields: Record<string, string> = {}): FormDa
 }
 
 export const api = {
-  async login(email: string, password: string): Promise<string> {
+  login(email: string, password: string): Promise<Session> {
     const body = `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
-    const { access_token } = await request<{ access_token: string }>('/auth/login', {
+    return request<Session>('/auth/login', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      // A app não tem cookies: pede o refresh token no corpo da resposta.
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Client': 'mobile' },
       body,
     })
-    return access_token
+  },
+  /** Revoga o refresh token deste telemóvel (sem rede, sai na mesma). */
+  async logout(): Promise<void> {
+    const refreshToken = await SecureStore.getItemAsync(REFRESH_KEY)
+    if (!refreshToken) return
+    await request<void>('/auth/logout', { method: 'POST', json: { refresh_token: refreshToken } })
   },
   me: () => request<User>('/auth/me'),
   listPurchases: () => request<Purchase[]>('/purchases'),

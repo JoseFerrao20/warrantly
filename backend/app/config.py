@@ -26,7 +26,11 @@ class Settings(BaseSettings):
     secret_key: str = Field(
         default="dev-only-insecure-secret-key-change-me-in-production", min_length=32
     )
-    access_token_expire_minutes: int = 60
+    # Token de acesso curto e refresh token longo (ver app/sessions.py).
+    access_token_expire_minutes: int = 15
+    refresh_token_expire_days: int = 30
+    # Caminho do cookie do refresh token no browser: o frontend chama a API em /api.
+    refresh_cookie_path: str = "/api/auth"
 
     # Onde ficam as faturas: "local" (pasta UPLOAD_DIR) ou "s3" (bucket S3_BUCKET na AWS).
     storage_backend: Literal["local", "s3"] = "local"

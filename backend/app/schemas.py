@@ -170,3 +170,10 @@ class UploadAttach(BaseModel):
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
+    expires_in: int | None = None
+    # Só para a app móvel; no browser, o refresh token vai num cookie httpOnly.
+    refresh_token: str | None = None
+
+
+class RefreshRequest(BaseModel):
+    refresh_token: str | None = Field(default=None, max_length=200)

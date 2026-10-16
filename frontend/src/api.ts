@@ -45,19 +45,52 @@ function errorMessage(status: number, body: unknown): string {
   return `Erro inesperado (${status})`
 }
 
-async function request<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
-  const { json, headers, ...rest } = init
+// Um só pedido de renovação de cada vez, mesmo que vários pedidos recebam 401 juntos.
+let refreshing: Promise<string | null> | null = null
+
+/**
+ * Pede um token de acesso novo. O refresh token vai sozinho no cookie httpOnly (o JavaScript
+ * não o vê); a API troca-o por um novo a cada uso. Devolve null se a sessão terminou.
+ */
+export function refreshAccessToken(): Promise<string | null> {
+  refreshing ??= fetch(BASE + '/auth/refresh', { method: 'POST' })
+    .then(async (response) => {
+      if (!response.ok) return null
+      const { access_token } = (await response.json()) as { access_token: string }
+      setToken(access_token)
+      return access_token
+    })
+    .catch(() => null)
+    .finally(() => {
+      refreshing = null
+    })
+  return refreshing
+}
+
+/**
+ * fetch com o token de acesso. O token dura 15 minutos: com 401, renova-o uma vez e repete o
+ * pedido; se a sessão já não servir, avisa o AuthProvider (volta ao login).
+ */
+async function authFetch(path: string, init: RequestInit = {}, retry = true): Promise<Response> {
   const token = getToken()
   const response = await fetch(BASE + path, {
+    ...init,
+    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers },
+  })
+  if (response.status === 401 && token) {
+    if (retry && (await refreshAccessToken())) return authFetch(path, init, false)
+    onUnauthorized()
+  }
+  return response
+}
+
+async function request<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+  const { json, headers, ...rest } = init
+  const response = await authFetch(path, {
     ...rest,
-    headers: {
-      ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
+    headers: { ...(json !== undefined ? { 'Content-Type': 'application/json' } : {}), ...headers },
     body: json !== undefined ? JSON.stringify(json) : rest.body,
   })
-  if (response.status === 401 && token) onUnauthorized()
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new ApiError(response.status, errorMessage(response.status, body))
@@ -68,12 +101,7 @@ async function request<T>(path: string, init: RequestInit & { json?: unknown } =
 
 /** Para respostas que são ficheiros (fatura, PDF da reclamação, exportação). */
 async function requestBlob(path: string, init: RequestInit = {}): Promise<Blob> {
-  const token = getToken()
-  const response = await fetch(BASE + path, {
-    ...init,
-    headers: { ...(token ? { Authorization: `Bearer ${token}` } : {}), ...init.headers },
-  })
-  if (response.status === 401 && token) onUnauthorized()
+  const response = await authFetch(path, init)
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new ApiError(response.status, errorMessage(response.status, body))
@@ -89,6 +117,10 @@ export const api = {
       body,
     })
     return access_token
+  },
+  /** Termina a sessão neste browser (a API apaga o cookie). Sem rede, sai na mesma. */
+  async logout(): Promise<void> {
+    await fetch(BASE + '/auth/logout', { method: 'POST' }).catch(() => undefined)
   },
   register: (email: string, password: string, fullName: string | null) =>
     request<User>('/auth/register', {
