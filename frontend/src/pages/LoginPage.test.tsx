@@ -85,7 +85,7 @@ describe('LoginPage', () => {
     })
   })
 
-  it('um token expirado volta ao login', async () => {
+  it('sem sessão para renovar, volta ao login', async () => {
     mockApi({ 'GET /auth/me': { status: 401, body: { detail: 'Token inválido ou expirado' } } })
     renderApp('/')
 

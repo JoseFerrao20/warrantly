@@ -47,3 +47,29 @@ test('uma página protegida sem sessão leva ao login e volta depois de entrar',
 
   await expect(page.getByRole('heading', { name: 'Nova compra' })).toBeVisible()
 })
+
+test('com o token de acesso expirado, a sessão renova-se pelo cookie', async ({ page, context }) => {
+  const email = uniqueEmail()
+  await page.request.post('/api/auth/register', { data: { email, password: PASSWORD } })
+  await page.goto('/entrar')
+  await page.getByLabel('Email').fill(email)
+  await page.getByLabel('Palavra-passe').fill(PASSWORD)
+  await page.getByRole('button', { name: 'Entrar' }).click()
+  await expect(page.getByText('Ainda não tens compras registadas')).toBeVisible()
+
+  // O refresh token está num cookie que o JavaScript não lê, só enviado para /api/auth.
+  const [cookie] = (await context.cookies()).filter((c) => c.name === 'warrantly_refresh')
+  expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Strict', path: '/api/auth' })
+  expect(await page.evaluate(() => document.cookie)).not.toContain('warrantly_refresh')
+
+  // Passados 15 minutos, o token de acesso já não serve: aqui, estragamo-lo.
+  await page.evaluate(() => localStorage.setItem('warrantly.token', 'expirado'))
+  await page.reload()
+  await expect(page.getByText('Ainda não tens compras registadas')).toBeVisible()
+  expect(await page.evaluate(() => localStorage.getItem('warrantly.token'))).not.toBe('expirado')
+
+  // Depois de sair, o cookie já não renova nada.
+  await page.getByRole('button', { name: 'Sair' }).click()
+  await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()
+  await expect.poll(async () => (await page.request.post('/api/auth/refresh')).status()).toBe(401)
+})

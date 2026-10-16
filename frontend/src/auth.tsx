@@ -12,6 +12,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [notice, setNotice] = useState<string | null>(null)
 
   const logout = useCallback(() => {
+    void api.logout() // o refresh token (cookie) deixa de servir
     setToken(null)
     setUser(null)
   }, [])
