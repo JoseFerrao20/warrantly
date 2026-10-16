@@ -25,7 +25,7 @@ dev = [
     "pytest",
     "httpx2",
     "ruff",
-    "moto[s3]",
+    "moto[s3,ssm]",
 ]
 
 [tool.ruff]

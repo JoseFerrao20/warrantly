@@ -7,7 +7,9 @@
 
   "features": {
     "ghcr.io/devcontainers/features/node:1": { "version": "22" },
-    "ghcr.io/devcontainers/features/github-cli:1": {}
+    "ghcr.io/devcontainers/features/github-cli:1": {},
+    "ghcr.io/devcontainers/features/aws-cli:1": {},
+    "ghcr.io/devcontainers/features/terraform:1": { "version": "1.13.4" }
   },
 
   "forwardPorts": [8000, 5173, "db:5432", "mailpit:8025"],

@@ -1,0 +1,7 @@
+# Estado e caches do Terraform: nunca vão para o git (o estado pode ter dados sensíveis).
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+crash.log

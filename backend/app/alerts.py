@@ -21,9 +21,8 @@ from email.message import EmailMessage
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.config import settings
 from app.db import SessionLocal
-from app.mailer import build_message, send_email
+from app.mailer import build_message, is_configured, send_email
 from app.models import Purchase, User, WarrantyAlert
 
 logger = logging.getLogger(__name__)
@@ -135,8 +134,8 @@ def send_due_alerts(
 
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
-    if not settings.smtp_host:
-        logger.error("Falta definir SMTP_HOST no .env; nenhum alerta foi enviado")
+    if not is_configured():
+        logger.error("Falta definir SMTP_HOST (ou MAIL_BACKEND=ses); nenhum alerta foi enviado")
         return 1
     with SessionLocal() as session:
         result = send_due_alerts(session)

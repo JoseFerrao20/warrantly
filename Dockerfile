@@ -8,8 +8,8 @@ RUN npm ci
 COPY frontend/ ./
 RUN npm run build
 
-# 2) API em Python com o frontend em /app/static
-FROM python:3.12-slim
+# 2) API em Python com o frontend em /app/static (o CI testa esta fase: --target app)
+FROM python:3.12-slim AS app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -33,8 +33,18 @@ RUN useradd --create-home --uid 1000 warrantly
 ENV ENVIRONMENT=production \
     STATIC_DIR=/app/static \
     UPLOAD_DIR=/data/uploads \
-    PORT=8080
+    PORT=8080 \
+    AWS_LWA_READINESS_CHECK_PATH=/api/health/live \
+    AWS_LWA_INVOKE_MODE=response_stream
 EXPOSE 8080
 
 ENTRYPOINT ["docker-entrypoint.sh"]
 CMD ["sh", "-c", "exec uvicorn app.server:server --host 0.0.0.0 --port ${PORT} --proxy-headers --forwarded-allow-ips='*'"]
+
+# 3) A mesma imagem com o Lambda Web Adapter: no AWS Lambda, traduz os eventos do Lambda em
+# pedidos HTTP para o uvicorn (fora do Lambda, a extensão é ignorada). Fica numa fase à parte
+# porque os pulls anónimos do public.ecr.aws têm limites que os runners partilhados do GitHub
+# atingem; o deploy constrói esta fase depois de entrar na AWS.
+# https://github.com/awslabs/aws-lambda-web-adapter
+FROM app AS lambda
+COPY --from=public.ecr.aws/awsguru/aws-lambda-adapter:1.1.0 /lambda-adapter /opt/extensions/lambda-adapter

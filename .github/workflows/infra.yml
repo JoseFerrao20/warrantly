@@ -1,0 +1,63 @@
+name: Infra
+
+# Terraform: formatação e validação em cada PR que mexa em infra/, e o plano (o que mudaria
+# na AWS) quando o repositório tem a variável AWS_PLAN_ROLE_ARN. O apply é feito pelo Deploy.
+on:
+  pull_request:
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+  push:
+    branches: [main]
+    paths: ["infra/**", ".github/workflows/infra.yml"]
+
+permissions:
+  id-token: write
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.4
+      - name: Formatação
+        run: terraform fmt -recursive -check -diff infra
+      - name: Validar
+        run: |
+          for dir in infra/bootstrap infra/app; do
+            terraform -chdir="$dir" init -backend=false -input=false
+            terraform -chdir="$dir" validate
+          done
+
+  plan:
+    if: github.event_name == 'pull_request' && vars.AWS_PLAN_ROLE_ARN != ''
+    needs: validate
+    runs-on: ubuntu-latest
+    env:
+      AWS_REGION: ${{ vars.AWS_REGION || 'eu-central-1' }}
+      TF_VAR_mail_from_address: ${{ vars.MAIL_FROM_ADDRESS }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_PLAN_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: 1.13.4
+          terraform_wrapper: false
+      - name: Plan
+        working-directory: infra/app
+        run: |
+          terraform init -input=false \
+            -backend-config="bucket=${{ vars.TF_STATE_BUCKET }}" \
+            -backend-config="region=$AWS_REGION"
+          # -lock=false: o papel dos PRs só pode ler o estado.
+          terraform plan -input=false -lock=false -no-color | tee plan.txt
+          {
+            echo "### Terraform plan"
+            echo '```'
+            tail -n 60 plan.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

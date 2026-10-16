@@ -2,13 +2,19 @@ from collections.abc import Iterator
 
 from sqlalchemy import MetaData, create_engine
 from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
+from sqlalchemy.pool import NullPool
 
 from app.config import settings
 
 # prepare_threshold=None: sem prepared statements no servidor, que falham quando a ligação passa
-# por um PgBouncer em modo transação (como no Postgres gerido do Fly).
+# por um PgBouncer em modo transação (como o "pooled connection" do Neon).
+# DATABASE_POOL=null (no Lambda): sem pool na app; cada pedido abre e fecha a sua ligação e o
+# pooler do Neon reaproveita-as. Instâncias do Lambda paradas não ficam com ligações presas.
 engine = create_engine(
-    settings.database_url, pool_pre_ping=True, connect_args={"prepare_threshold": None}
+    settings.database_url,
+    pool_pre_ping=True,
+    connect_args={"prepare_threshold": None},
+    **({"poolclass": NullPool} if settings.database_pool == "null" else {}),
 )
 SessionLocal = sessionmaker(bind=engine, autoflush=False)
 
