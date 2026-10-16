@@ -63,3 +63,60 @@ def test_sends_due_alerts(
     assert response.status_code == 200
     assert response.json()["failed_users"] == []
     assert any(m["To"] == user.email for m in configured)
+
+
+# --- Eventos agendados (EventBridge Scheduler → Lambda Web Adapter) --------------------------
+
+LAMBDA_EVENT = {"x-amzn-lambda-context": '{"request_id": "abc"}'}
+
+
+def test_scheduled_event_runs_the_alerts(
+    client: TestClient, configured: list[EmailMessage], db_session: Session, user: User
+):
+    end_soon = date.today().replace(day=1)
+    db_session.add(
+        Purchase(
+            user_id=user.id,
+            product_name="Torradeira",
+            store="Worten",
+            purchase_date=end_soon.replace(year=end_soon.year - 1),
+            price=Decimal("20"),
+            warranty_months=13,
+        )
+    )
+    db_session.flush()
+
+    response = client.post("/internal/events", json={"task": "alerts"}, headers=LAMBDA_EVENT)
+
+    assert response.status_code == 200
+    assert response.json()["emails_sent"] == 1
+    assert any(m["To"] == user.email for m in configured)
+
+
+@pytest.mark.parametrize(
+    "headers",
+    [
+        {},  # sem o contexto do Lambda: não veio do Lambda Web Adapter
+        # Um pedido HTTP pela Function URL traz o contexto do pedido, mesmo com o do Lambda.
+        {**LAMBDA_EVENT, "x-amzn-request-context": '{"http": {"method": "POST"}}'},
+    ],
+)
+def test_scheduled_events_are_refused_from_http(client: TestClient, configured, headers):
+    response = client.post("/internal/events", json={"task": "alerts"}, headers=headers)
+
+    assert response.status_code == 403
+    assert configured == []
+
+
+def test_unknown_scheduled_task(client: TestClient, configured):
+    response = client.post("/internal/events", json={"task": "outra"}, headers=LAMBDA_EVENT)
+
+    assert response.status_code == 422
+
+
+def test_scheduled_event_needs_email(client: TestClient, configured, monkeypatch):
+    monkeypatch.setattr(settings, "smtp_host", None)
+
+    response = client.post("/internal/events", json={"task": "alerts"}, headers=LAMBDA_EVENT)
+
+    assert response.status_code == 503

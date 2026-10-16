@@ -35,7 +35,8 @@ ENV ENVIRONMENT=production \
     UPLOAD_DIR=/data/uploads \
     PORT=8080 \
     AWS_LWA_READINESS_CHECK_PATH=/api/health/live \
-    AWS_LWA_INVOKE_MODE=response_stream
+    AWS_LWA_INVOKE_MODE=response_stream \
+    AWS_LWA_PASS_THROUGH_PATH=/api/internal/events
 EXPOSE 8080
 
 ENTRYPOINT ["docker-entrypoint.sh"]

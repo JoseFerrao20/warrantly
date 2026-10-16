@@ -111,7 +111,7 @@ As faturas podem ser PDF, JPEG, PNG, WebP ou HEIC (fotografias do iPhone), até 
 
 ### Alertas por email e no telemóvel
 
-O comando `python -m app.alerts` (na pasta `backend/`) envia os avisos de garantias a acabar: um email por utilizador quando faltam 60 dias e outro quando faltam 15. Quem tiver a app móvel com as notificações ligadas recebe também o aviso no telemóvel (push pelo serviço do Expo; tocar abre a compra). Ver [`docs/push.md`](docs/push.md). Os avisos enviados ficam registados, por isso correr o comando várias vezes não repete emails. Deve correr uma vez por dia, por exemplo com cron:
+O comando `python -m app.alerts` (na pasta `backend/`) envia os avisos de garantias a acabar: um email por utilizador quando faltam 60 dias e outro quando faltam 15. Quem tiver a app móvel com as notificações ligadas recebe também o aviso no telemóvel (push pelo serviço do Expo; tocar abre a compra). Ver [`docs/push.md`](docs/push.md). Os avisos enviados ficam registados, por isso correr o comando várias vezes não repete emails. Deve correr uma vez por dia. Na AWS, o EventBridge Scheduler invoca o Lambda às 08:47 de Lisboa ([ADR 0006](docs/adr/0006-alertas-com-eventbridge-scheduler.md)); num servidor próprio, chega um cron:
 
 ```cron
 0 9 * * * cd /caminho/para/warrantly/backend && python -m app.alerts
@@ -189,7 +189,7 @@ Workflows do GitHub Actions:
 - `docker.yml`: constrói a imagem e corre os testes E2E contra o contentor (em cada PR e no `main`).
 - `infra.yml`: `terraform fmt` e `validate` em cada PR que mexa em `infra/`, e o `plan` quando a AWS está configurada.
 - `deploy.yml`: depois do `docker.yml` no `main`, entra na AWS por OIDC, publica a imagem, aplica as migrações e o Terraform, e atualiza o Lambda e o frontend. Sem a variável `AWS_DEPLOY_ROLE_ARN`, não faz nada.
-- `alerts.yml`: todos os dias às 07:47 UTC chama `POST /api/internal/alerts` para enviar os alertas de garantia. Sem `APP_URL` e `ALERTS_TOKEN`, não faz nada.
+- `alerts.yml`: corre os alertas de garantia à mão (`POST /api/internal/alerts`, com o `ALERTS_TOKEN`). Os diários correm na AWS com o EventBridge Scheduler ([ADR 0006](docs/adr/0006-alertas-com-eventbridge-scheduler.md)).
 
 ### Segurança
 
