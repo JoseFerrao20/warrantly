@@ -24,3 +24,8 @@ output "cloudfront_distribution_id" {
   description = "Usado pelo deploy para limpar a cache depois de publicar o frontend."
   value       = aws_cloudfront_distribution.app.id
 }
+
+output "dashboard_url" {
+  description = "Dashboard do CloudWatch com os pedidos, erros, logins e alertas."
+  value       = "https://${var.region}.console.aws.amazon.com/cloudwatch/home?region=${var.region}#dashboards/dashboard/${aws_cloudwatch_dashboard.main.dashboard_name}"
+}

@@ -26,3 +26,9 @@ variable "lambda_memory_mb" {
   type        = number
   default     = 1536
 }
+
+variable "alarm_email" {
+  description = "Email que recebe os alarmes do CloudWatch (vazio: os alarmes só aparecem na consola)."
+  type        = string
+  default     = ""
+}

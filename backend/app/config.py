@@ -59,6 +59,9 @@ class Settings(BaseSettings):
     push_enabled: bool = True
     expo_access_token: str | None = None
 
+    # Logs: "text" em desenvolvimento, "json" na AWS (ver app/observability.py).
+    log_format: Literal["text", "json"] = "text"
+
     # Endereço do site, para os links nos emails (ex.: repor a palavra-passe). Na AWS vem do
     # SSM (o Terraform escreve lá o domínio do CloudFront).
     app_url: str = "http://localhost:5173"

@@ -5,7 +5,10 @@ from sqlalchemy.orm import Session
 from app.config import settings
 from app.db import get_session
 from app.limits import MaxBodySizeMiddleware
+from app.observability import RequestContextMiddleware, configure_logging
 from app.routers import auth, internal, purchases, push
+
+configure_logging()
 
 # Em produção não há /docs nem /openapi.json: só servem para desenvolver.
 production = settings.environment == "production"
@@ -17,6 +20,8 @@ app = FastAPI(
 )
 # A fatura (até 10 MB) mais a margem do multipart.
 app.add_middleware(MaxBodySizeMiddleware, max_bytes=settings.max_invoice_bytes + 1024 * 1024)
+# O último a ser juntado é o primeiro a correr: o id do pedido existe em tudo o resto.
+app.add_middleware(RequestContextMiddleware)
 app.include_router(auth.router)
 app.include_router(purchases.router)
 app.include_router(push.router)

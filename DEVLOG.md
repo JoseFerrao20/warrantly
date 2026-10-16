@@ -64,9 +64,24 @@
   - **Contagens:** 230 testes no backend (15 novos), 80 no frontend (7 novos) e 23 E2E. O axe passou a ver as duas páginas novas nos dois temas.
   - **Lição:** o corpo do email vai em quoted-printable, onde o `=` de `#token=` aparece como `=3D`; o helper dos E2E descodifica o email antes de procurar o link.
 
+- **2026-10-16 (sessão cloud do Claude Code):** observabilidade ([ADR 0005](docs/adr/0005-observabilidade.md)), para saber que algo correu mal sem abrir a app.
+  - **Logs (`app/observability.py`):** logs em JSON na AWS (`LOG_FORMAT=json`), com uma linha por pedido: método, **rota modelo** (`/purchases/{purchase_id}`, sem ids nem dados pessoais), estado, duração e `request_id`. O id vem do CloudFront (`X-Amz-Cf-Id`) ou do cliente (só se for seguro, para não deixar injetar texto nos logs), ou é gerado, e vai na resposta em `X-Request-ID`. O middleware é ASGI puro, para não estragar as respostas em streaming. Um erro não tratado fica no log com o traceback e conta como métrica. O log de acessos do uvicorn foi desligado.
+  - **Métricas:** pelo **Embedded Metric Format**: uma linha de log com o bloco `_aws` vira métrica no CloudWatch, sem chamadas à API. São 9 métricas: logins (com sucesso e falhados), recuperação da palavra-passe, reutilização de refresh tokens, campos sugeridos pela leitura das faturas, emails e push dos alertas, falhas dos alertas e erros não tratados.
+  - **Terraform (`monitoring.tf`):**
+    - SNS com email (`ALARM_EMAIL`, opcional);
+    - um filtro de métricas para os 5xx a partir dos logs JSON;
+    - 7 alarmes: erros e throttles do Lambda, 5xx, p95 acima de 10 s, falhas nos alertas, reutilização de refresh token e **"os alertas não correram em 24 horas"**. Este último mede a ausência da métrica (`treat_missing_data = breaching`), porque o GitHub desliga os workflows agendados ao fim de 60 dias sem atividade;
+    - um dashboard com pedidos, erros, duração, logins, alertas, faturas e os últimos erros (Logs Insights).
+
+    Tudo dentro do nível gratuito: as 10 métricas personalizadas estão todas usadas, e o CLAUDE.md avisa antes de criar outra.
+  - **Testes:** 242 no backend (12 novos: formato JSON, id do pedido, ids inseguros recusados, rota modelo, erro não tratado, EMF, métricas de login e de alertas, texto contra JSON). Visto a sério com o servidor de produção: o id do CloudFront chega à resposta e ao log.
+  - **Lições:**
+    - O `fileConfig` do Alembic desligava os loggers que já existiam; nos testes, as migrações correm depois de a app ser importada, e os logs desapareciam. Com `disable_existing_loggers=False` no `alembic/env.py`, saiu também o remendo do teste do push.
+    - O contexto do pedido (`contextvars`) já foi limpo quando o teste formata o log, por isso o `request_id` vai também nos campos da linha.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 29 PRs. Tudo está testado no CI: backend com 230 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 30 PRs. Tudo está testado no CI: backend com 242 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -75,7 +90,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (230 testes, sem avisos) e `cd frontend && npm test` (80 testes).
+  - `cd backend && alembic upgrade head && pytest` (242 testes, sem avisos) e `cd frontend && npm test` (80 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -92,14 +107,14 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   4. segredos no SSM (`SECRET_KEY`, `ALERTS_TOKEN`, `DATABASE_URL`);
   5. variáveis e segredo no GitHub;
   6. Actions → Deploy → Run workflow; confirmar o email do SES;
-  7. verificações: fatura PDF inteira (CSP), cabeçalhos, `/api/docs` com 404, 6 logins errados dão "Demasiadas tentativas", o cookie `warrantly_refresh` com `Secure` e `HttpOnly` (DevTools → Application → Cookies) e a sessão a continuar depois de 15 minutos, logs no CloudWatch;
+  7. verificações: fatura PDF inteira (CSP), cabeçalhos, `/api/docs` com 404, 6 logins errados dão "Demasiadas tentativas", o cookie `warrantly_refresh` com `Secure` e `HttpOnly` (DevTools → Application → Cookies) e a sessão a continuar depois de 15 minutos, o dashboard do CloudWatch (output `dashboard_url`), uma pesquisa por `request_id` no Logs Insights e o email de confirmação dos alarmes (variável `ALARM_EMAIL`);
   8. commit dos `.terraform.lock.hcl`.
   - Se algo falhar, copiar o erro (do Actions ou do terminal) para a sessão do Claude Code e corrigir num PR.
 - [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério e ver o que a leitura preenche. Anotar o que correr mal.
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximos passos do roteiro (`docs/cloud.md`): alertas pelo EventBridge Scheduler e observabilidade (logs estruturados, métricas e alarmes). Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
+Próximos passos do roteiro (`docs/cloud.md`): alertas pelo EventBridge Scheduler (o alarme "alertas não correram" já existe para quando falharem). Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).

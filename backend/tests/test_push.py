@@ -143,8 +143,6 @@ def test_send_push_in_batches_and_reports_uninstalled_apps(monkeypatch, caplog):
         }
     )
     monkeypatch.setattr(push, "_post", expo)
-    # O fileConfig do Alembic (nas migrações dos testes) desliga os loggers que já existiam.
-    monkeypatch.setattr(push.logger, "disabled", False)
     messages = [message(f"ExponentPushToken[t{i}]") for i in range(250)]
 
     with caplog.at_level(logging.WARNING):

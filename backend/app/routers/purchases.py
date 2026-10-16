@@ -16,6 +16,7 @@ from app.config import settings
 from app.dependencies import CurrentUser, SessionDep
 from app.export import write_export
 from app.models import Purchase, User
+from app.observability import metric
 from app.schemas import (
     EXPIRING_SOON_DAYS,
     ClaimRead,
@@ -264,6 +265,13 @@ def scan_invoice(file: UploadFile, user: CurrentUser) -> InvoiceScanRead:
 
 def scan_response(data: bytes, content_type: str) -> InvoiceScanRead:
     result = invoice_scan.scan_invoice(data, content_type)
+    suggested = [
+        name
+        for name in ("product_name", "store", "purchase_date", "price", "invoice_number")
+        if getattr(result, name) is not None
+    ]
+    # Quantos campos a leitura sugere, em média: mostra se o OCR está a ajudar.
+    metric("InvoiceFieldsSuggested", len(suggested), content_type=content_type)
     return InvoiceScanRead(
         text_found=bool(result.text.strip()),
         ocr_available=invoice_scan.ocr_available(),

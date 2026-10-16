@@ -11,6 +11,7 @@ from app import mailer, password_reset, rate_limit, sessions, storage
 from app.config import settings
 from app.dependencies import CurrentUser, SessionDep
 from app.models import Purchase, User
+from app.observability import metric
 from app.schemas import (
     AccountDelete,
     PasswordResetConfirm,
@@ -137,6 +138,7 @@ def login(
         form.password, user.password_hash if user else DUMMY_PASSWORD_HASH
     )
     if user is None or not password_ok:
+        metric("LoginFailed")
         for limiter, key in limits:
             limiter.hit(key)
         raise HTTPException(
@@ -145,6 +147,7 @@ def login(
             headers={"WWW-Authenticate": "Bearer"},
         )
     rate_limit.login_failures_ip_email.reset(f"{ip} {email}")
+    metric("LoginSucceeded")
     pair = sessions.start_session(session, user.id)
     return token_response(pair, response, in_body=x_client == MOBILE_CLIENT)
 
@@ -209,6 +212,7 @@ def request_password_reset(
     for limiter, key in limits:
         limiter.hit(key)
     user = session.scalar(select(User).where(User.email == email))
+    metric("PasswordResetRequested")
     if user is not None:
         token = password_reset.create_reset_token(user)
         try:
