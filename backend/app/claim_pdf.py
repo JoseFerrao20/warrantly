@@ -87,7 +87,9 @@ def build_claim_pdf(
     invoice_included = False
     if purchase.invoice_key:
         try:
-            data = storage.path_for(purchase.invoice_key).read_bytes()
+            data = storage.load(purchase.invoice_key)
+            if data is None:
+                raise FileNotFoundError(purchase.invoice_key)
             if purchase.invoice_content_type != "application/pdf":
                 data = _image_pdf(data)
             writer.append(PdfReader(BytesIO(data)))

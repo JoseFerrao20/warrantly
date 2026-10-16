@@ -7,7 +7,7 @@ Arquivo de garantias: compras com fatura, prazo da garantia calculado, alertas p
 - `backend/`: FastAPI + SQLAlchemy 2 + Alembic + Postgres 16 (Python 3.12 no CI e no Docker).
   - `app/main.py` (API de desenvolvimento) e `app/server.py` (produção: API em `/api` e frontend na raiz).
   - `app/routers/`: `auth`, `purchases` (compras, fatura, reclamação, PDF, exportação) e `internal` (alertas por HTTP).
-  - `app/claims.py` (texto da carta), `app/claim_pdf.py` (PDF com a fatura junta), `app/alerts.py` (`python -m app.alerts`), `app/storage.py` (faturas em disco e conversão de HEIC), `app/export.py` (ZIP com CSV, JSON e faturas), `app/invoice_scan.py` (leitura da fatura: texto do PDF ou OCR com o Tesseract, e sugestão dos campos).
+  - `app/claims.py` (texto da carta), `app/claim_pdf.py` (PDF com a fatura junta), `app/alerts.py` (`python -m app.alerts`), `app/storage.py` (faturas em disco ou no S3, por `STORAGE_BACKEND`, e conversão de HEIC), `app/export.py` (ZIP com CSV, JSON e faturas), `app/invoice_scan.py` (leitura da fatura: texto do PDF ou OCR com o Tesseract, e sugestão dos campos).
 - `frontend/`: Vite + React 19 + TypeScript + React Router 8, CSS próprio em `src/index.css` (tokens claro/escuro). Testes em `src/**/*.test.tsx` (Vitest) e `e2e/` (Playwright).
 - `.devcontainer/` (dev container e Codespace, com Postgres e Mailpit), `Dockerfile` e `fly.toml` (produção) e `.github/workflows/` (backend, frontend, e2e, docker, deploy e alerts).
 
@@ -48,6 +48,7 @@ npm run e2e                                   # Playwright; arranca a API e o Vi
 - Acessibilidade: o `e2e/a11y.spec.ts` (axe, WCAG 2.2 AA) tem de continuar limpo. Cores novas passam pelos tokens em `src/index.css` com contraste ≥ 4.5:1 nos dois temas; cada página chama `usePageTitle` e tem um `h1`; nada clicável só com o rato (usar `button`/`a`).
 - Segurança: o servidor de produção (`app/server.py`) envia uma CSP sem scripts inline, por isso nada de `<script>` inline no `index.html` (usar `public/`). Para testar a CSP, correr `uvicorn app.server:server` com `STATIC_DIR=../frontend/dist` e os E2E com `E2E_BASE_URL`. Os limites de tentativas (`app/rate_limit.py`) desligam-se com `RATE_LIMITS=false`, só nos E2E.
 - OCR: precisa do programa `tesseract` com o português (`tesseract-ocr-por`); o hook e o `post-create.sh` instalam-no. Sem ele, só as fotografias deixam de dar sugestões e o teste de OCR é saltado. A leitura só sugere: na dúvida, é melhor não sugerir nada.
+- Cloud: o alvo de produção é a AWS (roteiro em `docs/cloud.md`, decisões em `docs/adr/`, uma por ficheiro numerado). O código nunca lê ficheiros de faturas por caminho: usa `storage.save/load/delete`. Testes com S3 usam o moto (`tests/test_storage_s3.py`), nunca a AWS real.
 - O React StrictMode corre os efeitos duas vezes em desenvolvimento: não contar com "primeira execução" num `useEffect`.
 - O pytest trata `StarletteDeprecationWarning` como erro: o `TestClient` precisa do `httpx2`, não do `httpx`.
 - Variáveis vazias no `.env` contam como não definidas (`env_ignore_empty`); em produção, `ENVIRONMENT=production` recusa a `SECRET_KEY` de exemplo.

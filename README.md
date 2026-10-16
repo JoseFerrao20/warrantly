@@ -134,6 +134,10 @@ Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `ht
 
 O CI corre em cada PR e em cada push para o `main`: `.github/workflows/backend.yml` corre o ruff (lint e formatação), aplica as migrações e corre os testes com Postgres, `.github/workflows/frontend.yml` corre o lint, os tipos, os testes e o build do frontend, e `.github/workflows/e2e.yml` corre os testes do Playwright com Postgres (o relatório fica como artefacto quando falham).
 
+## Cloud (AWS)
+
+O Warrantly está a passar do Fly.io para a AWS, como projeto de aprendizagem de cloud: roteiro em [`docs/cloud.md`](docs/cloud.md) e decisões em [`docs/adr/`](docs/adr/). Já feito: as faturas podem ficar no S3 (`STORAGE_BACKEND=s3`).
+
 ## Deploy (Fly.io)
 
 Em produção corre um só contentor (`Dockerfile`): a API fica em `/api` e o frontend (build do Vite) na raiz, servidos por `uvicorn app.server:server`. As faturas ficam num volume do Fly montado em `/data`, e as migrações correm antes de cada versão nova (`release_command` no `fly.toml`).

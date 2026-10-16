@@ -1,4 +1,5 @@
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -23,6 +24,12 @@ class Settings(BaseSettings):
         default="dev-only-insecure-secret-key-change-me-in-production", min_length=32
     )
     access_token_expire_minutes: int = 60
+
+    # Onde ficam as faturas: "local" (pasta UPLOAD_DIR) ou "s3" (bucket S3_BUCKET na AWS).
+    storage_backend: Literal["local", "s3"] = "local"
+    s3_bucket: str | None = None
+    aws_region: str | None = None
+    s3_endpoint_url: str | None = None  # só para um S3 local (MinIO ou LocalStack)
 
     # Pasta onde ficam as faturas (relativa à pasta onde a API arranca) e tamanho máximo.
     upload_dir: Path = Path("uploads")
@@ -55,6 +62,12 @@ class Settings(BaseSettings):
             if url.startswith(prefix):
                 return "postgresql+psycopg://" + url.removeprefix(prefix)
         return url
+
+    @model_validator(mode="after")
+    def check_storage(self) -> "Settings":
+        if self.storage_backend == "s3" and not self.s3_bucket:
+            raise ValueError("Com STORAGE_BACKEND=s3, define S3_BUCKET")
+        return self
 
     @model_validator(mode="after")
     def check_production(self) -> "Settings":

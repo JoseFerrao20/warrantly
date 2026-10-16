@@ -17,6 +17,7 @@ dependencies = [
     "reportlab",
     "pypdf",
     "pillow-heif",
+    "boto3",
 ]
 
 [project.optional-dependencies]
@@ -24,6 +25,7 @@ dev = [
     "pytest",
     "httpx2",
     "ruff",
+    "moto[s3]",
 ]
 
 [tool.ruff]
