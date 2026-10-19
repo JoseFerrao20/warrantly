@@ -256,9 +256,33 @@
   - **Decisão:** antes do download, um pedido ao `/auth/me`. O download não passa pelo cliente da API, que é quem renova o token com um 401, por isso, se o token tivesse expirado, o download falhava. Assim renova-se primeiro.
   - **Falta:** a reclamação na app (próximo PR) e trocar a fatura de uma compra (continua no site).
 
+- **2026-10-19 (sessão cloud do Claude Code):** app móvel: reclamação à loja.
+  - **O que faz:** no detalhe da compra, "Reclamar à loja" abre um ecrã novo (`compras/reclamacao/[id]`). Descreve-se o problema e a API escreve a carta, como no site. Se a conta não tiver nome, a app pede-o primeiro, porque é ele que assina a carta.
+  - **O envio é melhor do que no site:** no browser são três passos (descarregar o PDF, abrir o email com um `mailto:` e anexar à mão). No telemóvel, o `expo-mail-composer` abre o email já com o destinatário, o assunto, a carta e o PDF (carta e fatura) em anexo.
+    - Sem uma conta de email no telemóvel, partilha-se o PDF pelo menu do sistema.
+    - O email da loja escrito aqui fica guardado na compra, para a próxima vez.
+    - O PDF usa a mesma descrição da carta mostrada, mesmo que a caixa mude depois.
+  - **Código:**
+    - o cliente da API ganhou um `send()`, com o token, a renovação com um 401 e os erros, de onde saem o `request()` (JSON) e o `saveClaimPdf()` (bytes, gravados na cache com `File.write`);
+    - o contexto da sessão ganhou o `updateName`.
+  - **Testes:** 7 novos (51 na app):
+    - gerar e enviar (destinatário, assunto, corpo e anexo, e a mesma descrição na carta e no PDF);
+    - guardar o email da loja;
+    - pedir o nome;
+    - o aviso da garantia terminada;
+    - sem conta de email, partilhar o PDF;
+    - o email inválido;
+    - sem descrição.
+
+    O lint, os tipos, o bundle de Android, o `expo config` e o `npm audit` passam.
+  - **Lições:**
+    - a simulação de um módulo tem de ter tudo o que o código usa, incluindo os enums (`MailComposerStatus`). Faltava-lhe esse enum e o envio falhava com um erro genérico que não dizia porquê;
+    - na Testing Library do React Native, o `toHaveTextContent('…')` com texto compara o texto inteiro; para uma parte, usa-se uma expressão regular.
+  - **Com isto, a app faz o mesmo que o site,** menos trocar a fatura de uma compra e exportar os dados.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 42 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 85, app móvel com 44, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 43 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 85, app móvel com 51, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -301,6 +325,7 @@ Próximos passos, por esta ordem:
 1. **Terminar a app.** Fazer o deploy na AWS (acima). Depois, testar no telemóvel:
    - o ícone, o ecrã de arranque e o push numa development build;
    - abrir a fatura de uma compra (o menu do sistema deve mostrar o visualizador de PDF ou de imagens), editar e apagar;
+   - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 

@@ -34,6 +34,7 @@ function Navigation() {
         <Stack.Screen name="compras/nova" options={{ title: 'Nova compra' }} />
         <Stack.Screen name="compras/[id]" options={{ title: 'Compra' }} />
         <Stack.Screen name="compras/editar/[id]" options={{ title: 'Editar compra' }} />
+        <Stack.Screen name="compras/reclamacao/[id]" options={{ title: 'Reclamação à loja' }} />
         <Stack.Screen name="conta" options={{ title: 'A tua conta' }} />
       </Stack.Protected>
       <Stack.Protected guard={user === null}>

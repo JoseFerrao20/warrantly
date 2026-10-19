@@ -2,6 +2,7 @@ import { File, Paths } from 'expo-file-system'
 import * as SecureStore from 'expo-secure-store'
 
 import type {
+  Claim,
   InvoiceScan,
   Purchase,
   PurchaseInput,
@@ -91,11 +92,15 @@ function errorMessage(status: number, body: unknown): string {
   return `Erro inesperado (${status})`
 }
 
-async function request<T>(
+/**
+ * Pedido à API com o token de acesso. Com um 401, renova a sessão uma vez e repete o pedido;
+ * outros erros viram um `ApiError` com a mensagem da API.
+ */
+async function send(
   path: string,
   init: RequestInit & { json?: unknown } = {},
   retry = true,
-): Promise<T> {
+): Promise<Response> {
   const { json, headers, ...rest } = init
   const token = await getToken()
   let response: Response
@@ -115,13 +120,18 @@ async function request<T>(
   }
   if (response.status === 401 && token) {
     // O token de acesso dura 15 minutos: renova-o uma vez e repete o pedido.
-    if (retry && (await refreshSession())) return request<T>(path, init, false)
+    if (retry && (await refreshSession())) return send(path, init, false)
     onUnauthorized()
   }
   if (!response.ok) {
     const body = await response.json().catch(() => null)
     throw new ApiError(response.status, errorMessage(response.status, body))
   }
+  return response
+}
+
+async function request<T>(path: string, init: RequestInit & { json?: unknown } = {}): Promise<T> {
+  const response = await send(path, init)
   if (response.status === 204) return undefined as T
   return (await response.json()) as T
 }
@@ -163,6 +173,8 @@ export const api = {
     await request<void>('/auth/logout', { method: 'POST', json: { refresh_token: refreshToken } })
   },
   me: () => request<User>('/auth/me'),
+  updateMe: (data: { full_name: string | null }) =>
+    request<User>('/auth/me', { method: 'PATCH', json: data }),
   listSessions: () => request<UserSession[]>('/auth/sessions'),
   endSession: (id: number) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
   endOtherSessions: () =>
@@ -174,6 +186,22 @@ export const api = {
   updatePurchase: (id: number, data: Partial<PurchaseInput>) =>
     request<Purchase>(`/purchases/${id}`, { method: 'PATCH', json: data }),
   deletePurchase: (id: number) => request<void>(`/purchases/${id}`, { method: 'DELETE' }),
+  generateClaim: (id: number, description: string) =>
+    request<Claim>(`/purchases/${id}/claim`, { method: 'POST', json: { description } }),
+
+  /** Gera o PDF da reclamação (carta e fatura) e guarda-o na cache; devolve o endereço. */
+  async saveClaimPdf(id: number, description: string): Promise<string> {
+    const response = await send(`/purchases/${id}/claim.pdf`, {
+      method: 'POST',
+      json: { description },
+      headers: { Accept: 'application/pdf' },
+    })
+    const file = new File(Paths.cache, `reclamacao-${id}.pdf`)
+    if (file.exists) file.delete()
+    file.create()
+    await file.write(new Uint8Array(await response.arrayBuffer()))
+    return file.uri
+  },
 
   /**
    * Descarrega a fatura para a cache do telemóvel e devolve o endereço do ficheiro, para a

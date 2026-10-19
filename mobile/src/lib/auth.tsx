@@ -10,6 +10,8 @@ interface AuthState {
   user: User | null | undefined
   login: (email: string, password: string) => Promise<void>
   logout: () => Promise<void>
+  /** Muda o nome da conta (assina as reclamações). */
+  updateName: (fullName: string) => Promise<void>
 }
 
 const AuthContext = createContext<AuthState | null>(null)
@@ -46,7 +48,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await api.me())
   }, [])
 
-  const value = useMemo(() => ({ user, login, logout }), [user, login, logout])
+  const updateName = useCallback(async (fullName: string) => {
+    setUser(await api.updateMe({ full_name: fullName.trim() || null }))
+  }, [])
+
+  const value = useMemo(
+    () => ({ user, login, logout, updateName }),
+    [user, login, logout, updateName],
+  )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

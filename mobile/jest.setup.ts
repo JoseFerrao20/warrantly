@@ -28,14 +28,24 @@ jest.mock('expo-device', () => ({ isDevice: true }))
 jest.mock('expo-file-system', () => {
   class File {
     uri: string
+    exists = false
     constructor(directory: { uri: string }, name: string) {
       this.uri = `${directory.uri}${name}`
     }
+    create() {}
+    delete() {}
+    write = jest.fn(async (_content: Uint8Array) => {})
     static downloadFileAsync = jest.fn(async (_url: string, destination: File) => destination)
   }
   return { File, Paths: { cache: { uri: 'file:///cache/' } } }
 })
 jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }))
+// O email do telemóvel: disponível e "enviado", a não ser que o teste diga outra coisa.
+jest.mock('expo-mail-composer', () => ({
+  MailComposerStatus: { SENT: 'sent', SAVED: 'saved', CANCELLED: 'cancelled' },
+  isAvailableAsync: jest.fn(async () => true),
+  composeAsync: jest.fn(async () => ({ status: 'sent' })),
+}))
 
 // Notificações simuladas: autorização dada, um token fixo, e `__tap(data)` simula tocar numa.
 jest.mock('expo-notifications', () => {

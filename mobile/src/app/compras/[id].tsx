@@ -110,6 +110,12 @@ export default function PurchaseScreen() {
           />
         )}
         <Button
+          title="Reclamar à loja"
+          variant="secondary"
+          onPress={() => router.push(`/compras/reclamacao/${current.id}`)}
+          disabled={busy !== null}
+        />
+        <Button
           title="Editar"
           variant="secondary"
           onPress={() => router.push(`/compras/editar/${current.id}`)}
@@ -123,7 +129,7 @@ export default function PurchaseScreen() {
         />
       </View>
       <Text style={{ color: colors.muted, marginTop: 20 }}>
-        Para gerar a reclamação ou trocar a fatura, usa o site.
+        Para trocar a fatura, usa o site.
       </Text>
     </ScrollView>
   )
