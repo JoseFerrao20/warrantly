@@ -1,12 +1,16 @@
-import * as DocumentPicker from 'expo-document-picker'
-import * as ImagePicker from 'expo-image-picker'
 import { useRouter } from 'expo-router'
 import { useRef, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { api, ApiError } from '@/lib/api'
 import type { PickedFile } from '@/lib/api'
-import { attachStaged, scanStaged, stageInvoice } from '@/lib/invoice'
+import {
+  attachStaged,
+  pickInvoiceFile,
+  scanStaged,
+  stageInvoice,
+  takeInvoicePhoto,
+} from '@/lib/invoice'
 import type { StagedInvoice } from '@/lib/invoice'
 import { useColors } from '@/lib/theme'
 import { emptyForm, PurchaseFields, toInput } from '@/lib/purchaseForm'
@@ -70,36 +74,14 @@ export default function NewPurchaseScreen() {
     }
   }
 
-  async function takePhoto() {
-    const permission = await ImagePicker.requestCameraPermissionsAsync()
-    if (!permission.granted) {
-      setError('Sem acesso à câmara. Podes autorizar nas definições do telemóvel.')
-      return
+  async function choose(pick: () => Promise<PickedFile | null>) {
+    setError(null)
+    try {
+      const file = await pick()
+      if (file) await handleFile(file)
+    } catch (err) {
+      setError(message(err, 'Não foi possível abrir a fatura'))
     }
-    const result = await ImagePicker.launchCameraAsync({ mediaTypes: ['images'], quality: 0.8 })
-    if (result.canceled) return
-    const photo = result.assets[0]
-    await handleFile({
-      uri: photo.uri,
-      name: photo.fileName ?? 'fatura.jpg',
-      type: photo.mimeType ?? 'image/jpeg',
-      size: photo.fileSize,
-    })
-  }
-
-  async function pickFile() {
-    const result = await DocumentPicker.getDocumentAsync({
-      type: ['application/pdf', 'image/*'],
-      copyToCacheDirectory: true,
-    })
-    if (result.canceled) return
-    const file = result.assets[0]
-    await handleFile({
-      uri: file.uri,
-      name: file.name,
-      type: file.mimeType ?? 'application/octet-stream',
-      size: file.size,
-    })
   }
 
   async function save() {
@@ -139,13 +121,13 @@ export default function NewPurchaseScreen() {
         </Text>
         <View style={styles.buttons}>
           <View style={{ flex: 1 }}>
-            <Button title="Fotografar" onPress={takePhoto} disabled={busy !== null} />
+            <Button title="Fotografar" onPress={() => choose(takeInvoicePhoto)} disabled={busy !== null} />
           </View>
           <View style={{ flex: 1 }}>
             <Button
               title="Escolher ficheiro"
               variant="secondary"
-              onPress={pickFile}
+              onPress={() => choose(pickInvoiceFile)}
               disabled={busy !== null}
             />
           </View>

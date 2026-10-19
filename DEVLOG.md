@@ -292,9 +292,21 @@
   - **O preço:** um pedido de renovação por cada abertura da página. A app móvel não muda, porque o armazenamento seguro do telemóvel não é legível por outras apps. O ADR 0004 tem a segunda atualização.
   - **Lição:** o código que corre quando um módulo carrega só corre uma vez, por mais que a página monte componentes. A limpeza do `localStorage` passou para o arranque do `AuthProvider`, depois de um teste o mostrar.
 
+- **2026-10-19 (sessão cloud do Claude Code):** app móvel: juntar ou trocar a fatura de uma compra.
+  - **O que faz:** no detalhe da compra, "Juntar fatura" (ou "Trocar a fatura", se já houver uma) pergunta "Fotografar" ou "Escolher ficheiro". Ao trocar, avisa que a fatura atual é substituída. A fatura segue o mesmo caminho da compra nova: com S3, vai do telemóvel diretamente para o bucket; sem S3, pela API. O detalhe mostra logo a fatura nova. É o caso típico de registar a compra na loja e só fotografar a fatura em casa.
+  - **Código:** fotografar e escolher o ficheiro passaram do ecrã da compra nova para o `src/lib/invoice.ts` (`takeInvoicePhoto`, `pickInvoiceFile`), usados pelos dois ecrãs. Sem acesso à câmara, dá a mesma mensagem nos dois.
+  - **Testes:** 4 novos (55 na app):
+    - juntar um PDF sem S3 (o `FormData` para a API);
+    - trocar por uma fotografia com S3 (o ficheiro vai para o bucket e a API recebe o token);
+    - sem acesso à câmara;
+    - cancelar a escolha.
+
+    Os 6 testes da compra nova continuam a passar. O lint, os tipos e o bundle de Android também.
+  - **Com isto, só exportar os dados (ZIP) continua a ser exclusivo do site.**
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 44 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 87, app móvel com 51, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 45 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 87, app móvel com 55, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -336,7 +348,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 Próximos passos, por esta ordem:
 1. **Terminar a app.** Fazer o deploy na AWS (acima). Depois, testar no telemóvel:
    - o ícone, o ecrã de arranque e o push numa development build;
-   - abrir a fatura de uma compra (o menu do sistema deve mostrar o visualizador de PDF ou de imagens), editar e apagar;
+   - abrir a fatura de uma compra (o menu do sistema deve mostrar o visualizador de PDF ou de imagens), juntar ou trocar a fatura com uma fotografia, editar e apagar;
    - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
