@@ -344,9 +344,15 @@
     - um E2E novo (25): a Ana convida, o Rui recebe o email e aceita, vê a compra sem o botão de apagar, e deixa de a ver quando a Ana deixa de partilhar.
   - **Lição:** o `PurchaseRead` lê o `owner_name` de uma propriedade do modelo, por cima de uma relação `lazy="joined"`. Fica uma só consulta por lista, sem mudar as rotas que já devolviam `Purchase`.
 
+- **2026-10-19 (sessão cloud do Claude Code):** a partilha do arquivo também na app móvel.
+  - **O que faz:** a secção "Partilha" no ecrã da conta, com o mesmo que a página da conta do site: convidar pelo email, aceitar ou recusar um convite, sair de um arquivo e deixar de partilhar. Recusar, sair e deixar de partilhar pedem confirmação (`Alert`), como apagar uma compra.
+  - **Onde:** `src/lib/sharing.tsx`, fora de `src/app/` porque não é um ecrã, e as quatro chamadas novas em `src/lib/api.ts`. O `mockApi` dos testes responde por omissão ao `GET /sharing` com listas vazias, como já fazia com as sessões.
+  - **Testes:** 4 novos (61 na app). Cobrem o convite e o pedido enviado, o erro da API, aceitar um convite e deixar de partilhar com confirmação, e cancelar a recusa sem apagar nada. O lint, os tipos e o bundle de Android passam.
+  - **Lição:** o `npx prettier` sem opções muda o estilo da app (põe `;` e aspas duplas), porque o repositório não tem configuração do Prettier. Com `--no-semi --single-quote --print-width 100` fica igual ao resto, mas mesmo assim parte linhas que o código deixava inteiras. Para mudanças pequenas, o melhor é não o correr em ficheiros existentes.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 290 testes, frontend com 92, app móvel com 57, 25 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 290 testes, frontend com 92, app móvel com 61, 25 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -392,7 +398,7 @@ Próximos passos, por esta ordem:
    - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - no log do deploy, o `AVISO` do IP do smoke test: se aparecer, aplicar a correção descrita em `docs/cloud.md`, "IP do cliente" (um PR);
-   - na partilha, convidar uma segunda conta (outro email teu), aceitar e ver as compras na app dessa conta;
+   - na partilha, convidar uma segunda conta (outro email teu) na app, aceitar na outra conta e ver lá as compras, com "de …" e sem "Apagar";
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 
    O que falhar vem para uma sessão do Claude Code e corrige-se num PR.
@@ -401,4 +407,3 @@ Próximos passos, por esta ordem:
    - pôr o link da app no README e fixá-lo no perfil do GitHub;
    - só então, se fizer falta, a descrição para o CV ou o LinkedIn.
 
-Ideias para depois: convidar e aceitar a partilha também na app móvel (hoje só no site).

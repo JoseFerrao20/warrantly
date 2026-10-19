@@ -1,6 +1,8 @@
 import { fireEvent, screen, waitFor, within } from 'expo-router/testing-library'
+import { Alert } from 'react-native'
+import type { AlertButton } from 'react-native'
 
-import type { UserSession } from '@/shared/types'
+import type { Sharing, UserSession } from '@/shared/types'
 import { USER, mockApi, renderApp, resetStorage, signIn } from '@/test/utils'
 
 beforeEach(resetStorage)
@@ -98,4 +100,115 @@ test('mostra o erro se não conseguir terminar a sessão', async () => {
 
   expect(await screen.findByRole('alert')).toHaveTextContent('Sessão não encontrada')
   expect(screen.getByLabelText('Sessão: Safari no iPhone')).toBeOnTheScreen()
+})
+
+describe('partilha', () => {
+  const SHARING: Sharing = {
+    members: [
+      { id: 4, email: 'rui@example.com', accepted: true, created_at: '2026-10-10T09:00:00Z' },
+    ],
+    shared_with_me: [
+      {
+        id: 7,
+        owner_name: 'Maria Silva',
+        owner_email: 'maria@example.com',
+        accepted: false,
+        created_at: '2026-10-18T09:00:00Z',
+      },
+    ],
+  }
+
+  afterEach(() => jest.restoreAllMocks())
+
+  /** Responde ao Alert como se a pessoa carregasse no botão com este texto. */
+  function answerAlert(text: string) {
+    return jest
+      .spyOn(Alert, 'alert')
+      .mockImplementation((_title, _message, buttons?: AlertButton[]) => {
+        buttons?.find((b) => b.text === text)?.onPress?.()
+      })
+  }
+
+  test('convida alguém pelo email', async () => {
+    const { calls } = await openAccount({
+      'POST /sharing': {
+        id: 5,
+        email: 'joao@example.com',
+        accepted: false,
+        created_at: '2026-10-19T09:00:00Z',
+      },
+    })
+
+    await fireEvent.changeText(
+      await screen.findByLabelText('Email de quem convidas'),
+      'joao@example.com',
+    )
+    await fireEvent.press(screen.getByRole('button', { name: 'Convidar' }))
+
+    expect(await screen.findByText('Convite enviado para joao@example.com.')).toBeOnTheScreen()
+    expect(screen.getByLabelText('Partilha com joao@example.com')).toBeOnTheScreen()
+    expect(screen.getByLabelText('Email de quem convidas')).toHaveDisplayValue('')
+    const post = calls.find((c) => c.method === 'POST' && c.url.endsWith('/sharing'))!
+    expect(JSON.parse(post.init.body as string)).toEqual({ email: 'joao@example.com' })
+  })
+
+  test('mostra o erro da API', async () => {
+    await openAccount({
+      'POST /sharing': {
+        status: 409,
+        body: { detail: 'Já partilhaste o arquivo com este email' },
+      },
+    })
+
+    await fireEvent.changeText(
+      await screen.findByLabelText('Email de quem convidas'),
+      'rui@example.com',
+    )
+    await fireEvent.press(screen.getByRole('button', { name: 'Convidar' }))
+
+    expect(await screen.findByRole('alert')).toHaveTextContent(
+      'Já partilhaste o arquivo com este email',
+    )
+  })
+
+  test('aceita um convite e deixa de partilhar com alguém', async () => {
+    const alert = answerAlert('Remover')
+    const { calls } = await openAccount({
+      'GET /sharing': SHARING,
+      'POST /sharing/7/accept': { ...SHARING.shared_with_me[0], accepted: true },
+      'DELETE /sharing/4': { status: 204, body: null },
+    })
+
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Aceitar o convite de Maria Silva' }),
+    )
+    expect(
+      await screen.findByText('As compras de Maria Silva já aparecem nas tuas garantias.'),
+    ).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Sair do arquivo de Maria Silva' })).toBeOnTheScreen()
+
+    await fireEvent.press(
+      screen.getByRole('button', { name: 'Deixar de partilhar com rui@example.com' }),
+    )
+    expect(await screen.findByText('Deixaste de partilhar com rui@example.com.')).toBeOnTheScreen()
+    expect(alert).toHaveBeenCalledWith(
+      'Deixar de partilhar o arquivo com rui@example.com?',
+      undefined,
+      expect.anything(),
+    )
+    expect(screen.queryByLabelText('Partilha com rui@example.com')).toBeNull()
+    expect(calls.some((c) => c.method === 'DELETE' && c.url.endsWith('/sharing/4'))).toBe(true)
+  })
+
+  test('recusar um convite pede confirmação', async () => {
+    answerAlert('Cancelar')
+    const { calls } = await openAccount({ 'GET /sharing': SHARING })
+
+    await fireEvent.press(
+      await screen.findByRole('button', { name: 'Recusar o convite de Maria Silva' }),
+    )
+
+    expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
+    expect(screen.getByLabelText('Arquivo de Maria Silva')).toBeOnTheScreen()
+  })
 })
