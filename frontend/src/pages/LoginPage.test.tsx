@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { getToken } from '../api'
 import { mockApi, renderApp, USER } from '../test/utils'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -27,8 +28,10 @@ describe('LoginPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Entrar' }))
 
     expect(await screen.findByText('Ainda não tens compras registadas')).toBeInTheDocument()
-    expect(localStorage.getItem('warrantly.token')).toBe('abc')
-    const loginBody = fetchMock.mock.calls[0][1]?.body as URLSearchParams
+    expect(getToken()).toBe('abc')
+    expect(localStorage.getItem('warrantly.token')).toBeNull() // nunca no localStorage
+    const login = fetchMock.mock.calls.find((c) => c[0] === '/api/auth/login')!
+    const loginBody = login[1]?.body as URLSearchParams
     expect(loginBody.get('username')).toBe('ana@example.com')
   })
 
@@ -90,6 +93,6 @@ describe('LoginPage', () => {
     renderApp('/')
 
     expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument()
-    expect(localStorage.getItem('warrantly.token')).toBeNull()
+    expect(getToken()).toBeNull()
   })
 })

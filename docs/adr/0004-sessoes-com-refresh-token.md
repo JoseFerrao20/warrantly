@@ -21,7 +21,7 @@ O login devolvia um JWT de 60 minutos e nada mais. Passada uma hora, era preciso
 
 - Um pedido extra a cada 15 minutos de uso e uma tabela nova. Os tokens gastos são apagados na rotação seguinte, por isso a tabela não cresce sem fim.
 - Um token de acesso roubado serve no máximo 15 minutos. Um refresh token roubado é detetado quando os dois (o legítimo e o ladrão) o usam.
-- O token de acesso do site continua no `localStorage` (um XSS ainda o pode usar durante 15 minutos). Passá-lo para memória obrigaria a uma renovação em cada abertura da página; fica para depois, se valer a pena.
+- ~~O token de acesso do site continua no `localStorage`.~~ Ver a segunda atualização abaixo.
 - ~~Ainda não há "sair de todos os aparelhos" nem uma lista de sessões ativas.~~ Ver a atualização abaixo.
 
 ## Atualização (2026-10-19): lista de sessões
@@ -31,3 +31,12 @@ O login devolvia um JWT de 60 minutos e nada mais. Passada uma hora, era preciso
 - **Na página da conta:** a lista das sessões, com "Este aparelho" marcado, "Terminar" em cada uma das outras e "Sair dos outros aparelhos" (`GET /auth/sessions`, `DELETE /auth/sessions/{id}` e `POST /auth/sessions/end-others`).
 - **Revogação imediata.** O token de acesso passou a levar o id da sessão (`sid`), e cada pedido confirma que a sessão ainda existe. Terminar uma sessão, sair ou repor a palavra-passe corta logo o acesso desse aparelho, em vez de esperar até 15 minutos. Custa uma consulta por pedido, pela chave única, e a API já ia à base de dados buscar o utilizador. Os tokens sem `sid` (emitidos antes desta mudança) servem até expirarem.
 - As sessões sem renovações há mais de 30 dias são apagadas quando a pessoa abre a lista.
+
+## Atualização (2026-10-19): token de acesso só em memória no site
+
+- O token de acesso do site saiu do `localStorage` e passou a ser uma variável do módulo `src/api.ts`.
+  - **O que se ganha:** o `localStorage` é legível por qualquer script da página. Um XSS conseguia copiar o token e usá-lo noutro sítio durante 15 minutos, mesmo depois de a página fechar. Agora o token só existe enquanto a página está aberta, e o refresh token continua no cookie `HttpOnly`, que o JavaScript não lê.
+  - **O preço:** um pedido de renovação (`POST /api/auth/refresh`) cada vez que se abre ou recarrega a página. O `AuthProvider` faz esse pedido antes de mostrar o painel ("A carregar…").
+- Cada separador tem o seu token, mas o cookie é partilhado: as renovações quase ao mesmo tempo, em separadores diferentes, cabem na margem de 30 segundos da rotação.
+- O token que versões antigas deixaram no `localStorage` é apagado ao abrir a página.
+- A app móvel não muda: guarda os tokens no armazenamento seguro do telemóvel (Keychain ou Keystore), que outras apps não leem.

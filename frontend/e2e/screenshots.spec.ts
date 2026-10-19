@@ -29,8 +29,7 @@ async function signIn(page: Page): Promise<string> {
       headers: { Authorization: `Bearer ${token}` },
     })
   }
-  await page.addInitScript((value) => localStorage.setItem('warrantly.token', value), token)
-  return token
+  return token // o cookie do login fica no browser, que pede com ele o token de acesso
 }
 
 async function seed(page: Page) {
