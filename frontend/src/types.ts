@@ -18,6 +18,9 @@ export interface UserSession {
 
 export interface Purchase {
   id: number
+  /** Quem registou a compra: com a partilha do arquivo, pode ser outra pessoa. */
+  user_id: number
+  owner_name: string
   product_name: string
   store: string
   category: string | null
@@ -71,4 +74,26 @@ export interface Claim {
   subject: string
   body: string
   within_warranty: boolean
+}
+
+/** Uma pessoa com quem partilho o arquivo (convite pendente ou aceite). */
+export interface Share {
+  id: number
+  email: string
+  accepted: boolean
+  created_at: string
+}
+
+/** Um arquivo partilhado comigo. */
+export interface SharedArchive {
+  id: number
+  owner_name: string
+  owner_email: string
+  accepted: boolean
+  created_at: string
+}
+
+export interface Sharing {
+  members: Share[]
+  shared_with_me: SharedArchive[]
 }

@@ -104,6 +104,13 @@ a {
   color: var(--text-muted);
 }
 
+/* "de Ana Silva": compras de um arquivo partilhado comigo. */
+.owner-tag {
+  display: block;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

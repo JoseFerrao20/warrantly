@@ -29,6 +29,7 @@ export function mockApi(routes: Record<string, Handler | { status?: number; body
     'POST /auth/refresh': { status: 401, body: { detail: 'Sessão terminada. Entra outra vez.' } },
     'POST /auth/logout': { status: 204 },
     'GET /auth/sessions': { body: [] },
+    'GET /sharing': { body: { members: [], shared_with_me: [] } },
     ...routes,
   }
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
@@ -67,6 +68,8 @@ export function renderApp(path: string, { loggedIn = true } = {}) {
 export function makePurchase(overrides: Partial<Purchase> = {}): Purchase {
   return {
     id: 1,
+    user_id: 1,
+    owner_name: 'Ana Silva',
     product_name: 'Máquina de lavar Bosch',
     store: 'Worten',
     category: 'Eletrodomésticos',
