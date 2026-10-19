@@ -34,7 +34,7 @@ jobs:
       DATABASE_URL: postgres://warrantly:warrantly@localhost:5432/warrantly
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Construir a imagem
         # --target app: sem o Lambda Web Adapter (vem do public.ecr.aws, com limites para pulls
@@ -66,7 +66,7 @@ jobs:
           docker logs app
           exit 1
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm

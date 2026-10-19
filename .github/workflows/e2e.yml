@@ -33,9 +33,9 @@ jobs:
       DATABASE_URL: postgresql+psycopg://warrantly:warrantly@localhost:5432/warrantly
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -44,7 +44,7 @@ jobs:
       - name: Instalar o backend
         run: pip install -e './backend[dev]'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         with:
           node-version: "22"
           cache: npm
@@ -65,7 +65,7 @@ jobs:
 
       - name: Guardar o relatório
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: frontend/playwright-report/
