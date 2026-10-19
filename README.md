@@ -92,7 +92,7 @@ flowchart LR
   - O link leva um JWT com uma impressão do hash da palavra-passe, por isso deixa de servir assim que a palavra-passe muda.
   - O token vai no fragmento do URL, que nunca chega aos logs do servidor.
   - A resposta é a mesma exista ou não a conta, para não revelar que emails estão registados.
-- **Partilha com a família.** O arquivo partilha-se por convite, e quem aceita vê as compras, edita-as e reclama à loja. Apagar e trocar a fatura ficam com quem registou a compra. O convite é para o email, e a resposta é a mesma com ou sem conta, por isso não revela quem usa a app ([ADR 0007](docs/adr/0007-partilha-do-arquivo.md)).
+- **Partilha com a família.** O arquivo partilha-se por convite, e quem aceita vê as compras, edita-as e reclama à loja. Apagar e trocar a fatura ficam com quem registou a compra. O convite é para o email, e a resposta é a mesma com ou sem conta, por isso não revela quem usa a app. Só quem confirmou o email (por um link, como na recuperação da palavra-passe) vê os convites feitos para ele ([ADR 0007](docs/adr/0007-partilha-do-arquivo.md), [ADR 0008](docs/adr/0008-confirmacao-do-email.md)).
 - **Alertas com push** pelo serviço do Expo ([ADR 0003](docs/adr/0003-notificacoes-push-pelo-expo.md)), agendados no EventBridge Scheduler com o fuso horário de Lisboa ([ADR 0006](docs/adr/0006-alertas-com-eventbridge-scheduler.md)). Meia hora depois, outro agendamento lê os recibos de entrega e apaga os tokens das apps desinstaladas.
 - **Observabilidade.**
   - Logs em JSON com um `request_id` por pedido.
@@ -105,9 +105,9 @@ flowchart LR
 
 | | Testes | No CI |
 | --- | --- | --- |
-| Backend | 290 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
-| Frontend | 92 (Vitest e Testing Library) | oxlint, TypeScript, build |
-| App móvel | 61 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
+| Backend | 299 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
+| Frontend | 98 (Vitest e Testing Library) | oxlint, TypeScript, build |
+| App móvel | 62 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
 | De ponta a ponta | 25 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
 | Infraestrutura | — | `terraform validate` e, com a AWS configurada, o `plan` em cada PR |
 | App publicada | 26 verificações (`scripts/smoke_test.py`: cabeçalhos, rotas fechadas, cookie da sessão, limite de tentativas) | no fim de cada deploy e contra o contentor de produção |
@@ -169,6 +169,7 @@ O resto está documentado à parte:
 | [0005](docs/adr/0005-observabilidade.md) | Logs JSON, métricas EMF e alarmes no CloudWatch |
 | [0006](docs/adr/0006-alertas-com-eventbridge-scheduler.md) | Alertas diários com o EventBridge Scheduler |
 | [0007](docs/adr/0007-partilha-do-arquivo.md) | Partilha do arquivo de garantias com a família |
+| [0008](docs/adr/0008-confirmacao-do-email.md) | Confirmação do email da conta |
 
 ## O que aprendi
 

@@ -8,6 +8,7 @@ import { ForgotPasswordPage, ResetPasswordPage } from './pages/PasswordResetPage
 import { LoginPage } from './pages/LoginPage'
 import { PurchaseDetailPage } from './pages/PurchaseDetailPage'
 import { PurchaseFormPage } from './pages/PurchaseFormPage'
+import { VerifyEmailPage } from './pages/VerifyEmailPage'
 
 export function App() {
   return (
@@ -15,6 +16,7 @@ export function App() {
       <Route path="/entrar" element={<LoginPage />} />
       <Route path="/recuperar-palavra-passe" element={<ForgotPasswordPage />} />
       <Route path="/repor-palavra-passe" element={<ResetPasswordPage />} />
+      <Route path="/confirmar-email" element={<VerifyEmailPage />} />
       <Route
         element={
           <RequireAuth>

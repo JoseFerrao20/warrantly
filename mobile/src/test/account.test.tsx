@@ -212,3 +212,22 @@ describe('partilha', () => {
     expect(screen.getByLabelText('Arquivo de Maria Silva')).toBeOnTheScreen()
   })
 })
+
+test('sem o email confirmado, a partilha pede o link e envia-o outra vez', async () => {
+  await signIn()
+  mockApi({
+    'GET /auth/me': { ...USER, email_verified: false },
+    'GET /purchases': [],
+    'POST /auth/verify-email/resend': { detail: 'Enviámos um link para ana@example.com.' },
+  })
+  const app = await renderApp()
+  await fireEvent.press(await screen.findByRole('link', { name: 'Conta' }))
+  await waitFor(() => expect(app.getPathname()).toBe('/conta'))
+
+  expect(await screen.findByText(/confirma primeiro o teu email/)).toBeOnTheScreen()
+  expect(screen.queryByLabelText('Email de quem convidas')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Convidar' })).toBeNull()
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Enviar outra vez' }))
+  expect(await screen.findByText('Enviámos um link para ana@example.com.')).toBeOnTheScreen()
+})

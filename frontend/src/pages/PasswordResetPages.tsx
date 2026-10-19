@@ -9,7 +9,7 @@ function errorText(err: unknown): string {
   return err instanceof ApiError ? err.message : 'Não foi possível ligar ao servidor'
 }
 
-function AuthCard({ title, children }: { title: string; children: ReactNode }) {
+export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
     <main className="auth">
       <h1 className="brand">Warrantly</h1>

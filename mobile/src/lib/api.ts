@@ -182,6 +182,8 @@ export const api = {
   endSession: (id: number) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
   endOtherSessions: () =>
     request<{ ended: number }>('/auth/sessions/end-others', { method: 'POST' }),
+  resendVerification: () =>
+    request<{ detail: string }>('/auth/verify-email/resend', { method: 'POST' }),
   getSharing: () => request<Sharing>('/sharing'),
   invite: (email: string) => request<Share>('/sharing', { method: 'POST', json: { email } }),
   acceptShare: (id: number) => request<SharedArchive>(`/sharing/${id}/accept`, { method: 'POST' }),

@@ -15,6 +15,7 @@ export const USER: User = {
   id: 1,
   email: 'ana@example.com',
   full_name: 'Ana',
+  email_verified: true,
   created_at: '2026-01-01T10:00:00Z',
 }
 

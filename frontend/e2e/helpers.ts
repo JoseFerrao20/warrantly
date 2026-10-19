@@ -35,7 +35,26 @@ export async function signUp(page: Page, fullName: string | null = null) {
     form: { username: email, password: PASSWORD },
   })
   const { access_token: token } = (await login.json()) as { access_token: string }
+  await confirmEmail(page, email)
   return { email, token }
+}
+
+/** O link de confirmação do último email enviado para `email` (ADR 0008). */
+export async function confirmationLink(email: string): Promise<string> {
+  const body = await lastEmailTo(email)
+  const link = body.match(/https?:\/\/\S+\/confirmar-email#token=\S+/)
+  expect(link, body).not.toBeNull()
+  return link![0]
+}
+
+/**
+ * Confirma o email pela API, com o token do email enviado no registo. Quase todos os testes
+ * precisam disto: sem o email confirmado, aparece o aviso e a partilha fica fechada.
+ */
+export async function confirmEmail(page: Page, email: string) {
+  const token = new URL(await confirmationLink(email)).hash.replace('#token=', '')
+  const response = await page.request.post('/api/auth/verify-email', { data: { token } })
+  expect(response.status()).toBe(204)
 }
 
 const mailDir = () => process.env.E2E_MAIL_DIR!

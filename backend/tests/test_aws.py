@@ -56,13 +56,15 @@ def test_send_email_with_ses(aws, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setattr(settings, "smtp_host", None)
 
     assert mailer.is_configured()
-    message = mailer.build_message("ana@example.com", "Garantia a terminar", "Olá!")
+    message = mailer.build_message("ana@warrantly.pt", "Garantia a terminar", "Olá!")
     mailer.send_email(message)
+    # Os domínios de exemplo (as contas do smoke test) não recebem email: o SES nem é chamado.
+    mailer.send_email(mailer.build_message("smoke-1@example.com", "Confirma", "Olá!"))
 
     [sent] = ses_backends[DEFAULT_ACCOUNT_ID][REGION].sent_messages
     assert sent.source == "Warrantly <alertas@warrantly.pt>"
     assert "Subject: Garantia a terminar" in sent.raw_data
-    assert "ana@example.com" in sent.raw_data
+    assert "ana@warrantly.pt" in sent.raw_data
 
 
 def test_smtp_without_host_is_not_configured(monkeypatch: pytest.MonkeyPatch):

@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 
 import { api, ApiError } from '../api'
 import type { Share, SharedArchive, Sharing } from '../types'
+import { useAuth } from '../useAuth'
 
 function message(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
@@ -13,6 +14,7 @@ function message(err: unknown, fallback: string): string {
  * reclama à loja. Também mostra os arquivos partilhados comigo, para aceitar ou sair.
  */
 export function SharingSection() {
+  const { user } = useAuth()
   const [sharing, setSharing] = useState<Sharing | null>(null)
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -175,30 +177,37 @@ export function SharingSection() {
         </>
       )}
 
-      <form onSubmit={invite} className="form">
-        <label>
-          Email de quem convidas
-          <input
-            type="email"
-            autoComplete="off"
-            required
-            maxLength={320}
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-          />
-        </label>
-        {error && (
-          <p className="form-error" role="alert">
-            {error}
-          </p>
-        )}
-        <div className="form-actions">
-          {status && <span role="status">{status}</span>}
-          <button type="submit" className="button" disabled={busy}>
-            Convidar
-          </button>
-        </div>
-      </form>
+      {!user?.email_verified ? (
+        <p className="muted">
+          Para partilhar o arquivo e ver os convites que te fizerem, confirma primeiro o teu email
+          (o link está no email que enviámos quando criaste a conta).
+        </p>
+      ) : (
+        <form onSubmit={invite} className="form">
+          <label>
+            Email de quem convidas
+            <input
+              type="email"
+              autoComplete="off"
+              required
+              maxLength={320}
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </label>
+          {error && (
+            <p className="form-error" role="alert">
+              {error}
+            </p>
+          )}
+          <div className="form-actions">
+            {status && <span role="status">{status}</span>}
+            <button type="submit" className="button" disabled={busy}>
+              Convidar
+            </button>
+          </div>
+        </form>
+      )}
     </section>
   )
 }

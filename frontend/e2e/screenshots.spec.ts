@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
-import { createPurchase, dateFromToday, PASSWORD } from './helpers'
+import { confirmEmail, createPurchase, dateFromToday, PASSWORD } from './helpers'
 
 // Capturas de ecrã do README (docs/images/). Não correm no CI: `npm run screenshots`.
 test.skip(!process.env.SCREENSHOTS, 'só com SCREENSHOTS=1 (npm run screenshots)')
@@ -27,6 +27,11 @@ async function signIn(page: Page): Promise<string> {
     form: { username: EMAIL, password: PASSWORD },
   })
   const { access_token: token } = (await login.json()) as { access_token: string }
+  // Numa corrida anterior, a conta já pode existir e estar confirmada (409); senão, confirma.
+  const resend = await page.request.post('/api/auth/verify-email/resend', {
+    headers: { Authorization: `Bearer ${token}` },
+  })
+  if (resend.status() !== 409) await confirmEmail(page, EMAIL)
   // Começa sempre do zero (uma corrida anterior pode ter deixado compras).
   const old = (await (
     await page.request.get('/api/purchases', { headers: { Authorization: `Bearer ${token}` } })

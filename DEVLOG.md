@@ -350,9 +350,27 @@
   - **Testes:** 4 novos (61 na app). Cobrem o convite e o pedido enviado, o erro da API, aceitar um convite e deixar de partilhar com confirmação, e cancelar a recusa sem apagar nada. O lint, os tipos e o bundle de Android passam.
   - **Lição:** o `npx prettier` sem opções muda o estilo da app (põe `;` e aspas duplas), porque o repositório não tem configuração do Prettier. Com `--no-semi --single-quote --print-width 100` fica igual ao resto, mas mesmo assim parte linhas que o código deixava inteiras. Para mudanças pequenas, o melhor é não o correr em ficheiros existentes.
 
+- **2026-10-19 (sessão cloud do Claude Code):** confirmação do email da conta ([ADR 0008](docs/adr/0008-confirmacao-do-email.md)).
+  - **Porquê:** o risco que ficou aceite no ADR 0007. Qualquer pessoa podia criar uma conta com o email de outra e ver (e aceitar) os convites de partilha feitos para ela.
+  - **O que faz:**
+    - o registo envia um link de confirmação (JWT com o email, 7 dias, no fragmento do URL, como na recuperação da palavra-passe);
+    - a página `/confirmar-email` abre sem sessão;
+    - até confirmar, o site mostra um aviso no topo com "Enviar outra vez", e a partilha fica fechada: não se convida ninguém e os convites recebidos não aparecem;
+    - na app, o mesmo aviso fica na secção da partilha.
+  - **Decisões:**
+    - **Não bloquear o login.** Obrigar a confirmar antes de experimentar a app afasta pessoas e não protege mais ninguém; o que precisava de proteção era a partilha.
+    - **As contas que já existiam** ficaram confirmadas na migração.
+  - **O que apareceu pelo caminho: os emails para domínios de exemplo.** O smoke test do deploy cria contas `smoke-…@example.com`. Com o registo a enviar email, o SES ia tentar enviar para lá, e cada bounce conta para a reputação da conta. O envio pelo SES passa a ignorar os domínios reservados (RFC 2606). Os modos de ficheiro e o Mailpit continuam a recebê-los, porque os testes usam-nos.
+  - **Testes:**
+    - backend, 9 novos (299): o link do registo, os links inválidos (expirado, de outro tipo, depois de mudar o email), o reenvio com limite, e a partilha fechada até confirmar;
+    - frontend, 6 novos (98): a página do link, o aviso e a partilha fechada;
+    - app, 1 novo (62).
+    - E2E: o teste do registo abre o link do email gravado e vê o aviso desaparecer. O `signUp` dos outros testes confirma o email pela API.
+  - **Lição:** o `make_user` dos testes passou a criar contas confirmadas. Assim, os quase 300 testes que já existiam não mudaram, e só os testes novos pedem uma conta por confirmar.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 290 testes, frontend com 92, app móvel com 61, 25 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 62, 25 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -361,7 +379,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (290 testes, sem avisos) e `cd frontend && npm test` (92 testes).
+  - `cd backend && alembic upgrade head && pytest` (299 testes, sem avisos) e `cd frontend && npm test` (98 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -398,6 +416,7 @@ Próximos passos, por esta ordem:
    - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - no log do deploy, o `AVISO` do IP do smoke test: se aparecer, aplicar a correção descrita em `docs/cloud.md`, "IP do cliente" (um PR);
+   - criar uma conta com um email teu e ver chegar o email de confirmação pelo SES (confirmar o email do remetente no SES, se ainda estiver no sandbox);
    - na partilha, convidar uma segunda conta (outro email teu) na app, aceitar na outra conta e ver lá as compras, com "de …" e sem "Apagar";
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 

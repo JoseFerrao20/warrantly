@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react'
 import { Link, Outlet, useLocation } from 'react-router'
 
 import { useAuth } from '../useAuth'
+import { VerifyEmailBanner } from './VerifyEmailBanner'
 
 export function Layout() {
   const { user, logout } = useAuth()
@@ -44,6 +45,7 @@ export function Layout() {
         </nav>
       </header>
       <main id="conteudo" className="container" tabIndex={-1} ref={main}>
+        {user && !user.email_verified && <VerifyEmailBanner email={user.email} />}
         <Outlet />
       </main>
     </>

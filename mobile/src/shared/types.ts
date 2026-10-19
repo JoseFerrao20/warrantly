@@ -4,6 +4,8 @@ export interface User {
   id: number
   email: string
   full_name: string | null
+  /** Abriu o link de confirmação do registo; sem isso, não partilha o arquivo (ADR 0008). */
+  email_verified: boolean
   created_at: string
 }
 
