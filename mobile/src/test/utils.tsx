@@ -62,6 +62,7 @@ export function mockApi(testRoutes: Record<string, unknown | Handler>): Call[] {
     'DELETE /push-tokens': NO_CONTENT,
     'POST /auth/logout': NO_CONTENT,
     'GET /auth/sessions': [],
+    'GET /sharing': { members: [], shared_with_me: [] },
     'POST /auth/refresh': { status: 401, body: { detail: 'Sessão terminada. Entra outra vez.' } },
     ...testRoutes,
   }

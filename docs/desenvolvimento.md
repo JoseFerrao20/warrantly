@@ -108,7 +108,7 @@ npm run e2e
 
 Se a API e o Vite já estiverem a correr, os testes usam-nos (nesse caso, arrancar a API com `RATE_LIMITS=false`, senão os registos seguidos batem no limite de tentativas). Cada teste cria o seu próprio utilizador (`e2e-…@example.com`); para limpar a base de dados de desenvolvimento: `DELETE FROM users WHERE email LIKE 'e2e-%@example.com'`.
 
-Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `http://localhost:8000` (configurável com `API_URL`), por isso não é preciso configurar CORS. Páginas: login e registo (`/entrar`), painel (`/`), nova compra (`/compras/nova`), detalhe (`/compras/:id`), edição (`/compras/:id/editar`) e conta (`/conta`: nome, tema e apagar conta). O tema segue o modo claro/escuro do sistema, mas pode ser fixado em "Claro" ou "Escuro" (fica guardado no browser).
+Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `http://localhost:8000` (configurável com `API_URL`), por isso não é preciso configurar CORS. Páginas: login e registo (`/entrar`), painel (`/`), nova compra (`/compras/nova`), detalhe (`/compras/:id`), edição (`/compras/:id/editar`) e conta (`/conta`: nome, tema, exportar, partilha, sessões e apagar conta). O tema segue o modo claro/escuro do sistema, mas pode ser fixado em "Claro" ou "Escuro" (fica guardado no browser).
 
 ## App móvel
 
@@ -119,6 +119,7 @@ App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo R
 - **reclamar à loja**: a API escreve a carta (como no site), e o email do telemóvel abre com o destinatário, o assunto, a carta e o PDF (carta e fatura) em anexo, com o `expo-mail-composer`; sem uma conta de email no telemóvel, partilha-se o PDF;
 - **editar e apagar** uma compra (os campos e a validação do formulário estão em `src/lib/purchaseForm.tsx`, partilhados com a compra nova);
 - registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site;
+- **partilhar o arquivo com a família** na conta, como no site: convidar pelo email, aceitar ou recusar os convites, sair ou deixar de partilhar. As compras partilhadas mostram de quem são e não têm "Apagar" nem "Trocar a fatura" ([ADR 0007](adr/0007-partilha-do-arquivo.md));
 - ver as **sessões abertas** na conta (os aparelhos com login feito), terminar a de outro aparelho ou sair de todos os outros, e sair deste;
 - receber os **alertas de garantia como notificações** (tocar abre a compra). O push precisa de uma development build (EAS), porque a Expo Go no Android já não o recebe: ver [`docs/push.md`](push.md).
 

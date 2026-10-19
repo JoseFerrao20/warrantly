@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
+import { SharingSection } from '@/lib/sharing'
 import { useColors } from '@/lib/theme'
 import { Button, ErrorText } from '@/lib/ui'
 import type { UserSession } from '@/shared/types'
@@ -22,8 +23,9 @@ function message(err: unknown, fallback: string): string {
 }
 
 /**
- * A conta: os aparelhos com sessão aberta (como na página da conta do site), para terminar a
- * de um telemóvel perdido ou emprestado, e o "Sair" deste telemóvel.
+ * A conta, como a página da conta do site: a partilha do arquivo com a família (ADR 0007), os
+ * aparelhos com sessão aberta, para terminar a de um telemóvel perdido ou emprestado, e o
+ * "Sair" deste telemóvel.
  */
 export default function AccountScreen() {
   const colors = useColors()
@@ -78,6 +80,8 @@ export default function AccountScreen() {
   return (
     <ScrollView contentContainerStyle={styles.page}>
       <Text style={[styles.email, { color: colors.text }]}>{user?.email}</Text>
+
+      <SharingSection />
 
       <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
         Sessões
