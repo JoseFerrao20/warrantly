@@ -234,6 +234,26 @@ export const api = {
     }
   },
 
+  /**
+   * Descarrega a exportação (ZIP com o CSV, o JSON e as faturas) para a cache do telemóvel e
+   * devolve o endereço do ficheiro, para o guardar ou enviar pelo menu do sistema. Como na
+   * fatura, o `/auth/me` antes renova o token de acesso, se for preciso.
+   */
+  async downloadExport(today: string): Promise<string> {
+    await request<User>('/auth/me')
+    const token = await getToken()
+    try {
+      const file = await File.downloadFileAsync(
+        `${API_URL}/purchases/export`,
+        new File(Paths.cache, `warrantly-${today}.zip`),
+        { headers: token ? { Authorization: `Bearer ${token}` } : {}, idempotent: true },
+      )
+      return file.uri
+    } catch {
+      throw new ApiError(0, 'Não foi possível exportar. Tenta outra vez.')
+    }
+  },
+
   createUpload: () => request<UploadTicket>('/purchases/uploads', { method: 'POST' }),
   async uploadToStorage(ticket: UploadTicket, file: PickedFile): Promise<void> {
     const response = await fetch(ticket.url!, {

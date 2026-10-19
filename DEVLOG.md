@@ -388,9 +388,21 @@
   - **Lição:** um `page.goto` para o mesmo caminho só com outro `#` não volta a carregar a página: o React Router muda o `location.hash`, mas o estado lido ao abrir fica. No teste, passa-se pela `about:blank` entre os dois links. Na vida real, o link do email abre sempre uma página nova.
   - **E2E:** 29 (4 novos).
 
+- **2026-10-19 (sessão cloud do Claude Code):** exportar os dados na app, e o React da app de volta à versão do Expo.
+  - **Exportar (ZIP) na app:** um botão na conta descarrega a exportação para a cache, como a fatura (`File.downloadFileAsync`, com o `/auth/me` antes para renovar o token), e abre o menu do sistema para guardar o ZIP nos ficheiros, no Drive ou enviá-lo. Era a única coisa que só o site fazia. 2 testes novos (64 na app).
+  - **O que se encontrou: o merge do #40 (Dependabot) estragou o React da app.**
+    - O #40 subiu o React e o React DOM da app de 19.3.0 para 19.3.1, e o Expo SDK 58 espera exatamente a 19.3.0: o renderer do React Native é feito para essa versão. O `npx expo install --check` diz que "a app pode não funcionar"; não consegui confirmar aqui se chega a falhar no telemóvel.
+    - Os testes, o lint, os tipos e o bundle passavam todos: nenhum deles compara as versões. Antes do merge, verifiquei só isso.
+    - **Correção:**
+      - o `package.json` e o `package-lock.json` da app voltaram a ser os de antes do #40;
+      - o CI da app corre agora o `expo install --check` (falha com a 19.3.1, passa com a 19.3.0; testei os dois);
+      - o Dependabot deixa de mexer no React e no React DOM da app, até nas correções.
+  - **O TypeScript 7 na app fica para depois.** O `dependabot.yml` já o explicava: o `eslint-config-expo` usa a API JavaScript do TypeScript, que o TypeScript 7 (reescrito em Go) já não tem. O site já está no 7; a app sobe quando o Expo o suportar.
+  - **Lição:** numa app Expo, as versões do React e do React Native são do SDK, não do Dependabot. "Os testes passam" não chega; o `expo install --check` é que sabe o que o SDK espera.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 62, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 64, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 

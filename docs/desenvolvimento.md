@@ -122,10 +122,11 @@ App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo R
 - **editar e apagar** uma compra (os campos e a validação do formulário estão em `src/lib/purchaseForm.tsx`, partilhados com a compra nova);
 - registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site;
 - **partilhar o arquivo com a família** na conta, como no site: convidar pelo email, aceitar ou recusar os convites, sair ou deixar de partilhar. As compras partilhadas mostram de quem são e não têm "Apagar" nem "Trocar a fatura" ([ADR 0007](adr/0007-partilha-do-arquivo.md));
+- **exportar os dados**: o ZIP (CSV, JSON e faturas) é descarregado para a cache e abre o menu do sistema para o guardar ou enviar;
 - ver as **sessões abertas** na conta (os aparelhos com login feito), terminar a de outro aparelho ou sair de todos os outros, e sair deste;
 - receber os **alertas de garantia como notificações** (tocar abre a compra). O push precisa de uma development build (EAS), porque a Expo Go no Android já não o recebe: ver [`docs/push.md`](push.md).
 
-Só exportar os dados (ZIP) continua a ser exclusivo do site. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
+A app faz tudo o que o site faz, menos mudar o nome e o tema na conta e apagar a conta. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
 
 ```bash
 cd mobile
