@@ -23,6 +23,10 @@ Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura
 | --- | --- |
 | ![Painel no modo escuro](docs/images/painel-escuro.png) | ![Painel num ecrã de telemóvel](docs/images/telemovel.png) |
 
+| Sessões na conta: terminar a de um telemóvel perdido |
+| --- |
+| ![Lista de sessões com o Chrome no Windows marcado como este aparelho, um Pixel 8 com a app e um iPhone, cada um com o botão Terminar](docs/images/conta.png) |
+
 ## O problema
 
 Em Portugal, os bens novos têm 3 anos de garantia legal (Decreto-Lei n.º 84/2021). Mas quando a máquina de lavar avaria ao fim de dois anos e meio, ninguém sabe onde está a fatura nem quando foi a compra, e muito menos o que escrever à loja. A garantia existe, mas acaba por não ser usada.

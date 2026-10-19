@@ -12,6 +12,13 @@ const INVOICE = new URL('./fixtures/fatura.pdf', import.meta.url).pathname
 // Uma conta de exemplo (nome fictício), apagada no fim; não aparece o email de teste e2e-….
 const EMAIL = 'ana.silva@exemplo.pt'
 
+// O browser das capturas passa por um Chrome no Windows (na lista de sessões da conta).
+test.use({
+  userAgent:
+    'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) ' +
+    'Chrome/141.0.0.0 Safari/537.36',
+})
+
 async function signIn(page: Page): Promise<string> {
   await page.request.post('/api/auth/register', {
     data: { email: EMAIL, password: PASSWORD, full_name: 'Ana Silva' },
@@ -56,7 +63,7 @@ async function seed(page: Page) {
   return { ids, token }
 }
 
-test('capturas do README', async ({ page }) => {
+test('capturas do README', async ({ page, request }) => {
   test.setTimeout(60_000)
   await page.setViewportSize({ width: 1280, height: 680 })
   const { ids, token } = await seed(page)
@@ -85,6 +92,25 @@ test('capturas do README', async ({ page }) => {
   await page.getByRole('button', { name: 'Gerar reclamação' }).click()
   await expect(page.getByLabel('Texto da reclamação')).toBeVisible()
   await page.locator('section.claim').screenshot({ path: `${OUT}reclamacao.png` })
+
+  // Conta: outros aparelhos com sessão aberta. Entram pelo `request`, que não partilha os
+  // cookies com o browser (este continua a ser "Este aparelho").
+  await request.post('/api/auth/login', {
+    form: { username: EMAIL, password: PASSWORD },
+    headers: {
+      'User-Agent':
+        'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 ' +
+        '(KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1',
+    },
+  })
+  await request.post('/api/auth/login', {
+    form: { username: EMAIL, password: PASSWORD },
+    headers: { 'X-Client': 'mobile', 'X-Device-Name': 'Pixel 8 (Android)' },
+  })
+  await page.goto('/conta')
+  const sessions = page.getByRole('region', { name: 'Sessões' })
+  await expect(sessions.getByRole('listitem')).toHaveCount(3)
+  await sessions.screenshot({ path: `${OUT}conta.png` })
 
   // Telemóvel.
   await page.setViewportSize({ width: 390, height: 844 })

@@ -321,6 +321,14 @@
   - **Lição:** o uvicorn liga o `--proxy-headers` por omissão e confia em `127.0.0.1`. Num teste local, a app acredita sempre no `X-Forwarded-For`, mesmo sem a opção na linha de comando.
   - **De caminho:** dois testes do limite de tentativas contavam com a tabela `rate_limit_events` vazia, e falharam com as linhas que os smoke tests locais deixaram na base de dados de desenvolvimento. Passaram a contar só as linhas do limite de teste.
 
+- **2026-10-19 (sessão cloud do Claude Code):** capturas do README atualizadas.
+  - **Geradas outra vez** com o `npm run screenshots`. Só a da reclamação mudou de facto (as datas e o número da compra): o aspeto das outras páginas não mudou desde a última vez.
+  - **Captura nova, `conta.png`:** a secção "Sessões" da conta, com três aparelhos.
+    - O browser das capturas passa por um Chrome no Windows (`test.use({ userAgent })`).
+    - Os outros dois aparelhos entram pelo `request` do Playwright, que não partilha os cookies com o browser, por isso este continua a ser "Este aparelho": um Safari no iPhone e a app num Pixel 8 (`X-Client: mobile` e `X-Device-Name`).
+    - Está no README, numa linha própria por baixo da galeria.
+  - **A conta de exemplo** é apagada no fim, como antes, e as sessões vão com ela.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
 Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 87, app móvel com 55, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
