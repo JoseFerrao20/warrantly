@@ -102,7 +102,8 @@ def test_requests_are_rate_limited_per_email(client: TestClient, user: User, out
 def test_reset_changes_the_password_and_ends_all_sessions(
     client: TestClient, db_session: Session, user: User, outbox
 ):
-    login(client, TEST_PASSWORD)  # uma sessão aberta (por exemplo, de quem roubou a conta)
+    # Uma sessão aberta (por exemplo, de quem roubou a conta).
+    access = login(client, TEST_PASSWORD).json()["access_token"]
     request_reset(client)
 
     response = confirm(client, token_from(outbox[0]))
@@ -111,6 +112,8 @@ def test_reset_changes_the_password_and_ends_all_sessions(
     assert login(client, TEST_PASSWORD).status_code == 401
     sessions = select(func.count()).select_from(RefreshToken).where(RefreshToken.user_id == user.id)
     assert db_session.scalar(sessions) == 0
+    # O token de acesso dessa sessão também deixa logo de servir.
+    assert client.get("/auth/me", headers={"Authorization": f"Bearer {access}"}).status_code == 401
     assert login(client, NEW_PASSWORD).status_code == 200
 
 

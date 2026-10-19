@@ -1,4 +1,12 @@
-import type { Claim, InvoiceScan, Purchase, PurchaseInput, UploadTicket, User } from './types'
+import type {
+  Claim,
+  InvoiceScan,
+  Purchase,
+  PurchaseInput,
+  UploadTicket,
+  User,
+  UserSession,
+} from './types'
 
 const BASE = '/api'
 const TOKEN_KEY = 'warrantly.token'
@@ -136,6 +144,10 @@ export const api = {
     request<User>('/auth/me', { method: 'PATCH', json: data }),
   deleteMe: (password: string) =>
     request<void>('/auth/me', { method: 'DELETE', json: { password } }),
+  listSessions: () => request<UserSession[]>('/auth/sessions'),
+  endSession: (id: number) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
+  endOtherSessions: () =>
+    request<{ ended: number }>('/auth/sessions/end-others', { method: 'POST' }),
 
   listPurchases: () => request<Purchase[]>('/purchases'),
   getPurchase: (id: number) => request<Purchase>(`/purchases/${id}`),

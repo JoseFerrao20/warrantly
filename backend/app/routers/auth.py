@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 
 from app import mailer, password_reset, rate_limit, sessions, storage
 from app.config import settings
-from app.dependencies import CurrentUser, SessionDep
+from app.dependencies import CurrentSessionId, CurrentUser, SessionDep
 from app.models import Purchase, User
 from app.observability import metric
 from app.schemas import (
@@ -17,6 +17,8 @@ from app.schemas import (
     PasswordResetConfirm,
     PasswordResetRequest,
     RefreshRequest,
+    SessionRead,
+    SessionsEnded,
     Token,
     UserCreate,
     UserRead,
@@ -118,6 +120,8 @@ def login(
     response: Response,
     session: SessionDep,
     x_client: Annotated[str | None, Header()] = None,
+    user_agent: Annotated[str | None, Header()] = None,
+    x_device_name: Annotated[str | None, Header()] = None,
 ) -> Token:
     """Login no formato OAuth2 (`username` = email e `password`), para funcionar no /docs.
 
@@ -148,7 +152,8 @@ def login(
         )
     rate_limit.login_failures_ip_email.reset(f"{ip} {email}")
     metric("LoginSucceeded")
-    pair = sessions.start_session(session, user.id)
+    device = sessions.describe_device(user_agent, x_device_name)
+    pair = sessions.start_session(session, user.id, device)
     return token_response(pair, response, in_body=x_client == MOBILE_CLIENT)
 
 
@@ -172,6 +177,36 @@ def refresh(
             clear_refresh_cookie(error)  # um cookie que já não serve sai do browser
         return error
     return token_response(pair, response, in_body)
+
+
+@router.get("/sessions", response_model=list[SessionRead])
+def list_sessions(
+    user: CurrentUser, session: SessionDep, current_id: CurrentSessionId
+) -> list[SessionRead]:
+    """As sessões abertas (aparelhos com login feito), com a deste pedido marcada."""
+    return [
+        SessionRead.model_validate(item).model_copy(update={"current": item.family == current_id})
+        for item in sessions.list_sessions(session, user.id)
+    ]
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def end_session_by_id(session_id: int, user: CurrentUser, session: SessionDep) -> Response:
+    """Termina a sessão de um aparelho: os tokens dela (refresh e acesso) deixam de servir."""
+    if not sessions.end_user_session(session, user.id, session_id):
+        raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Sessão não encontrada")
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/sessions/end-others", response_model=SessionsEnded)
+def end_other_sessions(
+    user: CurrentUser, session: SessionDep, current_id: CurrentSessionId
+) -> SessionsEnded:
+    """Sair de todos os outros aparelhos (este continua com sessão)."""
+    ended = sessions.end_other_sessions(session, user.id, keep_family=current_id)
+    if ended:
+        logger.info("Terminadas %d sessões noutros aparelhos", ended)
+    return SessionsEnded(ended=ended)
 
 
 @router.post("/logout", status_code=status.HTTP_204_NO_CONTENT)

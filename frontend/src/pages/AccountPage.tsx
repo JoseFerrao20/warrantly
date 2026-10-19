@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { FormEvent } from 'react'
 
 import { api, ApiError } from '../api'
+import { SessionsSection } from '../components/SessionsSection'
 import { getTheme, setTheme } from '../theme'
 import type { Theme } from '../theme'
 import { useAuth } from '../useAuth'
@@ -149,6 +150,8 @@ export function AccountPage() {
           </button>
         </div>
       </section>
+
+      <SessionsSection />
 
       <form className="card form danger-zone" onSubmit={removeAccount}>
         <h2>Apagar conta</h2>
