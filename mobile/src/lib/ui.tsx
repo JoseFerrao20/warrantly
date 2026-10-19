@@ -50,6 +50,16 @@ export function Field({ label, ...props }: TextInputProps & { label: string }) {
   )
 }
 
+/** Uma ação secundária com o aspeto de um link ("Esqueci-me da palavra-passe"). */
+export function LinkButton({ title, ...props }: PressableProps & { title: string }) {
+  const colors = useColors()
+  return (
+    <Pressable accessibilityRole="button" style={styles.link} {...props}>
+      <Text style={[styles.linkText, { color: colors.link }]}>{title}</Text>
+    </Pressable>
+  )
+}
+
 export function StatusBadge({
   status,
   warrantyEnd,
@@ -86,6 +96,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   buttonText: { fontSize: 16, fontWeight: '600' },
+  link: { minHeight: 48, justifyContent: 'center' }, // o mesmo alvo de toque dos botões
+  linkText: { fontSize: 16, textDecorationLine: 'underline' },
   label: { fontSize: 14, marginTop: 12, marginBottom: 4 },
   input: { minHeight: 48, borderWidth: 1, borderRadius: 8, paddingHorizontal: 12, fontSize: 16 },
   badge: {

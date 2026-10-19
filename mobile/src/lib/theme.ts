@@ -12,6 +12,7 @@ const light = {
   background: '#ffffff',
   primary: '#2563eb',
   primaryText: '#ffffff',
+  link: '#2563eb', // 5.2:1 no branco
   danger: '#c81e1e',
   status: {
     active: { bg: '#e3f9f0', text: '#147d64' },
@@ -29,6 +30,7 @@ const dark: typeof light = {
   background: '#11171d',
   primary: '#2563eb',
   primaryText: '#ffffff',
+  link: '#7aa7ff', // o azul dos botões teria só 3.8:1 no fundo escuro
   danger: '#f87171',
   status: {
     active: { bg: '#0f3a2e', text: '#6fdcb3' },
