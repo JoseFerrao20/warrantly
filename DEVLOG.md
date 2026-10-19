@@ -120,6 +120,13 @@
   - **Lição:** o Chromium "headless shell" ignora o idioma do browser nos campos de data (aparece 10/19/2026), um pormenor que só se vê nas capturas.
   - **Dependabot:** a primeira semana trouxe 5 PRs. Fechei os que subiam o Python da imagem Docker (3.12 → 3.14) e o Node (22 → 26), porque deixavam a imagem diferente do CI e do dev container. O `dependabot.yml` passa a sugerir só correções para as imagens base: mudar de versão faz-se à mão, em todo o lado ao mesmo tempo.
 
+- **2026-10-19 (sessão cloud do Claude Code):** primeira ronda de PRs do Dependabot.
+  - **GitHub Actions:** o CI ficou verde com as versões novas (checkout v7, setup-node e setup-python v7, credenciais da AWS v6, setup-terraform v4). Tiram também o aviso do Node 20 nos runners. O deploy e o `plan` só se testam com a AWS.
+  - **Frontend:** verde, incluindo o TypeScript 7 (a reescrita em Go), o jsdom 30, os E2E e o build.
+  - **App:** vermelho. O `expo lint` rebentou com `Cannot read properties of undefined (reading 'Intrinsic')`. O typescript-eslint, usado pelo `eslint-config-expo`, lê a API JavaScript do TypeScript, que o TypeScript 7 deixou de ter; o ESLint 10 também ainda não é suportado.
+  - **Decisão:** no `dependabot.yml`, a app só recebe versões maiores do TypeScript e do ESLint com o SDK do Expo, e o `@types/node` não salta de versão maior sozinho, nem no site nem na app (deve acompanhar o Node do CI e do Docker). Com a configuração no `main`, o Dependabot refaz os PRs sem esses saltos.
+  - **Lição:** um PR agrupado mistura correções pequenas com saltos grandes. Basta um salto partido para bloquear todas as atualizações, por isso as exceções ficam escritas na configuração.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
 Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 33 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
