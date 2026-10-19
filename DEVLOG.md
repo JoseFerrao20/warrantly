@@ -416,7 +416,7 @@ Próximos passos, por esta ordem:
    - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - no log do deploy, o `AVISO` do IP do smoke test: se aparecer, aplicar a correção descrita em `docs/cloud.md`, "IP do cliente" (um PR);
-   - criar uma conta com um email teu e ver chegar o email de confirmação pelo SES (confirmar o email do remetente no SES, se ainda estiver no sandbox);
+   - criar uma conta com um email teu e ver chegar o email de confirmação pelo SES (no sandbox do SES, o email de destino também tem de estar confirmado no SES);
    - na partilha, convidar uma segunda conta (outro email teu) na app, aceitar na outra conta e ver lá as compras, com "de …" e sem "Apagar";
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 
