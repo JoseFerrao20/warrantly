@@ -13,7 +13,7 @@ Os alertas de garantia corriam num workflow agendado do GitHub Actions (`alerts.
 ## Decisão
 
 - **EventBridge Scheduler** (`infra/app/scheduler.tf`):
-  - um agendamento diário às 08:47 com o fuso `Europe/Lisbon`, que invoca o Lambda com `{"task": "alerts"}`;
+  - um agendamento diário às 08:47 com o fuso `Europe/Lisbon`, que invoca o Lambda com `{"task": "alerts"}` (e, desde 2026-10-19, outro às 09:17 com `{"task": "push-receipts"}`, para os recibos dos pushes; ver o ADR 0003);
   - um papel IAM que o Scheduler assume (só desta conta) e que só pode invocar este Lambda;
   - se a entrega falhar, tenta outra vez durante uma hora.
 - **Sem um Lambda novo.** O Lambda Web Adapter entrega os eventos que não são HTTP como `POST` no caminho `AWS_LWA_PASS_THROUGH_PATH` (`/api/internal/events`). A mesma imagem trata os pedidos do site e o agendamento.

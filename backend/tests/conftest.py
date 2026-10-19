@@ -112,9 +112,11 @@ def s3_objects(client) -> list[str]:
 
 @pytest.fixture(autouse=True)
 def no_real_push(monkeypatch: pytest.MonkeyPatch) -> None:
-    """Os testes nunca chamam o serviço de push do Expo (quem precisa, simula o `_post`)."""
+    """Os testes nunca chamam o serviço de push do Expo (quem precisa, simula o `_post` e o
+    `_get_receipts`)."""
 
-    def blocked(messages: list[dict]) -> list[dict]:
+    def blocked(*args: object) -> None:
         raise AssertionError("pedido real ao serviço de push do Expo num teste")
 
     monkeypatch.setattr("app.push._post", blocked)
+    monkeypatch.setattr("app.push._get_receipts", blocked)

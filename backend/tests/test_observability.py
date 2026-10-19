@@ -11,6 +11,7 @@ from app import observability
 from app.alerts import send_due_alerts
 from app.models import User
 from app.observability import JsonFormatter, RequestContextMiddleware, metric
+from app.push import PushOutcome
 from tests.conftest import TEST_PASSWORD
 from tests.test_alerts import TODAY, Outbox, purchase_ending
 
@@ -144,7 +145,7 @@ def test_login_metrics(client: TestClient, user: User, caplog):
 def test_alert_metrics(db_session: Session, user: User, caplog):
     purchase_ending(db_session, user, date(2026, 11, 1))
 
-    send_due_alerts(db_session, TODAY, send=Outbox(), push=lambda messages: set())
+    send_due_alerts(db_session, TODAY, send=Outbox(), push=lambda messages: PushOutcome())
 
     found = metrics(caplog)
     assert found["AlertEmailsSent"] == [1]

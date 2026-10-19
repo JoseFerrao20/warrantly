@@ -30,7 +30,7 @@ from app.db import SessionLocal
 from app.mailer import build_message, is_configured, send_email
 from app.models import Purchase, PushToken, User, WarrantyAlert
 from app.observability import configure_logging, metric
-from app.push import PushMessage, send_push
+from app.push import PushMessage, PushOutcome, save_tickets, send_push
 
 logger = logging.getLogger(__name__)
 
@@ -133,7 +133,7 @@ def build_alert_push(token: str, alerts: list[DueAlert]) -> PushMessage:
     )
 
 
-PushSender = Callable[[list[PushMessage]], set[str]]
+PushSender = Callable[[list[PushMessage]], PushOutcome]
 
 
 def push_alerts(session: Session, user: User, alerts: list[DueAlert], push: PushSender) -> int:
@@ -142,14 +142,16 @@ def push_alerts(session: Session, user: User, alerts: list[DueAlert], push: Push
     if not tokens:
         return 0
     try:
-        invalid = push([build_alert_push(token, alerts) for token in tokens])
+        outcome = push([build_alert_push(token, alerts) for token in tokens])
     except Exception:
         logger.exception("Falhou o push para %s", user.email)
         return 0
-    if invalid:
-        session.execute(delete(PushToken).where(PushToken.token.in_(invalid)))
+    if outcome.invalid:
+        session.execute(delete(PushToken).where(PushToken.token.in_(outcome.invalid)))
         session.commit()
-    return len(tokens) - len(invalid)
+    if outcome.tickets:
+        save_tickets(session, outcome.tickets)  # os recibos vêm mais tarde (push.check_receipts)
+    return len(tokens) - len(outcome.invalid)
 
 
 def send_due_alerts(
