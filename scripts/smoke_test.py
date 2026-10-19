@@ -8,7 +8,8 @@ Corre no fim do deploy, contra o CloudFront, e no CI do Docker, contra o content
 Confirma o que antes se via à mão (docs/cloud.md, "Verificações"): a API e a base de dados
 respondem, os cabeçalhos de segurança, o /api/docs fechado, a rota dos eventos agendados
 fechada a pedidos de fora, o cookie da sessão (Secure, HttpOnly, SameSite=Strict) e o limite
-de tentativas de login. Cria uma conta `smoke-…@example.com` e apaga-a no fim.
+de tentativas de login. Avisa (sem falhar) se um IP inventado no X-Forwarded-For enganar o
+limite por IP. Cria uma conta `smoke-…@example.com` e apaga-a no fim.
 """
 
 import argparse
@@ -240,6 +241,35 @@ class Smoke:
             f"respostas: {statuses}",
         )
 
+    def spoofed_ip(self, attempts: int = 6) -> None:
+        """Um IP inventado no X-Forwarded-For engana o limite por IP? Só avisa, não falha.
+
+        Com o mesmo email e um IP diferente em cada tentativa, o limite por IP e email (5)
+        só apanha a 6.ª se a app usar o IP verdadeiro. Se a app acreditar no cabeçalho, os
+        limites por IP não servem (os por email continuam a servir): ver docs/cloud.md,
+        "IP do cliente".
+        """
+        email = f"smoke-{secrets.token_hex(6)}@example.com"
+        statuses = []
+        for i in range(attempts):
+            resp = self.request(
+                "POST",
+                "/api/auth/login",
+                form={"username": email, "password": "errada"},
+                headers={"X-Forwarded-For": f"203.0.113.{i + 1}"},  # endereços de documentação
+            )
+            statuses.append(resp.status)
+            if resp.status == 429:
+                break
+        if statuses[-1] == 429:
+            print("ok    um IP inventado no X-Forwarded-For não engana o limite por IP")
+        else:
+            print(
+                "AVISO a app usa o IP do X-Forwarded-For, que quem faz o pedido pode inventar: "
+                "os limites por IP não servem (os por email sim). Ver docs/cloud.md, "
+                f'"IP do cliente". Respostas: {statuses}'
+            )
+
     # --- ajudas ---
 
     @staticmethod
@@ -276,6 +306,7 @@ def main(argv: list[str] | None = None) -> int:
         smoke.session_cycle()
         if not args.no_rate_limit:
             smoke.rate_limit()
+            smoke.spoofed_ip()
 
     if smoke.failures:
         print(f"\n{len(smoke.failures)} verificação(ões) falharam.")

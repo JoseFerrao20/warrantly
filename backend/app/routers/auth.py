@@ -73,7 +73,8 @@ def token_response(pair: sessions.TokenPair, response: Response, in_body: bool) 
 
 
 def client_ip(request: Request) -> str:
-    # Atrás do proxy do Fly, o uvicorn (--proxy-headers) já põe aqui o IP do cliente.
+    # O uvicorn (--proxy-headers) põe aqui o IP do X-Forwarded-For, que quem faz o pedido pode
+    # inventar: os limites por email não dependem dele. Ver docs/cloud.md, "IP do cliente".
     return request.client.host if request.client else "desconhecido"
 
 

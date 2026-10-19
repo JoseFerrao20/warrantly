@@ -52,6 +52,20 @@ Outras perguntas úteis:
 - **Erros por rota:** `filter status >= 500 | stats count() by route`
 - **Arranques a frio:** `filter @type = "REPORT" and ispresent(@initDuration) | stats count(), avg(@initDuration)`
 
+## IP do cliente
+
+Os limites de tentativas (`app/rate_limit.py`) contam por IP e por email. O IP vem do `X-Forwarded-For`: o uvicorn corre com `--proxy-headers --forwarded-allow-ips='*'` (Dockerfile) e usa a primeira entrada, e essa quem faz o pedido pode inventar.
+
+- **O que já protege:** os limites **por email** (20 logins falhados em 15 minutos, 3 pedidos de recuperação por hora) não dependem do IP. Adivinhar a palavra-passe de uma conta continua travado.
+- **O que fica mais fraco:** os limites **só por IP**, ou seja, as contas novas por IP e os logins falhados de um IP em muitos emails.
+- **Como saber:** o `scripts/smoke_test.py`, no fim do deploy, faz 6 logins errados com um IP inventado em cada um e escreve `AVISO a app usa o IP do X-Forwarded-For…` quando o limite não os apanha. É só um aviso: o deploy não falha.
+- **A correção, se o aviso aparecer** (fica para depois do primeiro deploy, porque só se testa na AWS):
+  1. o CloudFront junta a cada pedido para `/api/*` um cabeçalho secreto (origin custom header, por exemplo `X-Origin-Verify`, com um valor no SSM);
+  2. a política de pedidos de origem passa a incluir o `CloudFront-Viewer-Address`, o IP que o próprio CloudFront viu;
+  3. a app só aceita esse IP quando o cabeçalho secreto vem certo, e ignora o `X-Forwarded-For`.
+
+  De caminho, a app pode recusar os pedidos sem o cabeçalho secreto, o que fecha o acesso direto à Function URL (hoje pública).
+
 ## Armazenamento das faturas
 
 | Variável | Valor |
@@ -110,6 +124,7 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    - Criar conta e registar uma compra com uma fatura PDF; a fatura abre inteira.
    - Fotografia grande (até 10 MB), com a leitura a preencher os campos. Vai do browser diretamente para o S3; no browser, em Rede, o POST vai para `…s3.eu-central-1.amazonaws.com`.
    - Em CloudWatch → Log groups → `/aws/lambda/warrantly-api`, os logs aparecem.
+   - No log do passo "Verificar a app publicada", ver se aparece o `AVISO` do IP (secção "IP do cliente", acima).
    - Alertas agendados: Lambda → `warrantly-api` → Testar, com o evento `{"task": "alerts"}`; a resposta tem `emails_sent`. O evento `{"task": "push-receipts"}` responde com `checked` e `tokens_removed`. Ver também os dois agendamentos em EventBridge → Scheduler → Schedules.
 9. **Lock files do Terraform**: depois do primeiro `terraform init` em `infra/bootstrap` e `infra/app`, fazer commit dos ficheiros `.terraform.lock.hcl`. Fixam as versões exatas dos providers; não foi possível gerá-los na sessão cloud.
 
