@@ -105,6 +105,7 @@ flowchart LR
 | App móvel | 29 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
 | De ponta a ponta | 23 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
 | Infraestrutura | — | `terraform validate` e, com a AWS configurada, o `plan` em cada PR |
+| App publicada | 26 verificações (`scripts/smoke_test.py`: cabeçalhos, rotas fechadas, cookie da sessão, limite de tentativas) | no fim de cada deploy e contra o contentor de produção |
 
 Cada alteração entra por um PR com o CI verde. As decisões ficam em [`docs/adr/`](docs/adr/), e o histórico, com o que correu mal e o que aprendi, no [`DEVLOG.md`](DEVLOG.md).
 
@@ -133,6 +134,7 @@ Cada alteração entra por um PR com o CI verde. As decisões ficam em [`docs/ad
 backend/    API FastAPI, modelos, migrações Alembic e testes
 frontend/   site em React (Vite) e testes E2E (Playwright)
 mobile/     app Expo (Android e iOS)
+scripts/    verificações rápidas de uma app publicada (smoke test)
 infra/      Terraform: bootstrap (estado, OIDC, orçamento) e app (Lambda, S3, CloudFront, …)
 docs/       ADR, guia da cloud, push, desenvolvimento e capturas de ecrã
 ```

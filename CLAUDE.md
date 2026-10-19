@@ -10,7 +10,7 @@ Arquivo de garantias: compras com fatura, prazo da garantia calculado, alertas p
   - `app/claims.py` (texto da carta), `app/claim_pdf.py` (PDF com a fatura junta), `app/alerts.py` (`python -m app.alerts`), `app/storage.py` (faturas em disco ou no S3, por `STORAGE_BACKEND`, e conversão de HEIC), `app/export.py` (ZIP com CSV, JSON e faturas), `app/invoice_scan.py` (leitura da fatura: texto do PDF ou OCR com o Tesseract, e sugestão dos campos), `app/observability.py` (logs JSON com `request_id`, linha por pedido e métricas EMF com `metric(...)`; alarmes e dashboard em `infra/app/monitoring.tf`), `app/password_reset.py` (link por email para repor a palavra-passe: JWT com a impressão do hash, de uso único), `app/sessions.py` (refresh tokens com rotação, ADR 0004: cookie httpOnly no browser, corpo na app com `X-Client: mobile`), `app/push.py` (notificações pelo serviço de push do Expo, enviadas pelos alertas; tokens em `push_tokens`, rotas em `routers/push.py`).
 - `frontend/`: Vite + React 19 + TypeScript + React Router 8, CSS próprio em `src/index.css` (tokens claro/escuro). Testes em `src/**/*.test.tsx` (Vitest) e `e2e/` (Playwright).
 - `mobile/`: app Expo (SDK 58, React Native, Expo Router com rotas em `src/app/`, que só pode ter ecrãs). `src/lib/` (API, token no `expo-secure-store`, sessão, upload da fatura, push com o `expo-notifications`, tema e componentes), `src/shared/` (cópias de `frontend/src/types.ts` e `warranty.ts`, mantidas iguais por um teste) e testes em `src/test/` (jest-expo e Testing Library, com o `fetch` simulado).
-- `infra/` (Terraform: `bootstrap/`, que corre uma vez à mão, e `app/`, com ECR, Lambda, S3, CloudFront, SES, EventBridge Scheduler e CloudWatch), `.devcontainer/` (dev container e Codespace, com Postgres, Mailpit, AWS CLI e Terraform), `Dockerfile` (fases `app` e `lambda`) e `.github/workflows/` (backend, frontend, mobile, e2e, docker, infra, deploy e alerts).
+- `scripts/smoke_test.py` (verificações rápidas de uma app publicada: saúde, cabeçalhos, rotas fechadas, cookie da sessão e limite de tentativas), `infra/` (Terraform: `bootstrap/`, que corre uma vez à mão, e `app/`, com ECR, Lambda, S3, CloudFront, SES, EventBridge Scheduler e CloudWatch), `.devcontainer/` (dev container e Codespace, com Postgres, Mailpit, AWS CLI e Terraform), `Dockerfile` (fases `app` e `lambda`) e `.github/workflows/` (backend, frontend, mobile, e2e, docker, infra, deploy e alerts).
 
 ## Comandos
 
@@ -36,6 +36,9 @@ EXPO_OFFLINE=1 npx expo install <pacote>      # versões compatíveis com o SDK;
 
 # Segurança (raiz do repositório; o CI corre o mesmo em security.yml)
 pip install checkov==3.3.29 && checkov --config-file .checkov.yaml   # num venv à parte, não no do backend
+
+# Verificações de uma app publicada (raiz; o deploy e o CI do Docker correm o mesmo)
+python3 scripts/smoke_test.py <URL> [--no-rate-limit]   # só biblioteca padrão; cria e apaga uma conta smoke-…
 
 # Infraestrutura (pasta infra/)
 terraform fmt -recursive && terraform -chdir=app init -backend=false && terraform -chdir=app validate

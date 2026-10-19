@@ -66,6 +66,10 @@ jobs:
           docker logs app
           exit 1
 
+      - name: Verificações rápidas (smoke test)
+        # As mesmas do fim do deploy, menos o limite de tentativas (RATE_LIMITS=false aqui).
+        run: python3 scripts/smoke_test.py http://localhost:8080 --no-rate-limit
+
       - uses: actions/setup-node@v7
         with:
           node-version: "22"
