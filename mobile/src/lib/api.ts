@@ -1,3 +1,4 @@
+import { File, Paths } from 'expo-file-system'
 import * as SecureStore from 'expo-secure-store'
 
 import type {
@@ -125,6 +126,13 @@ async function request<T>(
   return (await response.json()) as T
 }
 
+const INVOICE_EXTENSIONS: Record<string, string> = {
+  'application/pdf': 'pdf',
+  'image/jpeg': 'jpg',
+  'image/png': 'png',
+  'image/webp': 'webp',
+}
+
 function fileForm(file: PickedFile, fields: Record<string, string> = {}): FormData {
   const body = new FormData()
   for (const [name, value] of Object.entries(fields)) body.append(name, value)
@@ -163,6 +171,31 @@ export const api = {
   getPurchase: (id: number) => request<Purchase>(`/purchases/${id}`),
   createPurchase: (data: PurchaseInput) =>
     request<Purchase>('/purchases', { method: 'POST', json: data }),
+  updatePurchase: (id: number, data: Partial<PurchaseInput>) =>
+    request<Purchase>(`/purchases/${id}`, { method: 'PATCH', json: data }),
+  deletePurchase: (id: number) => request<void>(`/purchases/${id}`, { method: 'DELETE' }),
+
+  /**
+   * Descarrega a fatura para a cache do telemóvel e devolve o endereço do ficheiro, para a
+   * abrir no visualizador do sistema. O download não passa pelo `request`, por isso antes
+   * pede-se o `/auth/me`: se o token de acesso tiver expirado, é aí que se renova.
+   */
+  async downloadInvoice(purchase: Purchase): Promise<string> {
+    await request<User>('/auth/me')
+    const token = await getToken()
+    const extension = INVOICE_EXTENSIONS[purchase.invoice_content_type ?? ''] ?? 'pdf'
+    try {
+      const file = await File.downloadFileAsync(
+        `${API_URL}/purchases/${purchase.id}/invoice`,
+        // Um nome nosso, e não o do ficheiro original (que pode ter qualquer coisa).
+        new File(Paths.cache, `fatura-${purchase.id}.${extension}`),
+        { headers: token ? { Authorization: `Bearer ${token}` } : {}, idempotent: true },
+      )
+      return file.uri
+    } catch {
+      throw new ApiError(0, 'Não foi possível descarregar a fatura. Tenta outra vez.')
+    }
+  },
 
   createUpload: () => request<UploadTicket>('/purchases/uploads', { method: 'POST' }),
   async uploadToStorage(ticket: UploadTicket, file: PickedFile): Promise<void> {
