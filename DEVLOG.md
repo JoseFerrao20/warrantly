@@ -118,6 +118,7 @@
   - **Desenvolvimento:** os pormenores (rotas da API, comandos, E2E, app móvel) passaram para `docs/desenvolvimento.md`.
   - **Capturas:** são geradas por um teste do Playwright (`npm run screenshots`, saltado no CI). Usa uma conta de exemplo com nome fictício, que começa sempre vazia e é apagada no fim, para não aparecer o email `e2e-…` dos testes. A reclamação e o formulário são capturados só no seu cartão, sem o resto da página.
   - **Lição:** o Chromium "headless shell" ignora o idioma do browser nos campos de data (aparece 10/19/2026), um pormenor que só se vê nas capturas.
+  - **Dependabot:** a primeira semana trouxe 5 PRs. Fechei os que subiam o Python da imagem Docker (3.12 → 3.14) e o Node (22 → 26), porque deixavam a imagem diferente do CI e do dev container. O `dependabot.yml` passa a sugerir só correções para as imagens base: mudar de versão faz-se à mão, em todo o lado ao mesmo tempo.
 
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 

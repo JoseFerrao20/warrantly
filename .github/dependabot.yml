@@ -49,10 +49,17 @@ updates:
       actions:
         patterns: ["*"]
 
+  # Imagens base do Dockerfile: só correções (ex.: 3.12-slim mais recente). O Python e o Node
+  # mudam de versão à mão, em todo o lado ao mesmo tempo (Dockerfile, CI e dev container).
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "python"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
 
   - package-ecosystem: terraform
     directories: [/infra/app, /infra/bootstrap]
