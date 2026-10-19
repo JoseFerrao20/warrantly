@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm import Session
 
 from app import mailer, password_reset, rate_limit, sessions, storage
 from app.config import settings
@@ -76,11 +77,13 @@ def client_ip(request: Request) -> str:
     return request.client.host if request.client else "desconhecido"
 
 
-def check_limits(*checks: tuple[rate_limit.RateLimiter, str]) -> None:
+def check_limits(session: Session, *checks: tuple[rate_limit.RateLimiter, str]) -> None:
     """429 (com Retry-After) se alguma das chaves já atingiu o limite."""
     if not settings.rate_limits:
         return
-    waits = [wait for limiter, key in checks if (wait := limiter.retry_after(key)) is not None]
+    waits = [
+        wait for limiter, key in checks if (wait := limiter.retry_after(session, key)) is not None
+    ]
     if waits:
         wait = max(waits)
         minutes = max(1, round(wait / 60))
@@ -94,8 +97,8 @@ def check_limits(*checks: tuple[rate_limit.RateLimiter, str]) -> None:
 @router.post("/register", response_model=UserRead, status_code=status.HTTP_201_CREATED)
 def register(data: UserCreate, request: Request, session: SessionDep) -> User:
     ip = client_ip(request)
-    check_limits((rate_limit.registrations_ip, ip))
-    rate_limit.registrations_ip.hit(ip)
+    check_limits(session, (rate_limit.registrations_ip, ip))
+    rate_limit.registrations_ip.hit(session, ip)
     user = User(
         email=data.email.lower(),
         password_hash=hash_password(data.password),
@@ -136,7 +139,7 @@ def login(
         (rate_limit.login_failures_ip, ip),
         (rate_limit.login_failures_email, email),
     ]
-    check_limits(*limits)
+    check_limits(session, *limits)
     user = session.scalar(select(User).where(User.email == email))
     password_ok = verify_password(
         form.password, user.password_hash if user else DUMMY_PASSWORD_HASH
@@ -144,13 +147,13 @@ def login(
     if user is None or not password_ok:
         metric("LoginFailed")
         for limiter, key in limits:
-            limiter.hit(key)
+            limiter.hit(session, key)
         raise HTTPException(
             status.HTTP_401_UNAUTHORIZED,
             detail="Email ou palavra-passe incorretos",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    rate_limit.login_failures_ip_email.reset(f"{ip} {email}")
+    rate_limit.login_failures_ip_email.reset(session, f"{ip} {email}")
     metric("LoginSucceeded")
     device = sessions.describe_device(user_agent, x_device_name)
     pair = sessions.start_session(session, user.id, device)
@@ -243,9 +246,9 @@ def request_password_reset(
     email = data.email.lower()
     ip = client_ip(request)
     limits = [(rate_limit.password_resets_ip, ip), (rate_limit.password_resets_email, email)]
-    check_limits(*limits)
+    check_limits(session, *limits)
     for limiter, key in limits:
-        limiter.hit(key)
+        limiter.hit(session, key)
     user = session.scalar(select(User).where(User.email == email))
     metric("PasswordResetRequested")
     if user is not None:
@@ -288,9 +291,9 @@ def update_me(data: UserUpdate, user: CurrentUser, session: SessionDep) -> User:
 def delete_me(data: AccountDelete, user: CurrentUser, session: SessionDep) -> Response:
     """Apaga a conta, as compras, os alertas e os ficheiros das faturas. Pede a palavra-passe."""
     key = str(user.id)
-    check_limits((rate_limit.password_checks_user, key))
+    check_limits(session, (rate_limit.password_checks_user, key))
     if not verify_password(data.password, user.password_hash):
-        rate_limit.password_checks_user.hit(key)
+        rate_limit.password_checks_user.hit(session, key)
         raise HTTPException(status.HTTP_403_FORBIDDEN, detail="Palavra-passe incorreta")
     invoice_keys = list(
         session.scalars(

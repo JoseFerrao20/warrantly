@@ -221,9 +221,9 @@ class Smoke:
     def rate_limit(self, attempts: int = 10) -> None:
         """Logins errados seguidos acabam em 429.
 
-        O limite está em memória em cada instância do Lambda (ver app/rate_limit.py): com
-        pedidos seguidos responde quase sempre a mesma, mas não é garantido, por isso
-        aceita-se o 429 em qualquer das `attempts` tentativas (5 falhas chegam numa).
+        O limite está no Postgres e vale para todas as instâncias do Lambda (ver
+        app/rate_limit.py): o 429 chega à 6.ª tentativa. Aceita-se em qualquer das `attempts`,
+        por folga (dois pedidos ao mesmo tempo podem passar uma tentativa a mais).
         """
         email = f"smoke-{secrets.token_hex(6)}@example.com"
         statuses = []
