@@ -2,6 +2,7 @@ import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { getToken } from '../api'
 import { mockApi, renderApp, USER } from '../test/utils'
 
 afterEach(() => vi.unstubAllGlobals())
@@ -86,7 +87,7 @@ describe('AccountPage', () => {
 
     expect(await screen.findByRole('heading', { name: 'Entrar' })).toBeInTheDocument()
     expect(screen.getByRole('status')).toHaveTextContent('A tua conta foi apagada.')
-    expect(localStorage.getItem('warrantly.token')).toBeNull()
+    expect(getToken()).toBeNull()
     const call = fetchMock.mock.calls.find((c) => c[1]?.method === 'DELETE')
     expect(JSON.parse(call![1]!.body as string)).toEqual({ password: 'segredo123' })
   })

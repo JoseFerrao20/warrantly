@@ -20,7 +20,11 @@ export function dateFromToday(months: number, days = 0): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
-/** Cria uma conta pela API e deixa a página com a sessão iniciada (mais rápido do que pela UI). */
+/**
+ * Cria uma conta pela API e deixa a página com a sessão iniciada (mais rápido do que pela UI).
+ * O `page.request` partilha os cookies com o browser: o login deixa lá o cookie do refresh
+ * token, e o site, ao abrir, pede com ele o token de acesso (que só vive em memória).
+ */
 export async function signUp(page: Page, fullName: string | null = null) {
   const email = uniqueEmail()
   const register = await page.request.post('/api/auth/register', {
@@ -31,7 +35,6 @@ export async function signUp(page: Page, fullName: string | null = null) {
     form: { username: email, password: PASSWORD },
   })
   const { access_token: token } = (await login.json()) as { access_token: string }
-  await page.addInitScript((value) => localStorage.setItem('warrantly.token', value), token)
   return { email, token }
 }
 

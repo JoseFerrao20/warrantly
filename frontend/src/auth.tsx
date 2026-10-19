@@ -2,13 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router'
 
-import { api, getToken, setToken, setUnauthorizedHandler } from './api'
+import { api, getToken, refreshAccessToken, setToken, setUnauthorizedHandler } from './api'
 import type { User } from './types'
 import { AuthContext, useAuth } from './useAuth'
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
-  const [loading, setLoading] = useState(() => getToken() !== null)
+  // Ao abrir a página ainda não se sabe se há sessão: o cookie do refresh token é que diz.
+  const [loading, setLoading] = useState(true)
   const [notice, setNotice] = useState<string | null>(null)
 
   const logout = useCallback(() => {
@@ -19,10 +20,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     setUnauthorizedHandler(logout)
-    if (!getToken()) return
-    api
-      .me()
-      .then(setUser)
+    try {
+      localStorage.removeItem('warrantly.token') // versões antigas guardavam-no aqui
+    } catch {
+      // Sem localStorage (ex.: modo privado restrito): não há nada para apagar.
+    }
+    // O token de acesso só existe em memória: numa página acabada de abrir, pede-se um novo
+    // com o cookie. Sem sessão (sem cookie, ou já terminada), fica no login.
+    const token = getToken() ? Promise.resolve(getToken()) : refreshAccessToken()
+    token
+      .then((value) => (value ? api.me().then(setUser) : undefined))
       .catch(logout)
       .finally(() => setLoading(false))
   }, [logout])

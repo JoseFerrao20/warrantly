@@ -80,7 +80,8 @@ describe('nova palavra-passe', () => {
     await fill('nova-palavra-passe', 'outra-coisa-qualquer')
 
     expect(screen.getByRole('alert')).toHaveTextContent('As palavras-passe não são iguais.')
-    expect(fetchMock).not.toHaveBeenCalled()
+    // Só o pedido de renovação ao abrir a página (sem sessão); nada foi enviado à API.
+    expect(fetchMock.mock.calls.map((c) => c[0])).toEqual(['/api/auth/refresh'])
   })
 
   it('com o link expirado, oferece um novo', async () => {

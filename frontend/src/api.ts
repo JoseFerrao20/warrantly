@@ -9,7 +9,6 @@ import type {
 } from './types'
 
 const BASE = '/api'
-const TOKEN_KEY = 'warrantly.token'
 
 export class ApiError extends Error {
   readonly status: number
@@ -20,21 +19,19 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * O token de acesso fica só em memória, e não no localStorage: um XSS não o consegue ler nem
+ * levar para outro sítio depois de a página fechar. Ao abrir (ou recarregar) a página, o
+ * AuthProvider pede um novo com o cookie httpOnly do refresh token (ADR 0004).
+ */
+let accessToken: string | null = null
+
 export function getToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY)
-  } catch {
-    return null
-  }
+  return accessToken
 }
 
 export function setToken(token: string | null): void {
-  try {
-    if (token) localStorage.setItem(TOKEN_KEY, token)
-    else localStorage.removeItem(TOKEN_KEY)
-  } catch {
-    // Sem localStorage (ex.: modo privado restrito): a sessão dura só enquanto a página está aberta.
-  }
+  accessToken = token
 }
 
 // Chamado quando a API responde 401 (token expirado ou inválido).

@@ -280,9 +280,21 @@
     - na Testing Library do React Native, o `toHaveTextContent('…')` com texto compara o texto inteiro; para uma parte, usa-se uma expressão regular.
   - **Com isto, a app faz o mesmo que o site,** menos trocar a fatura de uma compra e exportar os dados.
 
+- **2026-10-19 (sessão cloud do Claude Code):** token de acesso do site só em memória.
+  - **O problema:** o ADR 0004 tinha deixado anotado que o token de acesso do site ficava no `localStorage`. Qualquer script da página o lê, por isso um XSS conseguia levá-lo e usá-lo noutro sítio durante 15 minutos.
+  - **A solução:** o token passou a ser uma variável do módulo `src/api.ts`.
+    - Ao abrir ou recarregar a página, o `AuthProvider` pede um token novo com o cookie `HttpOnly` do refresh token e só depois carrega o utilizador. Sem sessão, fica no login.
+    - O token que versões antigas deixaram no `localStorage` é apagado.
+  - **Testes:**
+    - **Unitários:** o `renderApp` põe o token com `setToken` e o `setup.ts` limpa-o entre testes. Dois testes novos (87 no frontend): ao abrir, o token vem do cookie e nada fica no `localStorage`; sem sessão, fica no login. Dois testes contavam com o login como primeiro pedido, ou com nenhum, e passaram a procurar o pedido certo.
+    - **E2E:** o `signUp` deixou de pôr o token no `localStorage`, porque o login pelo `page.request` já deixa o cookie no browser e o site entra sozinho. O teste da renovação confirma que nada fica no `localStorage`, que recarregar continua a sessão, e que um 401 (provocado com o `page.route`) renova o token e repete o pedido.
+    - Os 24 E2E passam contra o Vite e contra o servidor de produção local. No servidor de produção, o cookie tem `Secure`, e o Chromium aceita-o em `http://localhost`.
+  - **O preço:** um pedido de renovação por cada abertura da página. A app móvel não muda, porque o armazenamento seguro do telemóvel não é legível por outras apps. O ADR 0004 tem a segunda atualização.
+  - **Lição:** o código que corre quando um módulo carrega só corre uma vez, por mais que a página monte componentes. A limpeza do `localStorage` passou para o arranque do `AuthProvider`, depois de um teste o mostrar.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 43 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 85, app móvel com 51, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 44 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 87, app móvel com 51, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -291,7 +303,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (281 testes, sem avisos) e `cd frontend && npm test` (85 testes).
+  - `cd backend && alembic upgrade head && pytest` (281 testes, sem avisos) e `cd frontend && npm test` (87 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);

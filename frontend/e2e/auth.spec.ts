@@ -62,11 +62,24 @@ test('com o token de acesso expirado, a sessão renova-se pelo cookie', async ({
   expect(cookie).toMatchObject({ httpOnly: true, sameSite: 'Strict', path: '/api/auth' })
   expect(await page.evaluate(() => document.cookie)).not.toContain('warrantly_refresh')
 
-  // Passados 15 minutos, o token de acesso já não serve: aqui, estragamo-lo.
-  await page.evaluate(() => localStorage.setItem('warrantly.token', 'expirado'))
+  // O token de acesso só vive em memória: nada no localStorage, e recarregar a página
+  // continua a sessão (o site pede um token novo com o cookie).
+  expect(await page.evaluate(() => JSON.stringify(localStorage))).not.toMatch(/eyJ/)
   await page.reload()
   await expect(page.getByText('Ainda não tens compras registadas')).toBeVisible()
-  expect(await page.evaluate(() => localStorage.getItem('warrantly.token'))).not.toBe('expirado')
+
+  // Passados 15 minutos, o token de acesso já não serve: aqui, a API responde 401 uma vez.
+  let expired = true
+  await page.route('**/api/purchases', async (route) => {
+    if (!expired) return route.continue()
+    expired = false
+    await route.fulfill({ status: 401, json: { detail: 'Token inválido ou expirado' } })
+  })
+  await page.reload()
+  // A lista aparece: depois do 401, o site renovou o token e repetiu o pedido.
+  await expect(page.getByText('Ainda não tens compras registadas')).toBeVisible()
+  expect(expired).toBe(false)
+  await page.unroute('**/api/purchases')
 
   // Depois de sair, o cookie já não renova nada.
   await page.getByRole('button', { name: 'Sair' }).click()

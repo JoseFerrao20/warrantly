@@ -2,6 +2,7 @@ import { render } from '@testing-library/react'
 import { MemoryRouter } from 'react-router'
 import { vi } from 'vitest'
 
+import { setToken } from '../api'
 import { App } from '../App'
 import { AuthProvider } from '../auth'
 import type { Purchase } from '../types'
@@ -53,7 +54,7 @@ export const USER = {
 }
 
 export function renderApp(path: string, { loggedIn = true } = {}) {
-  if (loggedIn) localStorage.setItem('warrantly.token', 'token-de-teste')
+  if (loggedIn) setToken('token-de-teste')
   return render(
     <MemoryRouter initialEntries={[path]}>
       <AuthProvider>
