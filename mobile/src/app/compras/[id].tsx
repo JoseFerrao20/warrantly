@@ -4,6 +4,8 @@ import { useCallback, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { api, ApiError } from '@/lib/api'
+import type { PickedFile } from '@/lib/api'
+import { attachStaged, pickInvoiceFile, stageInvoice, takeInvoicePhoto } from '@/lib/invoice'
 import { useColors } from '@/lib/theme'
 import { Button, ErrorText, StatusBadge } from '@/lib/ui'
 import type { Purchase } from '@/shared/types'
@@ -20,7 +22,8 @@ export default function PurchaseScreen() {
   const [purchase, setPurchase] = useState<Purchase | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
-  const [busy, setBusy] = useState<'invoice' | 'delete' | null>(null)
+  const [status, setStatus] = useState<string | null>(null)
+  const [busy, setBusy] = useState<'invoice' | 'upload' | 'delete' | null>(null)
 
   // Recarrega ao voltar a este ecrã (ex.: depois de editar).
   useFocusEffect(
@@ -48,6 +51,39 @@ export default function PurchaseScreen() {
       })
     } catch (err) {
       setError(message(err, 'Não foi possível abrir a fatura'))
+    } finally {
+      setBusy(null)
+    }
+  }
+
+  /** Juntar a fatura (ou trocá-la): fotografar ou escolher um ficheiro. */
+  function chooseInvoice() {
+    const replacing = current.invoice_filename !== null
+    Alert.alert(
+      replacing ? 'Trocar a fatura?' : 'Juntar a fatura',
+      replacing
+        ? `A fatura atual (${current.invoice_filename}) é substituída.`
+        : 'Fotografa a fatura ou escolhe um PDF ou uma imagem.',
+      [
+        { text: 'Fotografar', onPress: () => void uploadInvoice(takeInvoicePhoto) },
+        { text: 'Escolher ficheiro', onPress: () => void uploadInvoice(pickInvoiceFile) },
+        { text: 'Cancelar', style: 'cancel' },
+      ],
+    )
+  }
+
+  async function uploadInvoice(pick: () => Promise<PickedFile | null>) {
+    setError(null)
+    setStatus(null)
+    try {
+      const file = await pick()
+      if (!file) return
+      setBusy('upload')
+      // Com S3, vai do telemóvel diretamente para o bucket; sem S3, pela API (src/lib/invoice.ts).
+      setPurchase(await attachStaged(current.id, await stageInvoice(file)))
+      setStatus('Fatura guardada.')
+    } catch (err) {
+      setError(message(err, 'Não foi possível guardar a fatura'))
     } finally {
       setBusy(null)
     }
@@ -101,6 +137,11 @@ export default function PurchaseScreen() {
       </View>
 
       {error && <ErrorText>{error}</ErrorText>}
+      {status && (
+        <Text accessibilityLiveRegion="polite" style={{ color: colors.text, marginTop: 12 }}>
+          {status}
+        </Text>
+      )}
       <View style={styles.actions}>
         {current.invoice_filename && (
           <Button
@@ -109,6 +150,18 @@ export default function PurchaseScreen() {
             disabled={busy !== null}
           />
         )}
+        <Button
+          title={
+            busy === 'upload'
+              ? 'A enviar a fatura…'
+              : current.invoice_filename
+                ? 'Trocar a fatura'
+                : 'Juntar fatura'
+          }
+          variant={current.invoice_filename ? 'secondary' : 'primary'}
+          onPress={chooseInvoice}
+          disabled={busy !== null}
+        />
         <Button
           title="Reclamar à loja"
           variant="secondary"
@@ -128,9 +181,6 @@ export default function PurchaseScreen() {
           disabled={busy !== null}
         />
       </View>
-      <Text style={{ color: colors.muted, marginTop: 20 }}>
-        Para trocar a fatura, usa o site.
-      </Text>
     </ScrollView>
   )
 }
