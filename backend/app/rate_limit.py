@@ -88,6 +88,8 @@ password_checks_user = RateLimiter("password-check-user", limit=5, window=15 * M
 # Pedidos de recuperação da palavra-passe: emails enviados por IP e por endereço.
 password_resets_ip = RateLimiter("reset-ip", limit=10, window=60 * MINUTE)
 password_resets_email = RateLimiter("reset-email", limit=3, window=60 * MINUTE)
+# Convites para partilhar o arquivo (cada um envia um email), por utilizador.
+share_invites_user = RateLimiter("share-invite-user", limit=20, window=60 * MINUTE)
 
 ALL = [
     login_failures_ip_email,
@@ -97,6 +99,7 @@ ALL = [
     password_checks_user,
     password_resets_ip,
     password_resets_email,
+    share_invites_user,
 ]
 # As linhas mais antigas do que a maior janela já não contam para nenhum limite.
 MAX_WINDOW = max(limiter.window for limiter in ALL)

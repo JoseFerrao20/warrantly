@@ -1,3 +1,4 @@
+from app.models.archive_share import ArchiveShare
 from app.models.purchase import Purchase
 from app.models.push_ticket import PushTicket
 from app.models.push_token import PushToken
@@ -8,6 +9,7 @@ from app.models.user_session import UserSession
 from app.models.warranty_alert import WarrantyAlert
 
 __all__ = [
+    "ArchiveShare",
     "Purchase",
     "PushTicket",
     "PushToken",

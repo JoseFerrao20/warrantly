@@ -7,9 +7,9 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
-from app import invoice_scan, storage
+from app import invoice_scan, sharing, storage
 from app.claim_pdf import build_claim_pdf
 from app.claims import build_claim
 from app.config import settings
@@ -33,11 +33,22 @@ from app.schemas import (
 router = APIRouter(prefix="/purchases", tags=["purchases"])
 
 
-def get_purchase_or_404(purchase_id: int, user: User, session: SessionDep) -> Purchase:
+def get_purchase_or_404(
+    purchase_id: int, user: User, session: SessionDep, *, owner_only: bool = False
+) -> Purchase:
+    """A compra, se `user` a pode ver: é dele ou de um arquivo partilhado com ele (ADR 0007).
+
+    `owner_only`: apagar e trocar a fatura ficam com quem registou a compra.
+    """
     purchase = session.get(Purchase, purchase_id)
-    # Uma compra de outro utilizador responde como se não existisse.
-    if purchase is None or purchase.user_id != user.id:
+    # Uma compra de outro utilizador (sem partilha) responde como se não existisse.
+    if purchase is None or not sharing.can_access(session, user, purchase.user_id):
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Compra não encontrada")
+    if owner_only and purchase.user_id != user.id:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Esta compra foi partilhada contigo: só quem a registou pode fazer isto",
+        )
     return purchase
 
 
@@ -58,10 +69,13 @@ def list_purchases(
     category: str | None = None,
     warranty_status: WarrantyStatus | None = Query(None, alias="status"),
 ) -> list[Purchase]:
-    """Lista as compras do utilizador, da garantia que expira primeiro para a última."""
+    """Lista as compras do utilizador e as dos arquivos partilhados com ele, da garantia que
+    expira primeiro para a última."""
     query = (
         select(Purchase)
-        .where(Purchase.user_id == user.id)
+        .where(
+            or_(Purchase.user_id == user.id, Purchase.user_id.in_(sharing.shared_owner_ids(user)))
+        )
         .order_by(Purchase.warranty_end, Purchase.id)
     )
     if store is not None:
@@ -137,7 +151,7 @@ def update_purchase(
 
 @router.delete("/{purchase_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_purchase(purchase_id: int, user: CurrentUser, session: SessionDep) -> Response:
-    purchase = get_purchase_or_404(purchase_id, user, session)
+    purchase = get_purchase_or_404(purchase_id, user, session, owner_only=True)
     invoice_key = purchase.invoice_key
     session.delete(purchase)
     session.commit()
@@ -240,7 +254,7 @@ def attach_uploaded_invoice(
     purchase_id: int, body: UploadAttach, user: CurrentUser, session: SessionDep
 ) -> Purchase:
     """Associa à compra uma fatura enviada diretamente para o S3 (e apaga o ficheiro temporário)."""
-    purchase = get_purchase_or_404(purchase_id, user, session)
+    purchase = get_purchase_or_404(purchase_id, user, session, owner_only=True)
     raw, s3 = load_direct_upload(user, body.token)
     try:
         data, content_type, filename = validate_invoice(raw, body.filename)
@@ -292,7 +306,7 @@ def upload_invoice(
 
     As fotografias HEIC (iPhone) são guardadas como JPEG.
     """
-    purchase = get_purchase_or_404(purchase_id, user, session)
+    purchase = get_purchase_or_404(purchase_id, user, session, owner_only=True)
     data, content_type, filename = read_invoice_upload(file)
     return attach_invoice(purchase, data, content_type, filename, session)
 
@@ -349,7 +363,7 @@ def download_invoice(purchase_id: int, user: CurrentUser, session: SessionDep) -
 
 @router.delete("/{purchase_id}/invoice", status_code=status.HTTP_204_NO_CONTENT)
 def delete_invoice(purchase_id: int, user: CurrentUser, session: SessionDep) -> Response:
-    purchase = get_purchase_or_404(purchase_id, user, session)
+    purchase = get_purchase_or_404(purchase_id, user, session, owner_only=True)
     if purchase.invoice_key is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, detail="Esta compra não tem fatura")
     old_key = purchase.invoice_key
