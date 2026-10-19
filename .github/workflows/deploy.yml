@@ -86,6 +86,13 @@ jobs:
         run: |
           # Pull autenticado do public.ecr.aws (o Lambda Web Adapter): os anónimos têm limites
           # que os runners partilhados do GitHub atingem. O token do ECR público é de us-east-1.
+          # As tags no ECR são imutáveis: se este commit já foi publicado (deploy repetido), usa-se
+          # a imagem que lá está.
+          if aws ecr describe-images --repository-name "${ECR_URL#*/}" \
+              --image-ids imageTag="$SHA" >/dev/null 2>&1; then
+            echo "A imagem $SHA já existe no ECR."
+            exit 0
+          fi
           aws ecr-public get-login-password --region us-east-1 \
             | docker login --username AWS --password-stdin public.ecr.aws
           docker build -t "$ECR_URL:$SHA" .  # fase final "lambda" (com o adapter)

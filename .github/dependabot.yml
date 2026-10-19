@@ -1,0 +1,60 @@
+# Dependabot: um PR por semana e por ecossistema com as atualizações agrupadas. As de
+# segurança chegam logo que saem. Cada PR passa pelo CI como os outros; o merge é à mão.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: weekly
+    groups:
+      backend:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: weekly
+    groups:
+      frontend:
+        patterns: ["*"]
+
+  # A app móvel segue o SDK do Expo: o Expo, o React e o React Native só mudam de versão com o
+  # SDK (npx expo install --fix). Aqui entram só correções (patch) desses pacotes.
+  - package-ecosystem: npm
+    directory: /mobile
+    schedule:
+      interval: weekly
+    ignore:
+      - dependency-name: "expo*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "@expo/*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-dom"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "react-native*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "jest-expo"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+    groups:
+      mobile:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+
+  - package-ecosystem: terraform
+    directories: [/infra/app, /infra/bootstrap]
+    schedule:
+      interval: weekly

@@ -61,6 +61,16 @@ resource "aws_s3_bucket_lifecycle_configuration" "invoices" {
       days = 1
     }
   }
+  # Uploads em várias partes que ficaram a meio ocupam espaço (e pagam-se) sem aparecer em lado
+  # nenhum: apagam-se ao fim de 1 dia.
+  rule {
+    id     = "apagar-multipart-incompletos"
+    status = "Enabled"
+    filter {}
+    abort_incomplete_multipart_upload {
+      days_after_initiation = 1
+    }
+  }
 }
 
 # Só o CloudFront (esta distribuição) pode ler o frontend.

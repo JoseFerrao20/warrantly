@@ -50,7 +50,9 @@ def ocr_available() -> bool:
 
 def ocr_image(image: Image.Image) -> str:
     """Texto de uma imagem com o Tesseract ("" se não estiver instalado ou falhar)."""
-    if not ocr_available():
+    # Caminho completo do programa: não depende da ordem do PATH no momento da chamada.
+    tesseract = shutil.which("tesseract")
+    if tesseract is None:
         return ""
     image = ImageOps.exif_transpose(image).convert("L")  # orientação da câmara e cinzentos
     longest = max(image.size)
@@ -61,8 +63,9 @@ def ocr_image(image: Image.Image) -> str:
     image.save(buffer, format="PNG")
     with _ocr_slots:
         try:
-            result = subprocess.run(
-                ["tesseract", "stdin", "stdout", "-l", OCR_LANGUAGES, "--psm", "4"],
+            # Argumentos fixos e a imagem pelo stdin: nada do utilizador chega à linha de comando.
+            result = subprocess.run(  # noqa: S603
+                [tesseract, "stdin", "stdout", "-l", OCR_LANGUAGES, "--psm", "4"],
                 input=buffer.getvalue(),
                 capture_output=True,
                 timeout=OCR_TIMEOUT_SECONDS,

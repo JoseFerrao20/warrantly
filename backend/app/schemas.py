@@ -113,7 +113,7 @@ class PasswordResetConfirm(BaseModel):
 
 
 # Token do Expo: "ExponentPushToken[xxxx]" (ou "ExpoPushToken[xxxx]").
-PUSH_TOKEN_PATTERN = r"^Expo(nent)?PushToken\[[A-Za-z0-9_-]{1,200}\]$"
+PUSH_TOKEN_PATTERN = r"^Expo(nent)?PushToken\[[A-Za-z0-9_-]{1,200}\]$"  # noqa: S105 (não é uma palavra-passe)
 
 
 class PushTokenCreate(BaseModel):
@@ -178,7 +178,7 @@ class UploadAttach(BaseModel):
 
 class Token(BaseModel):
     access_token: str
-    token_type: str = "bearer"
+    token_type: str = "bearer"  # noqa: S105 (não é uma palavra-passe)
     expires_in: int | None = None
     # Só para a app móvel; no browser, o refresh token vai num cookie httpOnly.
     refresh_token: str | None = None

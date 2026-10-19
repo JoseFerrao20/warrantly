@@ -53,6 +53,8 @@ resource "aws_cloudfront_response_headers_policy" "security" {
     strict_transport_security {
       override                   = true
       access_control_max_age_sec = 31536000
+      include_subdomains         = true
+      preload                    = true
     }
   }
 

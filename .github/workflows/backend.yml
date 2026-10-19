@@ -5,6 +5,10 @@ on:
     branches: [main]
   pull_request:
 
+# O token do GitHub só lê o repositório (o mínimo).
+permissions:
+  contents: read
+
 jobs:
   test:
     runs-on: ubuntu-latest
