@@ -13,7 +13,7 @@ Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura
 
 > **Estado:** a app está completa e testada no CI. O deploy na AWS está todo descrito em Terraform e é o próximo passo ([`docs/cloud.md`](docs/cloud.md)).
 
-![Painel com as garantias, das que expiram primeiro às já expiradas](docs/images/painel.png)
+![Painel com as garantias, das que expiram primeiro às já expiradas, incluindo uma televisão partilhada pelo Rui Silva](docs/images/painel.png)
 
 | Registar uma compra: a fatura é lida e os campos preenchidos | Reclamação à loja, pronta a enviar |
 | --- | --- |
@@ -23,9 +23,9 @@ Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura
 | --- | --- |
 | ![Painel no modo escuro](docs/images/painel-escuro.png) | ![Painel num ecrã de telemóvel](docs/images/telemovel.png) |
 
-| Sessões na conta: terminar a de um telemóvel perdido |
-| --- |
-| ![Lista de sessões com o Chrome no Windows marcado como este aparelho, um Pixel 8 com a app e um iPhone, cada um com o botão Terminar](docs/images/conta.png) |
+| Partilha com a família | Sessões na conta: terminar a de um telemóvel perdido |
+| --- | --- |
+| ![Secção Partilha: o arquivo do Rui Silva partilhado com a Ana, e o dela partilhado com o Rui (aceite) e com a Maria (ainda por aceitar)](docs/images/partilha.png) | ![Lista de sessões com o Chrome no Windows marcado como este aparelho, um Pixel 8 com a app e um iPhone, cada um com o botão Terminar](docs/images/conta.png) |
 
 ## O problema
 

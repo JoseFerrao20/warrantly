@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import type { Page } from '@playwright/test'
+import type { APIRequestContext, Page } from '@playwright/test'
 
 import { confirmEmail, createPurchase, dateFromToday, PASSWORD } from './helpers'
 
@@ -11,6 +11,9 @@ const INVOICE = new URL('./fixtures/fatura.pdf', import.meta.url).pathname
 
 // Uma conta de exemplo (nome fictício), apagada no fim; não aparece o email de teste e2e-….
 const EMAIL = 'ana.silva@exemplo.pt'
+// A família da Ana, para a partilha: o Rui partilha o arquivo com ela, e ela com o Rui e a Maria.
+const FAMILY_EMAIL = 'rui.silva@exemplo.pt'
+const PENDING_EMAIL = 'maria.silva@exemplo.pt'
 
 // O browser das capturas passa por um Chrome no Windows (na lista de sessões da conta).
 test.use({
@@ -41,6 +44,14 @@ async function signIn(page: Page): Promise<string> {
       headers: { Authorization: `Bearer ${token}` },
     })
   }
+  const sharing = (await (
+    await page.request.get('/api/sharing', { headers: { Authorization: `Bearer ${token}` } })
+  ).json()) as { members: { id: number }[] }
+  for (const { id } of sharing.members) {
+    await page.request.delete(`/api/sharing/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    })
+  }
   return token // o cookie do login fica no browser, que pede com ele o token de acesso
 }
 
@@ -68,13 +79,63 @@ async function seed(page: Page) {
   return { ids, token }
 }
 
+/**
+ * O Rui, com uma compra, partilha o arquivo com a Ana, que aceita; a Ana partilha o dela com o
+ * Rui (aceite) e com a Maria (ainda por aceitar). O Rui entra pelo `request`, que tem os seus
+ * próprios cookies: o browser continua com a sessão da Ana.
+ */
+async function seedFamily(page: Page, request: APIRequestContext, anaToken: string) {
+  const login = () =>
+    request.post('/api/auth/login', { form: { username: FAMILY_EMAIL, password: PASSWORD } })
+  let response = await login()
+  if (response.ok()) {
+    // Ficou de uma corrida anterior: começa do zero.
+    const { access_token: old } = (await response.json()) as { access_token: string }
+    await request.delete('/api/auth/me', {
+      data: { password: PASSWORD },
+      headers: { Authorization: `Bearer ${old}` },
+    })
+  }
+  await request.post('/api/auth/register', {
+    data: { email: FAMILY_EMAIL, password: PASSWORD, full_name: 'Rui Silva' },
+  })
+  await confirmEmail(page, FAMILY_EMAIL)
+  response = await login()
+  const { access_token: rui } = (await response.json()) as { access_token: string }
+  await createPurchase(page, rui, {
+    product_name: 'Televisão LG OLED 55',
+    store: 'Worten',
+    category: 'Televisões',
+    purchase_date: dateFromToday(-31, -20),
+    price: '1199.00',
+  })
+  const ana = { Authorization: `Bearer ${anaToken}` }
+  const invite = async (from: string, email: string) =>
+    (await (
+      await page.request.post('/api/sharing', {
+        data: { email },
+        headers: { Authorization: `Bearer ${from}` },
+      })
+    ).json()) as { id: number }
+  const fromRui = await invite(rui, EMAIL)
+  await page.request.post(`/api/sharing/${fromRui.id}/accept`, { headers: ana })
+  const toRui = await invite(anaToken, FAMILY_EMAIL)
+  await page.request.post(`/api/sharing/${toRui.id}/accept`, {
+    headers: { Authorization: `Bearer ${rui}` },
+  })
+  await invite(anaToken, PENDING_EMAIL)
+  return rui
+}
+
 test('capturas do README', async ({ page, request }) => {
   test.setTimeout(60_000)
   await page.setViewportSize({ width: 1280, height: 680 })
   const { ids, token } = await seed(page)
+  const ruiToken = await seedFamily(page, request, token)
 
   await page.goto('/')
   await expect(page.getByText('Torradeira Philips')).toBeVisible()
+  await expect(page.getByText('de Rui Silva')).toBeVisible() // a compra do arquivo do Rui
   await page.screenshot({ path: `${OUT}painel.png` })
 
   await page.emulateMedia({ colorScheme: 'dark' })
@@ -117,14 +178,21 @@ test('capturas do README', async ({ page, request }) => {
   await expect(sessions.getByRole('listitem')).toHaveCount(3)
   await sessions.screenshot({ path: `${OUT}conta.png` })
 
+  // Partilha: o arquivo do Rui partilhado com a Ana, e o dela com o Rui e a Maria.
+  const sharing = page.getByRole('region', { name: 'Partilha' })
+  await expect(sharing.getByText('Ainda não aceitou')).toBeVisible()
+  await sharing.screenshot({ path: `${OUT}partilha.png` })
+
   // Telemóvel.
   await page.setViewportSize({ width: 390, height: 844 })
   await page.goto('/')
   await expect(page.getByText('Torradeira Philips')).toBeVisible()
   await page.screenshot({ path: `${OUT}telemovel.png` })
 
-  await page.request.delete('/api/auth/me', {
-    data: { password: PASSWORD },
-    headers: { Authorization: `Bearer ${token}` },
-  })
+  for (const owner of [token, ruiToken]) {
+    await page.request.delete('/api/auth/me', {
+      data: { password: PASSWORD },
+      headers: { Authorization: `Bearer ${owner}` },
+    })
+  }
 })

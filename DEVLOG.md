@@ -368,6 +368,17 @@
     - E2E: o teste do registo abre o link do email gravado e vê o aviso desaparecer. O `signUp` dos outros testes confirma o email pela API.
   - **Lição:** o `make_user` dos testes passou a criar contas confirmadas. Assim, os quase 300 testes que já existiam não mudaram, e só os testes novos pedem uma conta por confirmar.
 
+- **2026-10-19 (sessão cloud do Claude Code):** capturas do README com a partilha.
+  - **O `npm run screenshots` cria agora a família da Ana:**
+    - o Rui Silva, com uma televisão, partilha o arquivo com a Ana, e ela aceita;
+    - a Ana partilha o dela com o Rui (aceite) e com a Maria (por aceitar).
+  - **Onde aparece:** a televisão aparece no painel com "de Rui Silva", e há uma captura nova, `partilha.png`, ao lado da das sessões no README.
+  - **Cuidados:**
+    - o Rui entra pelo `request` do Playwright, com os seus próprios cookies, para o browser continuar com a sessão da Ana;
+    - as contas são apagadas no fim e, se ficarem de uma corrida que falhou, no início;
+    - os convites da Ana também são limpos no início, senão o convite da Maria daria 409 na segunda corrida.
+  - As outras capturas mudaram por causa das datas e da compra nova no painel.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
 Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 62, 25 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
