@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 
 import { api, ApiError } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { useColors } from '@/lib/theme'
 import { Button, ErrorText, StatusBadge } from '@/lib/ui'
 import type { Purchase } from '@/shared/types'
@@ -13,6 +14,7 @@ const STATUS_ORDER = { expiring: 0, active: 1, expired: 2 }
 export default function DashboardScreen() {
   const colors = useColors()
   const router = useRouter()
+  const { user } = useAuth()
   const [purchases, setPurchases] = useState<Purchase[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [refreshing, setRefreshing] = useState(false)
@@ -97,7 +99,10 @@ export default function DashboardScreen() {
             style={[styles.row, { borderColor: colors.border, backgroundColor: colors.surface }]}
           >
             <Text style={[styles.product, { color: colors.text }]}>{item.product_name}</Text>
-            <Text style={{ color: colors.muted, marginBottom: 6 }}>{item.store}</Text>
+            <Text style={{ color: colors.muted, marginBottom: 6 }}>
+              {item.store}
+              {item.user_id !== user?.id && ` · de ${item.owner_name}`}
+            </Text>
             <StatusBadge status={item.status} warrantyEnd={item.warranty_end} today={today} />
           </Pressable>
         )}

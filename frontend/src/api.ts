@@ -3,6 +3,9 @@ import type {
   InvoiceScan,
   Purchase,
   PurchaseInput,
+  Share,
+  SharedArchive,
+  Sharing,
   UploadTicket,
   User,
   UserSession,
@@ -145,6 +148,12 @@ export const api = {
   endSession: (id: number) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
   endOtherSessions: () =>
     request<{ ended: number }>('/auth/sessions/end-others', { method: 'POST' }),
+
+  getSharing: () => request<Sharing>('/sharing'),
+  invite: (email: string) => request<Share>('/sharing', { method: 'POST', json: { email } }),
+  acceptShare: (id: number) =>
+    request<SharedArchive>(`/sharing/${id}/accept`, { method: 'POST' }),
+  removeShare: (id: number) => request<void>(`/sharing/${id}`, { method: 'DELETE' }),
 
   listPurchases: () => request<Purchase[]>('/purchases'),
   getPurchase: (id: number) => request<Purchase>(`/purchases/${id}`),

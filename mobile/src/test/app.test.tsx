@@ -72,6 +72,21 @@ test('com sessão guardada, abre no painel com as que expiram primeiro', async (
   expect(screen.getByText('1 garantia termina nos próximos 60 dias.')).toBeOnTheScreen()
 })
 
+test('as compras partilhadas comigo mostram de quem são', async () => {
+  await signIn()
+  const shared = makePurchase({
+    id: 4,
+    product_name: 'Frigorífico',
+    user_id: 2,
+    owner_name: 'Maria',
+  })
+  mockApi({ 'GET /auth/me': USER, 'GET /purchases': [PURCHASES[1], shared] })
+  await renderApp()
+
+  expect(await screen.findByText('Worten · de Maria')).toBeOnTheScreen()
+  expect(screen.getAllByText(/ · de /)).toHaveLength(1) // as minhas não têm a etiqueta
+})
+
 test('painel vazio convida a registar a primeira compra', async () => {
   await signIn()
   mockApi({ 'GET /auth/me': USER, 'GET /purchases': [] })

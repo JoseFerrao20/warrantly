@@ -72,6 +72,9 @@ class PurchaseRead(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    # A dona da compra: com a partilha do arquivo, pode ser outra pessoa (ADR 0007).
+    user_id: int
+    owner_name: str
     product_name: str
     store: str
     category: str | None
@@ -202,3 +205,31 @@ class SessionRead(BaseModel):
 
 class SessionsEnded(BaseModel):
     ended: int
+
+
+class ShareCreate(BaseModel):
+    email: EmailStr = Field(max_length=320)
+
+
+class ShareRead(BaseModel):
+    """Uma pessoa com quem partilho o arquivo (convite pendente ou aceite)."""
+
+    id: int
+    email: str
+    accepted: bool
+    created_at: datetime
+
+
+class SharedArchiveRead(BaseModel):
+    """Um arquivo partilhado comigo (convite por aceitar, ou aceite)."""
+
+    id: int
+    owner_name: str
+    owner_email: str
+    accepted: bool
+    created_at: datetime
+
+
+class SharingRead(BaseModel):
+    members: list[ShareRead]
+    shared_with_me: list[SharedArchiveRead]

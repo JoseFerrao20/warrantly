@@ -6,7 +6,7 @@ from app.config import settings
 from app.db import get_session
 from app.limits import MaxBodySizeMiddleware
 from app.observability import RequestContextMiddleware, configure_logging
-from app.routers import auth, internal, purchases, push
+from app.routers import auth, internal, purchases, push, sharing
 
 configure_logging()
 
@@ -25,6 +25,7 @@ app.add_middleware(RequestContextMiddleware)
 app.include_router(auth.router)
 app.include_router(purchases.router)
 app.include_router(push.router)
+app.include_router(sharing.router)
 app.include_router(internal.router)
 
 

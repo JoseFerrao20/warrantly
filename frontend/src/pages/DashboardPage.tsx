@@ -5,6 +5,7 @@ import { api, ApiError } from '../api'
 import { StatusBadge } from '../components/StatusBadge'
 import { WarrantyBar } from '../components/WarrantyBar'
 import type { Purchase, WarrantyStatus } from '../types'
+import { useAuth } from '../useAuth'
 import { usePageTitle } from '../usePageTitle'
 import { todayISO } from '../warranty'
 
@@ -28,6 +29,7 @@ function panelOrder(purchases: Purchase[]): Purchase[] {
 
 export function DashboardPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   usePageTitle('As tuas garantias')
   const [params, setParams] = useSearchParams()
   const statusFilter = params.get('estado') as WarrantyStatus | null
@@ -129,6 +131,7 @@ export function DashboardPage() {
             >
               <td>
                 <Link to={`/compras/${p.id}`}>{p.product_name}</Link>
+                {p.user_id !== user?.id && <span className="owner-tag">de {p.owner_name}</span>}
               </td>
               <td className="col-store muted">{p.store}</td>
               <td className="col-bar">

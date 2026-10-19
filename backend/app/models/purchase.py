@@ -1,5 +1,6 @@
 from datetime import date, datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     CheckConstraint,
@@ -12,9 +13,12 @@ from sqlalchemy import (
     String,
     func,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db import Base
+
+if TYPE_CHECKING:
+    from app.models.user import User
 
 # Garantia legal de bens novos em Portugal: 3 anos (Decreto-Lei n.º 84/2021).
 DEFAULT_WARRANTY_MONTHS = 36
@@ -63,6 +67,13 @@ class Purchase(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+    # A dona da compra; com a partilha do arquivo (ADR 0007), quem vê a compra pode não ser ela.
+    owner: Mapped["User"] = relationship(lazy="joined", innerjoin=True)
+
+    @property
+    def owner_name(self) -> str:
+        return self.owner.full_name or self.owner.email
 
     def __repr__(self) -> str:
         return (

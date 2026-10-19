@@ -7,6 +7,7 @@ import { InvoicePicker } from '../components/InvoicePicker'
 import { attachStaged, stageInvoice } from '../invoiceUpload'
 import { StatusBadge } from '../components/StatusBadge'
 import type { Purchase } from '../types'
+import { useAuth } from '../useAuth'
 import { usePageTitle } from '../usePageTitle'
 import { formatDate, formatMonths, formatPrice, todayISO } from '../warranty'
 
@@ -20,6 +21,7 @@ export function PurchaseDetailPage() {
   const { id } = useParams()
   const purchaseId = Number(id)
   const navigate = useNavigate()
+  const { user } = useAuth()
   const location = useLocation()
   const [purchase, setPurchase] = useState<Purchase | null>(null)
   usePageTitle(purchase?.product_name ?? null)
@@ -95,6 +97,8 @@ export function PurchaseDetailPage() {
       <p className="page-message">A carregar…</p>
     )
   }
+  // As compras de um arquivo partilhado comigo (ADR 0007) não se apagam aqui.
+  const isOwner = purchase.user_id === user?.id
 
   return (
     <>
@@ -102,6 +106,12 @@ export function PurchaseDetailPage() {
         ← Garantias
       </Link>
       <h1>{purchase.product_name}</h1>
+      {!isOwner && (
+        <p className="owner-tag">
+          Partilhada por {purchase.owner_name}: podes ver, editar e reclamar; só quem a registou
+          a apaga ou troca a fatura.
+        </p>
+      )}
       <p className="muted">
         {purchase.store} · comprada a {formatDate(purchase.purchase_date)} ·{' '}
         {formatPrice(purchase.price)}
@@ -142,21 +152,23 @@ export function PurchaseDetailPage() {
                 <button type="button" className="button" onClick={openInvoice} disabled={busy}>
                   Ver fatura
                 </button>
-                <button
-                  type="button"
-                  className="button-link danger"
-                  onClick={removeInvoice}
-                  disabled={busy}
-                >
-                  Apagar fatura
-                </button>
+                {isOwner && (
+                  <button
+                    type="button"
+                    className="button-link danger"
+                    onClick={removeInvoice}
+                    disabled={busy}
+                  >
+                    Apagar fatura
+                  </button>
+                )}
               </div>
             </>
           ) : (
             <p className="muted">Ainda sem fatura.</p>
           )}
-          <InvoicePicker file={newInvoice} onChange={setNewInvoice} />
-          {newInvoice && (
+          {isOwner && <InvoicePicker file={newInvoice} onChange={setNewInvoice} />}
+          {isOwner && newInvoice && (
             <button
               type="button"
               className="button button-primary"
@@ -175,9 +187,16 @@ export function PurchaseDetailPage() {
         <Link to={`/compras/${purchase.id}/editar`} className="button">
           Editar
         </Link>
-        <button type="button" className="button-link danger" onClick={deletePurchase} disabled={busy}>
-          Apagar compra
-        </button>
+        {isOwner && (
+          <button
+            type="button"
+            className="button-link danger"
+            onClick={deletePurchase}
+            disabled={busy}
+          >
+            Apagar compra
+          </button>
+        )}
       </div>
     </>
   )

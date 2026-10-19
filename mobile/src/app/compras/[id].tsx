@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Text, View } from 'react-native'
 
 import { api, ApiError } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import type { PickedFile } from '@/lib/api'
 import { attachStaged, pickInvoiceFile, stageInvoice, takeInvoicePhoto } from '@/lib/invoice'
 import { useColors } from '@/lib/theme'
@@ -19,6 +20,7 @@ export default function PurchaseScreen() {
   const { id } = useLocalSearchParams<{ id: string }>()
   const colors = useColors()
   const router = useRouter()
+  const { user } = useAuth()
   const [purchase, setPurchase] = useState<Purchase | null>(null)
   const [loadError, setLoadError] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -38,6 +40,8 @@ export default function PurchaseScreen() {
   if (loadError) return <ErrorText>{loadError}</ErrorText>
   if (!purchase) return null
   const current = purchase
+  // As compras de um arquivo partilhado comigo (ADR 0007): sem apagar nem trocar a fatura.
+  const isOwner = current.user_id === user?.id
 
   async function openInvoice() {
     setError(null)
@@ -126,6 +130,12 @@ export default function PurchaseScreen() {
   return (
     <ScrollView contentContainerStyle={styles.screen}>
       <Stack.Screen options={{ title: current.product_name }} />
+      {!isOwner && (
+        <Text style={{ color: colors.muted, marginBottom: 12 }}>
+          Partilhada por {current.owner_name}: podes ver, editar e reclamar; só quem a registou a
+          apaga ou troca a fatura.
+        </Text>
+      )}
       <StatusBadge status={current.status} warrantyEnd={current.warranty_end} today={todayISO()} />
       <View style={{ marginTop: 16 }}>
         {rows.map(([label, value]) => (
@@ -150,18 +160,20 @@ export default function PurchaseScreen() {
             disabled={busy !== null}
           />
         )}
-        <Button
-          title={
-            busy === 'upload'
-              ? 'A enviar a fatura…'
-              : current.invoice_filename
-                ? 'Trocar a fatura'
-                : 'Juntar fatura'
-          }
-          variant={current.invoice_filename ? 'secondary' : 'primary'}
-          onPress={chooseInvoice}
-          disabled={busy !== null}
-        />
+        {isOwner && (
+          <Button
+            title={
+              busy === 'upload'
+                ? 'A enviar a fatura…'
+                : current.invoice_filename
+                  ? 'Trocar a fatura'
+                  : 'Juntar fatura'
+            }
+            variant={current.invoice_filename ? 'secondary' : 'primary'}
+            onPress={chooseInvoice}
+            disabled={busy !== null}
+          />
+        )}
         <Button
           title="Reclamar à loja"
           variant="secondary"
@@ -174,12 +186,14 @@ export default function PurchaseScreen() {
           onPress={() => router.push(`/compras/editar/${current.id}`)}
           disabled={busy !== null}
         />
-        <Button
-          title={busy === 'delete' ? 'A apagar…' : 'Apagar'}
-          variant="secondary"
-          onPress={confirmDelete}
-          disabled={busy !== null}
-        />
+        {isOwner && (
+          <Button
+            title={busy === 'delete' ? 'A apagar…' : 'Apagar'}
+            variant="secondary"
+            onPress={confirmDelete}
+            disabled={busy !== null}
+          />
+        )}
       </View>
     </ScrollView>
   )

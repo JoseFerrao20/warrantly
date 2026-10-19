@@ -3,6 +3,7 @@ import type { FormEvent } from 'react'
 
 import { api, ApiError } from '../api'
 import { SessionsSection } from '../components/SessionsSection'
+import { SharingSection } from '../components/SharingSection'
 import { getTheme, setTheme } from '../theme'
 import type { Theme } from '../theme'
 import { useAuth } from '../useAuth'
@@ -150,6 +151,8 @@ export function AccountPage() {
           </button>
         </div>
       </section>
+
+      <SharingSection />
 
       <SessionsSection />
 

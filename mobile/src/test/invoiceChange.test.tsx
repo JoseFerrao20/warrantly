@@ -145,3 +145,13 @@ test('cancelar a escolha do ficheiro não envia nada', async () => {
   expect(calls.some((c) => c.url.endsWith('/purchases/uploads'))).toBe(false)
   expect(screen.queryByText('Fatura guardada.')).toBeNull()
 })
+
+test('numa compra partilhada comigo, não se troca a fatura nem se apaga', async () => {
+  await openPurchase({ ...WITH_INVOICE, user_id: 2, owner_name: 'Maria Silva' })
+
+  expect(screen.getByText(/Partilhada por Maria Silva/)).toBeOnTheScreen()
+  expect(screen.getByRole('button', { name: 'Ver a fatura' })).toBeOnTheScreen()
+  expect(screen.getByRole('button', { name: 'Reclamar à loja' })).toBeOnTheScreen()
+  expect(screen.queryByRole('button', { name: 'Trocar a fatura' })).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Apagar' })).toBeNull()
+})
