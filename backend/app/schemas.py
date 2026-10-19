@@ -110,6 +110,10 @@ class PasswordResetRequest(BaseModel):
     email: EmailStr = Field(max_length=320)
 
 
+class EmailVerification(BaseModel):
+    token: str = Field(max_length=1000)
+
+
 class PasswordResetConfirm(BaseModel):
     token: str = Field(max_length=1000)
     password: str = Field(min_length=8, max_length=128)
@@ -138,6 +142,7 @@ class UserRead(BaseModel):
     id: int
     email: str
     full_name: str | None
+    email_verified: bool
     created_at: datetime
 
 

@@ -1,4 +1,5 @@
 from collections.abc import Iterator
+from datetime import UTC, datetime
 from pathlib import Path
 
 import boto3
@@ -36,8 +37,13 @@ def db_session() -> Iterator[Session]:
         transaction.rollback()
 
 
-def make_user(session: Session, email: str = "ana@example.com") -> User:
-    user = User(email=email, password_hash=hash_password(TEST_PASSWORD))
+def make_user(session: Session, email: str = "ana@example.com", *, verified: bool = True) -> User:
+    """Um utilizador com o email já confirmado (como quase todos os testes precisam)."""
+    user = User(
+        email=email,
+        password_hash=hash_password(TEST_PASSWORD),
+        email_verified_at=datetime.now(UTC) if verified else None,
+    )
     session.add(user)
     session.flush()
     return user

@@ -25,7 +25,8 @@ def test_register_creates_user_without_exposing_password(client: TestClient):
     assert response.status_code == 201
     body = response.json()
     assert body["email"] == "nova@example.com"
-    assert set(body) == {"id", "email", "full_name", "created_at"}
+    assert set(body) == {"id", "email", "full_name", "email_verified", "created_at"}
+    assert body["email_verified"] is False
     assert body["full_name"] is None
 
 
