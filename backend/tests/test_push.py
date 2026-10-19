@@ -2,7 +2,7 @@ import io
 import json
 import logging
 import urllib.request
-from datetime import date
+from datetime import UTC, date, datetime, timedelta
 from email.message import EmailMessage
 
 import pytest
@@ -13,13 +13,15 @@ from sqlalchemy.orm import Session
 from app import push
 from app.alerts import send_due_alerts
 from app.config import settings
-from app.models import PushToken, User
-from app.push import PushMessage, send_push
+from app.models import PushTicket, PushToken, User
+from app.push import PushMessage, PushOutcome, send_push
 from tests.conftest import TEST_PASSWORD, auth_headers, make_user
 from tests.test_alerts import TODAY, Outbox, purchase_ending, sent_thresholds
 
 TOKEN = "ExponentPushToken[abc123-XYZ_9]"
-REAL_POST = push._post  # guardado antes de a fixture no_real_push o substituir
+# Guardados antes de a fixture no_real_push os substituir.
+REAL_POST = push._post
+REAL_GET_RECEIPTS = push._get_receipts
 
 
 def tokens(session: Session) -> list[tuple[str, int, str]]:
@@ -126,7 +128,7 @@ class FakeExpo:
         return [
             {"status": "error", "message": "x", "details": {"error": self.errors[m["to"]]}}
             if m["to"] in self.errors
-            else {"status": "ok", "id": "1"}
+            else {"status": "ok", "id": f"ticket-{m['to'][18:-1]}"}
             for m in messages
         ]
 
@@ -146,10 +148,13 @@ def test_send_push_in_batches_and_reports_uninstalled_apps(monkeypatch, caplog):
     messages = [message(f"ExponentPushToken[t{i}]") for i in range(250)]
 
     with caplog.at_level(logging.WARNING):
-        invalid = send_push(messages)
+        outcome = send_push(messages)
 
     assert [len(batch) for batch in expo.requests] == [100, 100, 50]
-    assert invalid == {"ExponentPushToken[t5]"}
+    assert outcome.invalid == {"ExponentPushToken[t5]"}
+    # Os aceites ficam com o id do ticket, para ir buscar o recibo mais tarde.
+    assert len(outcome.tickets) == 248
+    assert outcome.tickets["ticket-t0"] == "ExponentPushToken[t0]"
     assert "MessageRateExceeded" in caplog.text
     assert expo.requests[0][0] == {
         "to": "ExponentPushToken[t0]",
@@ -164,7 +169,7 @@ def test_send_push_in_batches_and_reports_uninstalled_apps(monkeypatch, caplog):
 def test_send_push_survives_network_errors(monkeypatch):
     monkeypatch.setattr(push, "_post", FakeExpo(fail=True))
 
-    assert send_push([message()]) == set()
+    assert send_push([message()]) == PushOutcome()
 
 
 @pytest.mark.parametrize("access_token", [None, "segredo-do-expo"])
@@ -179,7 +184,7 @@ def test_post_to_expo(monkeypatch, access_token: str | None):
 
     monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
 
-    assert send_push([message()]) == set()
+    assert send_push([message()]) == PushOutcome(tickets={"1": TOKEN})
 
     [request] = seen
     assert request.full_url == "https://exp.host/--/api/v2/push/send"
@@ -197,11 +202,18 @@ class Pushes(list):
         self.invalid = invalid or set()
         self.fail = fail
 
-    def __call__(self, messages: list[PushMessage]) -> set[str]:
+    def __call__(self, messages: list[PushMessage]) -> PushOutcome:
         if self.fail:
             raise RuntimeError("Expo em baixo")
         self.extend(messages)
-        return self.invalid & {m.token for m in messages}
+        return PushOutcome(
+            invalid=self.invalid & {m.token for m in messages},
+            tickets={
+                f"ticket-{len(self)}-{i}": m.token
+                for i, m in enumerate(messages)
+                if m.token not in self.invalid
+            },
+        )
 
 
 def test_alert_goes_to_every_phone_of_the_user(db_session: Session, user: User):
@@ -284,3 +296,134 @@ def test_push_can_be_disabled(db_session: Session, user: User, monkeypatch):
     result = send_due_alerts(db_session, TODAY, send=Outbox())
 
     assert result.pushes_sent == 0  # e o no_real_push garante que o Expo não foi chamado
+
+
+def test_alert_push_tickets_are_kept_for_the_receipts(db_session: Session, user: User):
+    purchase_ending(db_session, user, date(2026, 11, 1))
+    add_token(db_session, user)
+    add_token(db_session, user, "ExponentPushToken[tablet]")
+
+    send_due_alerts(db_session, TODAY, send=Outbox(), push=Pushes(invalid={TOKEN}))
+
+    stored = db_session.scalars(select(PushTicket.token)).all()
+    assert stored == ["ExponentPushToken[tablet]"]  # o recusado logo no envio não tem recibo
+
+
+# --- Recibos ----------------------------------------------------------------------------------
+
+NOW = datetime(2026, 10, 14, 9, 17, tzinfo=UTC)
+
+
+class FakeReceipts:
+    """Simula o `_get_receipts`: guarda os ids pedidos e responde com os recibos dados."""
+
+    def __init__(self, receipts: dict[str, dict], fail: bool = False):
+        self.receipts = receipts
+        self.fail = fail
+        self.requests: list[list[str]] = []
+
+    def __call__(self, ids: list[str]) -> dict[str, dict]:
+        self.requests.append(ids)
+        if self.fail:
+            raise OSError("sem rede")
+        return {i: self.receipts[i] for i in ids if i in self.receipts}
+
+
+def add_ticket(session: Session, ticket_id: str, token: str, age: timedelta) -> None:
+    session.add(PushTicket(ticket_id=ticket_id, token=token, created_at=NOW - age))
+    session.flush()
+
+
+def tickets(session: Session) -> list[str]:
+    return sorted(session.scalars(select(PushTicket.ticket_id)))
+
+
+def error_receipt(error: str) -> dict:
+    return {"status": "error", "message": f"erro {error}", "details": {"error": error}}
+
+
+def test_receipts_remove_uninstalled_apps_and_log_errors(
+    db_session: Session, user: User, monkeypatch, caplog
+):
+    phones = [f"ExponentPushToken[p{i}]" for i in range(6)]
+    for token in phones:
+        add_token(db_session, user, token)
+    minutes = timedelta(minutes=30)
+    add_ticket(db_session, "entregue", phones[0], minutes)
+    add_ticket(db_session, "desinstalada", phones[1], minutes)
+    add_ticket(db_session, "grande-demais", phones[2], minutes)
+    add_ticket(db_session, "sem-recibo", phones[3], minutes)
+    add_ticket(db_session, "recente", phones[4], timedelta(minutes=5))
+    add_ticket(db_session, "expirado", phones[5], timedelta(hours=25))
+    expo = FakeReceipts(
+        {
+            "entregue": {"status": "ok"},
+            "desinstalada": error_receipt("DeviceNotRegistered"),
+            "grande-demais": error_receipt("MessageTooBig"),
+        }
+    )
+    monkeypatch.setattr(push, "_get_receipts", expo)
+
+    with caplog.at_level(logging.INFO):
+        result = push.check_receipts(db_session, NOW)
+
+    # Só se pedem os que têm mais de 15 minutos e menos de 24 horas.
+    assert sorted(expo.requests[0]) == ["desinstalada", "entregue", "grande-demais", "sem-recibo"]
+    assert (result.checked, result.delivered, result.tokens_removed, result.errors) == (3, 1, 1, 1)
+    assert result.pending == 1
+    assert phones[1] not in [t for t, _, _ in tokens(db_session)]
+    # Fica o que ainda não tem recibo (tenta-se outra vez) e o recente.
+    assert tickets(db_session) == ["recente", "sem-recibo"]
+    assert "MessageTooBig" in caplog.text
+    assert "1 entregue(s), 1 app(s) desinstalada(s), 1 erro(s), 1 pendente(s)" in caplog.text
+
+
+def test_receipts_are_asked_in_batches(db_session: Session, user: User, monkeypatch):
+    add_token(db_session, user)
+    for i in range(5):
+        add_ticket(db_session, f"t{i}", TOKEN, timedelta(minutes=20))
+    monkeypatch.setattr(push, "RECEIPTS_BATCH_SIZE", 2)
+    expo = FakeReceipts({f"t{i}": {"status": "ok"} for i in range(5)})
+    monkeypatch.setattr(push, "_get_receipts", expo)
+
+    result = push.check_receipts(db_session, NOW)
+
+    assert [len(ids) for ids in expo.requests] == [2, 2, 1]
+    assert result.delivered == 5
+    assert tickets(db_session) == []
+
+
+def test_receipts_survive_network_errors(db_session: Session, user: User, monkeypatch):
+    add_token(db_session, user)
+    add_ticket(db_session, "t1", TOKEN, timedelta(minutes=20))
+    monkeypatch.setattr(push, "_get_receipts", FakeReceipts({}, fail=True))
+
+    result = push.check_receipts(db_session, NOW)
+
+    assert result.pending == 1
+    assert tickets(db_session) == ["t1"]  # fica para a próxima
+
+
+def test_tickets_go_with_the_token(db_session: Session, user: User):
+    add_token(db_session, user)
+    add_ticket(db_session, "t1", TOKEN, timedelta(minutes=20))
+
+    db_session.execute(PushToken.__table__.delete())
+
+    assert tickets(db_session) == []
+
+
+def test_get_receipts_from_expo(monkeypatch):
+    monkeypatch.setattr(push, "_get_receipts", REAL_GET_RECEIPTS)
+    seen: list[urllib.request.Request] = []
+
+    def fake_urlopen(request: urllib.request.Request, timeout: int):
+        seen.append(request)
+        return io.BytesIO(json.dumps({"data": {"t1": {"status": "ok"}}}).encode())
+
+    monkeypatch.setattr(urllib.request, "urlopen", fake_urlopen)
+
+    assert push._get_receipts(["t1"]) == {"t1": {"status": "ok"}}
+    [request] = seen
+    assert request.full_url == "https://exp.host/--/api/v2/push/getReceipts"
+    assert json.loads(request.data) == {"ids": ["t1"]}

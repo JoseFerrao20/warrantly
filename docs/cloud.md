@@ -110,7 +110,7 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    - Criar conta e registar uma compra com uma fatura PDF; a fatura abre inteira.
    - Fotografia grande (até 10 MB), com a leitura a preencher os campos. Vai do browser diretamente para o S3; no browser, em Rede, o POST vai para `…s3.eu-central-1.amazonaws.com`.
    - Em CloudWatch → Log groups → `/aws/lambda/warrantly-api`, os logs aparecem.
-   - Alertas agendados: Lambda → `warrantly-api` → Testar, com o evento `{"task": "alerts"}`; a resposta tem `emails_sent`. Ver também o agendamento em EventBridge → Scheduler → Schedules.
+   - Alertas agendados: Lambda → `warrantly-api` → Testar, com o evento `{"task": "alerts"}`; a resposta tem `emails_sent`. O evento `{"task": "push-receipts"}` responde com `checked` e `tokens_removed`. Ver também os dois agendamentos em EventBridge → Scheduler → Schedules.
 9. **Lock files do Terraform**: depois do primeiro `terraform init` em `infra/bootstrap` e `infra/app`, fazer commit dos ficheiros `.terraform.lock.hcl`. Fixam as versões exatas dos providers; não foi possível gerá-los na sessão cloud.
 
 A partir daqui, cada merge no `main` com o CI verde é publicado sozinho. Em cada PR que mexa em `infra/`, o workflow Infra mostra o `terraform plan`.

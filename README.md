@@ -2,7 +2,7 @@
 
 **Arquivo de garantias:** guarda as faturas das tuas compras, calcula até quando cada uma está na garantia, avisa-te antes de expirar e, quando algo avaria, escreve a reclamação para a loja.
 
-Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura na AWS em Terraform, CI/CD no GitHub Actions e cerca de 410 testes automáticos.
+Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura na AWS em Terraform, CI/CD no GitHub Actions e cerca de 420 testes automáticos.
 
 [![Backend](https://github.com/JoseFerrao20/warrantly/actions/workflows/backend.yml/badge.svg)](https://github.com/JoseFerrao20/warrantly/actions/workflows/backend.yml)
 [![Frontend](https://github.com/JoseFerrao20/warrantly/actions/workflows/frontend.yml/badge.svg)](https://github.com/JoseFerrao20/warrantly/actions/workflows/frontend.yml)
@@ -88,7 +88,7 @@ flowchart LR
   - O link leva um JWT com uma impressão do hash da palavra-passe, por isso deixa de servir assim que a palavra-passe muda.
   - O token vai no fragmento do URL, que nunca chega aos logs do servidor.
   - A resposta é a mesma exista ou não a conta, para não revelar que emails estão registados.
-- **Alertas com push** pelo serviço do Expo ([ADR 0003](docs/adr/0003-notificacoes-push-pelo-expo.md)), agendados no EventBridge Scheduler com o fuso horário de Lisboa ([ADR 0006](docs/adr/0006-alertas-com-eventbridge-scheduler.md)).
+- **Alertas com push** pelo serviço do Expo ([ADR 0003](docs/adr/0003-notificacoes-push-pelo-expo.md)), agendados no EventBridge Scheduler com o fuso horário de Lisboa ([ADR 0006](docs/adr/0006-alertas-com-eventbridge-scheduler.md)). Meia hora depois, outro agendamento lê os recibos de entrega e apaga os tokens das apps desinstaladas.
 - **Observabilidade.**
   - Logs em JSON com um `request_id` por pedido.
   - Métricas de negócio pelo Embedded Metric Format, sem chamadas extra à API do CloudWatch.
@@ -100,7 +100,7 @@ flowchart LR
 
 | | Testes | No CI |
 | --- | --- | --- |
-| Backend | 270 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
+| Backend | 279 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
 | Frontend | 85 (Vitest e Testing Library) | oxlint, TypeScript, build |
 | App móvel | 32 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
 | De ponta a ponta | 24 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |

@@ -6,7 +6,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy.orm import Session
 
-from app import mailer
+from app import mailer, push
 from app.config import settings
 from app.models import Purchase, User
 
@@ -120,3 +120,26 @@ def test_scheduled_event_needs_email(client: TestClient, configured, monkeypatch
     response = client.post("/internal/events", json={"task": "alerts"}, headers=LAMBDA_EVENT)
 
     assert response.status_code == 503
+
+
+def test_scheduled_event_checks_push_receipts(client: TestClient, monkeypatch):
+    monkeypatch.setattr(push, "_get_receipts", lambda ids: {})
+
+    response = client.post("/internal/events", json={"task": "push-receipts"}, headers=LAMBDA_EVENT)
+
+    assert response.status_code == 200
+    assert set(response.json()) == {"checked", "tokens_removed", "errors", "pending"}
+
+
+def test_push_receipts_need_the_lambda_context(client: TestClient):
+    response = client.post("/internal/events", json={"task": "push-receipts"})
+
+    assert response.status_code == 403
+
+
+def test_push_receipts_when_push_is_disabled(client: TestClient, monkeypatch):
+    monkeypatch.setattr(settings, "push_enabled", False)  # e o no_real_push garante o resto
+
+    response = client.post("/internal/events", json={"task": "push-receipts"}, headers=LAMBDA_EVENT)
+
+    assert response.json() == {"checked": 0, "tokens_removed": 0, "errors": 0, "pending": 0}

@@ -23,4 +23,15 @@ Os alertas de garantia (60 e 15 dias antes do fim) só iam por email. Com a app 
 
 - Mais uma dependência externa (o Expo), sem custo. O SNS fica como alternativa se um dia a app sair do Expo. A troca seria só no `app/push.py`, porque os tokens nativos também se obtêm com `getDevicePushTokenAsync`.
 - O push não funciona na Expo Go no Android (desde o SDK 53): é preciso uma **development build** (EAS) com um projeto no Firebase para o FCM. No iOS, o push precisa de uma conta paga de Apple Developer. Os passos estão em `docs/push.md`.
-- Ainda não se leem os "receipts" do Expo (a confirmação de entrega, uns minutos depois). Os erros de entrega só aparecem no painel do Expo. Fica para quando houver utilizadores a sério.
+- ~~Ainda não se leem os "receipts" do Expo.~~ Ver a atualização abaixo.
+
+## Atualização (2026-10-19): recibos de entrega
+
+- O Expo responde ao envio com um **ticket** (aceitou a mensagem) e só uns minutos depois tem o **recibo** (o FCM ou o APNs entregou, ou não). Recomenda esperar 15 minutos, e guarda os recibos pelo menos 24 horas.
+- **Onde ficam os tickets:** os ids dos tickets aceites vão para `push_tickets`, com o token. A chave estrangeira para `push_tokens.token` é `ON DELETE CASCADE`: se o token sair, os tickets vão com ele.
+- **Quando se leem os recibos:** um segundo agendamento no EventBridge Scheduler, 30 minutos depois dos alertas (`{"task": "push-receipts"}`), chama `push.check_receipts`. O Lambda não fica à espera dentro do pedido dos alertas, porque pagaria 15 minutos parado e o pedido podia passar do tempo máximo.
+- **O que se faz com eles:**
+  - um recibo com `DeviceNotRegistered` apaga o token;
+  - os outros erros ficam no log com nível `ERROR`;
+  - um ticket sem recibo espera pela corrida seguinte, até ter 24 horas.
+- **Métricas:** nenhuma nova, porque as 10 do nível gratuito do CloudWatch já estão usadas (ADR 0005). Os números ficam na linha de log "Recibos de push: …", que se pesquisa no Logs Insights.

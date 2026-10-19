@@ -6,7 +6,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, Header, HTTPException, status
 from pydantic import BaseModel
 
-from app import mailer
+from app import mailer, push
 from app.alerts import send_due_alerts
 from app.config import settings
 from app.dependencies import SessionDep
@@ -40,9 +40,21 @@ def run_alerts(
 
 
 class ScheduledEvent(BaseModel):
-    """O `input` do agendamento no EventBridge Scheduler (infra/app/scheduler.tf)."""
+    """O `input` dos agendamentos no EventBridge Scheduler (infra/app/scheduler.tf)."""
 
-    task: Literal["alerts"]
+    task: Literal["alerts", "push-receipts"]
+
+
+def _check_push_receipts(session: SessionDep) -> dict[str, int]:
+    if not settings.push_enabled:
+        return {"checked": 0, "tokens_removed": 0, "errors": 0, "pending": 0}
+    result = push.check_receipts(session)
+    return {
+        "checked": result.checked,
+        "tokens_removed": result.tokens_removed,
+        "errors": result.errors,
+        "pending": result.pending,
+    }
 
 
 @router.post("/events")
@@ -51,8 +63,9 @@ def run_scheduled_event(
     session: SessionDep,
     x_amzn_lambda_context: Annotated[str | None, Header()] = None,
     x_amzn_request_context: Annotated[str | None, Header()] = None,
-) -> dict[str, int | list[str]]:
-    """Eventos do Lambda que não são pedidos HTTP (ex.: o agendamento diário dos alertas).
+) -> dict[str, int | list[str]] | dict[str, int]:
+    """Eventos do Lambda que não são pedidos HTTP: os alertas diários e, 30 minutos depois, os
+    recibos dos pushes desses alertas.
 
     O Lambda Web Adapter entrega-os aqui (`AWS_LWA_PASS_THROUGH_PATH`) como um POST. Um pedido
     HTTP que chegue pela Function URL traz sempre o contexto do pedido (`x-amzn-request-context`,
@@ -63,4 +76,6 @@ def run_scheduled_event(
     """
     if x_amzn_lambda_context is None or x_amzn_request_context is not None:
         raise HTTPException(status.HTTP_403_FORBIDDEN)
+    if event.task == "push-receipts":
+        return _check_push_receipts(session)
     return _run_alerts(session)

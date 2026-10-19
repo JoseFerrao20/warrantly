@@ -7,7 +7,8 @@ Os alertas de garantia chegam ao telemóvel pelo serviço de push do Expo ([ADR 
 1. Ao entrar na app, o telemóvel pede autorização para notificações e obtém um **token Expo** (`ExponentPushToken[...]`). A app envia-o para a API (`POST /push-tokens`).
 2. Todos os dias, os alertas (`python -m app.alerts` ou `POST /internal/alerts`) enviam o email e, a seguir, uma notificação para cada token da pessoa.
 3. O Expo entrega a notificação pelo FCM (Android) ou pelo APNs (iOS). Tocar nela abre a compra na app (`data.url`, por exemplo `/compras/12`).
-4. "Sair" apaga o token na API (`DELETE /push-tokens`). Uma app desinstalada é detetada pelo Expo, e o token é apagado no envio seguinte.
+4. "Sair" apaga o token na API (`DELETE /push-tokens`). Uma app desinstalada é detetada pelo Expo, e o token é apagado: às vezes logo no envio (o "ticket"), às vezes só no recibo de entrega.
+5. **Recibos:** o Expo só sabe se o FCM ou o APNs entregou uns minutos depois. A API guarda os ids dos tickets (`push_tickets`), e um segundo agendamento, 30 minutos depois dos alertas (`{"task": "push-receipts"}`), vai buscar os recibos. Apaga os tokens com `DeviceNotRegistered` e deixa no log os outros erros (`MessageTooBig`, `InvalidCredentials`…), que querem dizer que há algo a corrigir do nosso lado.
 
 ## Porque não chega a Expo Go
 

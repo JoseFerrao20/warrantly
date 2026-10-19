@@ -159,9 +159,31 @@
     - **O nome do aparelho na app:** é o modelo ("Pixel 8"), não o nome que a pessoa deu ao telemóvel. Só leva ASCII, porque um cabeçalho HTTP com acentos pode partir o pedido.
   - **Lição:** o `test_internal.py` falhou com `emails_sent == 2`, mas também falhava no `main`. Era um utilizador `e2e-…` que tinha ficado na base de dados de desenvolvimento com compras a expirar. Ficou escrito no `CLAUDE.md`: limpar os utilizadores dos E2E antes de correr o pytest.
 
+- **2026-10-19 (sessão cloud do Claude Code):** recibos de entrega do push.
+  - **Tickets e recibos:** o Expo responde ao envio com um "ticket" e só uns minutos depois tem o "recibo" (se o FCM ou o APNs entregou). Até agora só se olhava para o ticket, e uma app desinstalada às vezes só aparece no recibo.
+  - **Backend:**
+    - **A tabela:** `push_tickets` guarda o id de cada ticket aceite, com o token. A chave estrangeira para `push_tokens.token` é `ON DELETE CASCADE`.
+    - **Os recibos:** `push.check_receipts` pede-os em lotes de 1000 para os tickets com mais de 15 minutos. Com `DeviceNotRegistered` apaga o token; os outros erros ficam no log com nível `ERROR`. Um ticket sem recibo espera pela corrida seguinte, até às 24 horas.
+    - **O tipo devolvido:** o `send_push` passou a devolver um `PushOutcome` (tokens inválidos e tickets), em vez de só o conjunto de tokens.
+  - **Agendamento:** um segundo agendamento no EventBridge Scheduler às 09:17, 30 minutos depois dos alertas, com `{"task": "push-receipts"}`. Usa a mesma rota `/internal/events`, protegida da mesma forma.
+  - **Testes:** 9 novos no backend (279). Cobrem:
+    - os tickets guardados nos alertas;
+    - recibos entregue, desinstalada, outro erro, sem recibo, recente e expirado, todos numa só corrida;
+    - os lotes;
+    - a falha de rede;
+    - os tickets apagados com o token;
+    - o pedido real ao `getReceipts` (com o `urlopen` simulado);
+    - a tarefa agendada nova, incluindo o 403 e o push desligado.
+
+    A fixture `no_real_push` bloqueia também o `_get_receipts`.
+  - **Decisões:**
+    - **Um agendamento à parte:** os recibos não se esperam dentro da corrida dos alertas, porque o Lambda ficaria 15 minutos parado (e a pagar) e o pedido podia passar do tempo máximo.
+    - **Sem métrica nova:** as 10 gratuitas já estão usadas, por isso os números ficam na linha de log "Recibos de push: …".
+  - **Lição:** o envio e a entrega são duas coisas diferentes. O "ok" do Expo no envio só quer dizer que a mensagem foi aceite.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 37 PRs. Tudo está testado no CI: backend com 270 testes, frontend com 85, app móvel com 32, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 38 PRs. Tudo está testado no CI: backend com 279 testes, frontend com 85, app móvel com 32, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -170,7 +192,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (270 testes, sem avisos) e `cd frontend && npm test` (85 testes).
+  - `cd backend && alembic upgrade head && pytest` (279 testes, sem avisos) e `cd frontend && npm test` (85 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -200,7 +222,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximos passos: tornar o repositório público (liga também o CodeQL e os badges do README), descrever o projeto no CV e no LinkedIn e, depois do deploy, pôr o link da app no README. Na app móvel: ícone próprio, ler os "receipts" do push e a lista de sessões (a API já a tem). Na AWS, ver na página da conta que o aparelho aparece bem ("Chrome no Windows") e que terminar a sessão do telemóvel o põe a pedir o login.
+Próximos passos: tornar o repositório público (liga também o CodeQL e os badges do README), descrever o projeto no CV e no LinkedIn e, depois do deploy, pôr o link da app no README. Na app móvel: ícone próprio e a lista de sessões (a API já a tem). No push, depois de o testar no telemóvel: desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar). Na AWS, ver na página da conta que o aparelho aparece bem ("Chrome no Windows") e que terminar a sessão do telemóvel o põe a pedir o login.
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).
