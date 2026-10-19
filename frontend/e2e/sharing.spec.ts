@@ -37,7 +37,7 @@ test('partilha o arquivo: o convite chega por email e quem aceita vê as compras
 
   // A Ana deixa de partilhar: o Rui deixa de ver a compra.
   ana.once('dialog', (dialog) => dialog.accept())
-  await sharing.getByRole('button', { name: `Deixar de partilhar com ${member.email}` }).click()
+  await sharing.getByRole('button', { name: `Remover a partilha com ${member.email}` }).click()
   await expect(sharing.getByRole('status')).toHaveText(`Deixaste de partilhar com ${member.email}.`)
   await rui.goto('/')
   await expect(rui.getByText('Ainda não tens compras registadas')).toBeVisible()

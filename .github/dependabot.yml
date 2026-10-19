@@ -22,10 +22,13 @@ updates:
       frontend:
         patterns: ["*"]
 
-  # A app móvel segue o SDK do Expo: o Expo, o React e o React Native só mudam de versão com o
-  # SDK (npx expo install --fix). Aqui entram só correções (patch) desses pacotes. O TypeScript e
-  # o ESLint também: o eslint-config-expo usa a API JavaScript do TypeScript, que o TypeScript 7
-  # (em Go) já não tem, e ainda não suporta o ESLint 10.
+  # A app móvel segue o SDK do Expo: o Expo e o React Native só mudam de versão com o SDK
+  # (npx expo install --fix); aqui entram só correções (patch). O React e o React DOM nem isso:
+  # o SDK fixa a versão exata, porque o renderer do React Native é feito para ela. Uma correção
+  # do React chegou a entrar por aqui (#40) e foi revertida; o CI corre o `expo install --check`.
+  # O TypeScript e o ESLint também não sobem de versão maior: o eslint-config-expo usa a API
+  # JavaScript do TypeScript, que o TypeScript 7 (em Go) já não tem, e ainda não suporta o
+  # ESLint 10.
   - package-ecosystem: npm
     directory: /mobile
     schedule:
@@ -36,9 +39,7 @@ updates:
       - dependency-name: "@expo/*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react-dom"
-        update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "react-native*"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "jest-expo"

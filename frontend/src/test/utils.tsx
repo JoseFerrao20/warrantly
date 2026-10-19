@@ -51,6 +51,7 @@ export const USER = {
   id: 1,
   email: 'ana@example.com',
   full_name: 'Ana Silva' as string | null,
+  email_verified: true,
   created_at: '2026-10-01T10:00:00Z',
 }
 

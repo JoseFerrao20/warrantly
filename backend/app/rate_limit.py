@@ -90,6 +90,8 @@ password_resets_ip = RateLimiter("reset-ip", limit=10, window=60 * MINUTE)
 password_resets_email = RateLimiter("reset-email", limit=3, window=60 * MINUTE)
 # Convites para partilhar o arquivo (cada um envia um email), por utilizador.
 share_invites_user = RateLimiter("share-invite-user", limit=20, window=60 * MINUTE)
+# Emails de confirmação pedidos outra vez, por utilizador.
+verification_emails_user = RateLimiter("verify-email-user", limit=5, window=60 * MINUTE)
 
 ALL = [
     login_failures_ip_email,
@@ -100,6 +102,7 @@ ALL = [
     password_resets_ip,
     password_resets_email,
     share_invites_user,
+    verification_emails_user,
 ]
 # As linhas mais antigas do que a maior janela já não contam para nenhum limite.
 MAX_WINDOW = max(limiter.window for limiter in ALL)

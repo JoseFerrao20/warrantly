@@ -350,9 +350,59 @@
   - **Testes:** 4 novos (61 na app). Cobrem o convite e o pedido enviado, o erro da API, aceitar um convite e deixar de partilhar com confirmação, e cancelar a recusa sem apagar nada. O lint, os tipos e o bundle de Android passam.
   - **Lição:** o `npx prettier` sem opções muda o estilo da app (põe `;` e aspas duplas), porque o repositório não tem configuração do Prettier. Com `--no-semi --single-quote --print-width 100` fica igual ao resto, mas mesmo assim parte linhas que o código deixava inteiras. Para mudanças pequenas, o melhor é não o correr em ficheiros existentes.
 
+- **2026-10-19 (sessão cloud do Claude Code):** confirmação do email da conta ([ADR 0008](docs/adr/0008-confirmacao-do-email.md)).
+  - **Porquê:** o risco que ficou aceite no ADR 0007. Qualquer pessoa podia criar uma conta com o email de outra e ver (e aceitar) os convites de partilha feitos para ela.
+  - **O que faz:**
+    - o registo envia um link de confirmação (JWT com o email, 7 dias, no fragmento do URL, como na recuperação da palavra-passe);
+    - a página `/confirmar-email` abre sem sessão;
+    - até confirmar, o site mostra um aviso no topo com "Enviar outra vez", e a partilha fica fechada: não se convida ninguém e os convites recebidos não aparecem;
+    - na app, o mesmo aviso fica na secção da partilha.
+  - **Decisões:**
+    - **Não bloquear o login.** Obrigar a confirmar antes de experimentar a app afasta pessoas e não protege mais ninguém; o que precisava de proteção era a partilha.
+    - **As contas que já existiam** ficaram confirmadas na migração.
+  - **O que apareceu pelo caminho: os emails para domínios de exemplo.** O smoke test do deploy cria contas `smoke-…@example.com`. Com o registo a enviar email, o SES ia tentar enviar para lá, e cada bounce conta para a reputação da conta. O envio pelo SES passa a ignorar os domínios reservados (RFC 2606). Os modos de ficheiro e o Mailpit continuam a recebê-los, porque os testes usam-nos.
+  - **Testes:**
+    - backend, 9 novos (299): o link do registo, os links inválidos (expirado, de outro tipo, depois de mudar o email), o reenvio com limite, e a partilha fechada até confirmar;
+    - frontend, 6 novos (98): a página do link, o aviso e a partilha fechada;
+    - app, 1 novo (62).
+    - E2E: o teste do registo abre o link do email gravado e vê o aviso desaparecer. O `signUp` dos outros testes confirma o email pela API.
+  - **Lição:** o `make_user` dos testes passou a criar contas confirmadas. Assim, os quase 300 testes que já existiam não mudaram, e só os testes novos pedem uma conta por confirmar.
+
+- **2026-10-19 (sessão cloud do Claude Code):** capturas do README com a partilha.
+  - **O `npm run screenshots` cria agora a família da Ana:**
+    - o Rui Silva, com uma televisão, partilha o arquivo com a Ana, e ela aceita;
+    - a Ana partilha o dela com o Rui (aceite) e com a Maria (por aceitar).
+  - **Onde aparece:** a televisão aparece no painel com "de Rui Silva", e há uma captura nova, `partilha.png`, ao lado da das sessões no README.
+  - **Cuidados:**
+    - o Rui entra pelo `request` do Playwright, com os seus próprios cookies, para o browser continuar com a sessão da Ana;
+    - as contas são apagadas no fim e, se ficarem de uma corrida que falhou, no início;
+    - os convites da Ana também são limpos no início, senão o convite da Maria daria 409 na segunda corrida.
+  - As outras capturas mudaram por causa das datas e da compra nova no painel.
+
+- **2026-10-19 (sessão cloud do Claude Code):** acessibilidade da partilha e da confirmação do email.
+  - **O que faltava:** o axe corria na página da conta só com a partilha vazia, e o aviso de email por confirmar nunca aparecia nos E2E, porque o `signUp` confirma o email.
+  - **Dois testes novos no `a11y.spec.ts`,** nos dois temas:
+    - "partilha com a família", com três pessoas em browsers separados: a conta com um convite por aceitar, um arquivo partilhado e uma pessoa convidada; o painel com "de Rui Silva"; e o detalhe de uma compra partilhada;
+    - "email por confirmar": o aviso com "Enviar outra vez", a partilha fechada, e a página do link, inválido e confirmado. Para isto, o `signUp` ganhou `{ confirmed: false }`.
+  - **O que o axe encontrou:** o botão "Remover" tinha o nome acessível "Deixar de partilhar com …", que não inclui o texto visível (WCAG 2.5.3, *label in name*). Quem usa comandos de voz diz "carregar em Remover", e o botão não tinha esse nome. Passou a "Remover a partilha com …", no site e na app.
+  - **Lição:** um `page.goto` para o mesmo caminho só com outro `#` não volta a carregar a página: o React Router muda o `location.hash`, mas o estado lido ao abrir fica. No teste, passa-se pela `about:blank` entre os dois links. Na vida real, o link do email abre sempre uma página nova.
+  - **E2E:** 29 (4 novos).
+
+- **2026-10-19 (sessão cloud do Claude Code):** exportar os dados na app, e o React da app de volta à versão do Expo.
+  - **Exportar (ZIP) na app:** um botão na conta descarrega a exportação para a cache, como a fatura (`File.downloadFileAsync`, com o `/auth/me` antes para renovar o token), e abre o menu do sistema para guardar o ZIP nos ficheiros, no Drive ou enviá-lo. No site ficam só criar a conta, recuperar a palavra-passe, mudar o nome e o tema, e apagar a conta. 2 testes novos (64 na app).
+  - **O que se encontrou: o merge do #40 (Dependabot) estragou o React da app.**
+    - O #40 subiu o React e o React DOM da app de 19.3.0 para 19.3.1, e o Expo SDK 58 espera exatamente a 19.3.0: o renderer do React Native é feito para essa versão. O `npx expo install --check` diz que "a app pode não funcionar"; não consegui confirmar aqui se chega a falhar no telemóvel.
+    - Os testes, o lint, os tipos e o bundle passavam todos: nenhum deles compara as versões. Antes do merge, verifiquei só isso.
+    - **Correção:**
+      - o `package.json` e o `package-lock.json` da app voltaram a ser os de antes do #40;
+      - o CI da app corre agora o `expo install --check` (falha com a 19.3.1, passa com a 19.3.0; testei os dois);
+      - o Dependabot deixa de mexer no React e no React DOM da app, até nas correções.
+  - **O TypeScript 7 na app fica para depois.** O `dependabot.yml` já o explicava: o `eslint-config-expo` usa a API JavaScript do TypeScript, que o TypeScript 7 (reescrito em Go) já não tem. O site já está no 7; a app sobe quando o Expo o suportar.
+  - **Lição:** numa app Expo, as versões do React e do React Native são do SDK, não do Dependabot. "Os testes passam" não chega; o `expo install --check` é que sabe o que o SDK espera.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 290 testes, frontend com 92, app móvel com 61, 25 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 64, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -361,7 +411,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (290 testes, sem avisos) e `cd frontend && npm test` (92 testes).
+  - `cd backend && alembic upgrade head && pytest` (299 testes, sem avisos) e `cd frontend && npm test` (98 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -369,7 +419,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
     - só com o teclado e, se possível, com o leitor de ecrã;
     - na conta: tema, e "Descarregar ZIP" (abrir o `compras.csv` no Excel ou no LibreOffice).
   - Uma compra com menos de 60 dias de garantia: `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025). Na mesma compra, gerar a reclamação e descarregar o PDF.
-  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (25 testes).
+  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (29 testes).
   - Anotar aqui o que falhar; não gastar mais de 35 min.
 - [ ] **0:45–2:30 · Primeiro deploy na AWS**: seguir [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez), passo a passo, lendo cada `terraform plan` antes do `apply`:
   1. conta AWS com MFA e utilizador no IAM Identity Center (`aws sso login`);
@@ -398,6 +448,7 @@ Próximos passos, por esta ordem:
    - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - no log do deploy, o `AVISO` do IP do smoke test: se aparecer, aplicar a correção descrita em `docs/cloud.md`, "IP do cliente" (um PR);
+   - criar uma conta com um email teu e ver chegar o email de confirmação pelo SES (no sandbox do SES, o email de destino também tem de estar confirmado no SES);
    - na partilha, convidar uma segunda conta (outro email teu) na app, aceitar na outra conta e ver lá as compras, com "de …" e sem "Apagar";
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 

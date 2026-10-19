@@ -1,4 +1,5 @@
 import { useFocusEffect } from 'expo-router'
+import * as Sharing from 'expo-sharing'
 import { useCallback, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 
@@ -8,6 +9,7 @@ import { SharingSection } from '@/lib/sharing'
 import { useColors } from '@/lib/theme'
 import { Button, ErrorText } from '@/lib/ui'
 import type { UserSession } from '@/shared/types'
+import { todayISO } from '@/shared/warranty'
 
 const dateTimeFormat = new Intl.DateTimeFormat('pt-PT', {
   dateStyle: 'medium',
@@ -34,6 +36,8 @@ export default function AccountScreen() {
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
   const [busy, setBusy] = useState(false)
+  const [exporting, setExporting] = useState(false)
+  const [exportError, setExportError] = useState<string | null>(null)
 
   useFocusEffect(
     useCallback(() => {
@@ -75,6 +79,23 @@ export default function AccountScreen() {
       return ended === 1 ? 'Terminada 1 sessão.' : `Terminadas ${ended} sessões.`
     }, 'Não foi possível terminar as sessões')
 
+  async function exportData() {
+    setExportError(null)
+    setExporting(true)
+    try {
+      const uri = await api.downloadExport(todayISO())
+      // O menu do sistema: guardar nos ficheiros, no Drive, enviar por email…
+      await Sharing.shareAsync(uri, {
+        mimeType: 'application/zip',
+        dialogTitle: 'Guardar a exportação',
+      })
+    } catch (err) {
+      setExportError(message(err, 'Não foi possível exportar'))
+    } finally {
+      setExporting(false)
+    }
+  }
+
   const others = sessions?.filter((s) => !s.current) ?? []
 
   return (
@@ -82,6 +103,21 @@ export default function AccountScreen() {
       <Text style={[styles.email, { color: colors.text }]}>{user?.email}</Text>
 
       <SharingSection />
+
+      <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
+        Exportar dados
+      </Text>
+      <Text style={{ color: colors.muted }}>
+        Um ZIP com todas as tuas compras (compras.csv, que abre no Excel, e compras.json) e as
+        faturas guardadas.
+      </Text>
+      <Button
+        title={exporting ? 'A preparar…' : 'Exportar (ZIP)'}
+        variant="secondary"
+        disabled={exporting}
+        onPress={exportData}
+      />
+      {exportError && <ErrorText>{exportError}</ErrorText>}
 
       <Text accessibilityRole="header" style={[styles.title, { color: colors.text }]}>
         Sessões

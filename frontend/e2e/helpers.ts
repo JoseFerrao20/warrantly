@@ -25,7 +25,11 @@ export function dateFromToday(months: number, days = 0): string {
  * O `page.request` partilha os cookies com o browser: o login deixa lá o cookie do refresh
  * token, e o site, ao abrir, pede com ele o token de acesso (que só vive em memória).
  */
-export async function signUp(page: Page, fullName: string | null = null) {
+export async function signUp(
+  page: Page,
+  fullName: string | null = null,
+  { confirmed = true }: { confirmed?: boolean } = {},
+) {
   const email = uniqueEmail()
   const register = await page.request.post('/api/auth/register', {
     data: { email, password: PASSWORD, full_name: fullName },
@@ -35,7 +39,26 @@ export async function signUp(page: Page, fullName: string | null = null) {
     form: { username: email, password: PASSWORD },
   })
   const { access_token: token } = (await login.json()) as { access_token: string }
+  if (confirmed) await confirmEmail(page, email)
   return { email, token }
+}
+
+/** O link de confirmação do último email enviado para `email` (ADR 0008). */
+export async function confirmationLink(email: string): Promise<string> {
+  const body = await lastEmailTo(email)
+  const link = body.match(/https?:\/\/\S+\/confirmar-email#token=\S+/)
+  expect(link, body).not.toBeNull()
+  return link![0]
+}
+
+/**
+ * Confirma o email pela API, com o token do email enviado no registo. Quase todos os testes
+ * precisam disto: sem o email confirmado, aparece o aviso e a partilha fica fechada.
+ */
+export async function confirmEmail(page: Page, email: string) {
+  const token = new URL(await confirmationLink(email)).hash.replace('#token=', '')
+  const response = await page.request.post('/api/auth/verify-email', { data: { token } })
+  expect(response.status()).toBe(204)
 }
 
 const mailDir = () => process.env.E2E_MAIL_DIR!

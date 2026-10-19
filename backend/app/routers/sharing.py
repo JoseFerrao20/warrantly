@@ -2,7 +2,7 @@ import logging
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, HTTPException, Response, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import false, func, or_, select
 
 from app import mailer, rate_limit, sharing
 from app.dependencies import CurrentUser, SessionDep
@@ -24,6 +24,21 @@ def share_read(share: ArchiveShare) -> ShareRead:
     )
 
 
+def require_verified(user: User) -> None:
+    """Sem o email confirmado, não se partilha nem se aceita (ADR 0008)."""
+    if not user.email_verified:
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            detail="Confirma o teu email antes de partilhar o arquivo",
+        )
+
+
+def invited_email(user: User):
+    """Os convites para o email de `user`, só se o confirmou: quem criasse uma conta com o
+    email de outra pessoa não veria (nem recusaria) os convites dela."""
+    return ArchiveShare.email == user.email if user.email_verified else false()
+
+
 @router.get("", response_model=SharingRead)
 def list_shares(user: CurrentUser, session: SessionDep) -> SharingRead:
     """Com quem partilho o meu arquivo, e os arquivos partilhados comigo."""
@@ -33,7 +48,7 @@ def list_shares(user: CurrentUser, session: SessionDep) -> SharingRead:
     received = session.execute(
         select(ArchiveShare, User)
         .join(User, User.id == ArchiveShare.owner_id)
-        .where(ArchiveShare.email == user.email)
+        .where(invited_email(user))
         .order_by(ArchiveShare.id)
     )
     return SharingRead(
@@ -54,6 +69,7 @@ def list_shares(user: CurrentUser, session: SessionDep) -> SharingRead:
 @router.post("", response_model=ShareRead, status_code=status.HTTP_201_CREATED)
 def invite(data: ShareCreate, user: CurrentUser, session: SessionDep) -> ShareRead:
     """Convida alguém, pelo email, a ver o meu arquivo. A resposta não diz se a conta existe."""
+    require_verified(user)
     email = data.email.lower()
     if email == user.email:
         raise HTTPException(
@@ -95,7 +111,7 @@ def share_or_404(share_id: int, user: User, session: SessionDep) -> ArchiveShare
     share = session.scalar(
         select(ArchiveShare).where(
             ArchiveShare.id == share_id,
-            or_(ArchiveShare.owner_id == user.id, ArchiveShare.email == user.email),
+            or_(ArchiveShare.owner_id == user.id, invited_email(user)),
         )
     )
     if share is None:

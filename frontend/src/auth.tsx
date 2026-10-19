@@ -52,6 +52,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setUser(await api.updateMe({ full_name: fullName }))
   }, [])
 
+  const refreshUser = useCallback(async () => {
+    if (getToken()) setUser(await api.me())
+  }, [])
+
   const deleteAccount = useCallback(
     async (password: string) => {
       await api.deleteMe(password)
@@ -62,8 +66,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const value = useMemo(
-    () => ({ user, loading, notice, login, register, updateProfile, deleteAccount, logout }),
-    [user, loading, notice, login, register, updateProfile, deleteAccount, logout],
+    () => ({
+      user,
+      loading,
+      notice,
+      login,
+      register,
+      updateProfile,
+      refreshUser,
+      deleteAccount,
+      logout,
+    }),
+    [user, loading, notice, login, register, updateProfile, refreshUser, deleteAccount, logout],
   )
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

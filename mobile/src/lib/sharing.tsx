@@ -3,6 +3,7 @@ import { useCallback, useState } from 'react'
 import { Alert, StyleSheet, Text, View } from 'react-native'
 
 import { api, ApiError } from '@/lib/api'
+import { useAuth } from '@/lib/auth'
 import { useColors } from '@/lib/theme'
 import { Button, ErrorText, Field } from '@/lib/ui'
 import type { Share, SharedArchive, Sharing } from '@/shared/types'
@@ -25,6 +26,7 @@ function confirm(title: string, action: string, onConfirm: () => void) {
  */
 export function SharingSection() {
   const colors = useColors()
+  const { user } = useAuth()
   const [sharing, setSharing] = useState<Sharing | null>(null)
   const [email, setEmail] = useState('')
   const [error, setError] = useState<string | null>(null)
@@ -68,6 +70,9 @@ export function SharingSection() {
       return `Convite enviado para ${share.email}.`
     }, 'Não foi possível enviar o convite')
   }
+
+  const resend = () =>
+    run(async () => (await api.resendVerification()).detail, 'Não foi possível enviar o email')
 
   const accept = (archive: SharedArchive) =>
     run(async () => {
@@ -184,7 +189,7 @@ export function SharingSection() {
             <Button
               title="Remover"
               variant="secondary"
-              accessibilityLabel={`Deixar de partilhar com ${share.email}`}
+              accessibilityLabel={`Remover a partilha com ${share.email}`}
               disabled={busy}
               onPress={() => removeMember(share)}
             />
@@ -192,22 +197,34 @@ export function SharingSection() {
         </View>
       ))}
 
-      <Field
-        label="Email de quem convidas"
-        value={email}
-        onChangeText={setEmail}
-        keyboardType="email-address"
-        autoCapitalize="none"
-        autoComplete="off"
-        maxLength={320}
-      />
+      {user?.email_verified ? (
+        <Field
+          label="Email de quem convidas"
+          value={email}
+          onChangeText={setEmail}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoComplete="off"
+          maxLength={320}
+        />
+      ) : (
+        <>
+          <Text style={{ color: colors.text }}>
+            Para partilhar e ver os convites que te fizerem, confirma primeiro o teu email: abre o
+            link que enviámos para {user?.email}.
+          </Text>
+          <Button title="Enviar outra vez" variant="secondary" disabled={busy} onPress={resend} />
+        </>
+      )}
       {error && <ErrorText>{error}</ErrorText>}
       {status && (
         <Text accessibilityLiveRegion="polite" style={{ color: colors.text }}>
           {status}
         </Text>
       )}
-      <Button title="Convidar" variant="secondary" disabled={busy} onPress={invite} />
+      {user?.email_verified && (
+        <Button title="Convidar" variant="secondary" disabled={busy} onPress={invite} />
+      )}
     </>
   )
 }

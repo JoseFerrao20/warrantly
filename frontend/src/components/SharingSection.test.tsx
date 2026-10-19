@@ -109,7 +109,7 @@ describe('SharingSection', () => {
 
     await userEvent.click(
       screen.getByRole('button', {
-        name: 'Deixar de partilhar com rui@example.com',
+        name: 'Remover a partilha com rui@example.com',
       }),
     )
     expect(

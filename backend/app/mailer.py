@@ -1,9 +1,22 @@
+import logging
 import smtplib
 import time
 import uuid
 from email.message import EmailMessage
 
 from app.config import settings
+
+logger = logging.getLogger(__name__)
+
+# Domínios reservados para exemplos (RFC 2606), que não recebem email. O smoke test do deploy
+# cria contas smoke-…@example.com: pelo SES, um envio para lá seria um bounce, que conta para a
+# reputação da conta. Nos outros modos (ficheiro, Mailpit), os testes usam-nos à vontade.
+RESERVED_DOMAINS = ("example.com", "example.net", "example.org")
+
+
+def is_reserved_address(address: str) -> bool:
+    domain = address.rsplit("@", 1)[-1].strip(" >").lower()
+    return domain in RESERVED_DOMAINS or domain.endswith((".example", ".test", ".invalid"))
 
 
 class MailNotConfiguredError(RuntimeError):
@@ -56,6 +69,9 @@ def _send_ses(message: EmailMessage) -> None:
     """Amazon SES pela API (boto3): sem password SMTP, autorizado pelo papel IAM do Lambda."""
     import boto3
 
+    if is_reserved_address(message["To"]):
+        logger.info("Email não enviado: domínio reservado para exemplos")
+        return
     client = boto3.client("sesv2", region_name=settings.aws_region)
     client.send_email(
         FromEmailAddress=message["From"],

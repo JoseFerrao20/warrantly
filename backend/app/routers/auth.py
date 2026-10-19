@@ -8,13 +8,14 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app import mailer, password_reset, rate_limit, sessions, storage
+from app import email_verification, mailer, password_reset, rate_limit, sessions, storage
 from app.config import settings
 from app.dependencies import CurrentSessionId, CurrentUser, SessionDep
 from app.models import Purchase, User
 from app.observability import metric
 from app.schemas import (
     AccountDelete,
+    EmailVerification,
     PasswordResetConfirm,
     PasswordResetRequest,
     RefreshRequest,
@@ -114,7 +115,55 @@ def register(data: UserCreate, request: Request, session: SessionDep) -> User:
             status.HTTP_409_CONFLICT, detail="Já existe uma conta com este email"
         ) from None
     session.refresh(user)
+    send_verification_email(user)
     return user
+
+
+def send_verification_email(user: User) -> bool:
+    """Envia o link de confirmação do email (sem email configurado, não envia nada)."""
+    if not mailer.is_configured():
+        return False
+    token = email_verification.create_verification_token(user)
+    try:
+        mailer.send_email(email_verification.build_verification_email(user, token))
+    except Exception:
+        # A conta fica criada; a pessoa pode pedir outro link na app.
+        logger.exception("Falhou o email de confirmação")
+        return False
+    return True
+
+
+@router.post("/verify-email", status_code=status.HTTP_204_NO_CONTENT)
+def verify_email(data: EmailVerification, session: SessionDep) -> Response:
+    """Confirma o email com o token do link (não precisa de sessão: o link pode abrir noutro
+    aparelho)."""
+    user = email_verification.user_for_token(session, data.token)
+    if user is None:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            detail="O link é inválido ou já expirou. Pede outro na app.",
+        )
+    email_verification.mark_verified(session, user)
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
+
+
+@router.post("/verify-email/resend", status_code=status.HTTP_202_ACCEPTED)
+def resend_verification_email(user: CurrentUser, session: SessionDep) -> dict[str, str]:
+    """Envia outra vez o link de confirmação (no máximo 5 por hora)."""
+    if user.email_verified:
+        raise HTTPException(status.HTTP_409_CONFLICT, detail="O teu email já está confirmado")
+    if not mailer.is_configured():
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE, detail="O envio de emails não está configurado"
+        )
+    key = str(user.id)
+    check_limits(session, (rate_limit.verification_emails_user, key))
+    rate_limit.verification_emails_user.hit(session, key)
+    if not send_verification_email(user):
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY, detail="Não foi possível enviar o email. Tenta mais tarde."
+        )
+    return {"detail": f"Enviámos um link para {user.email}."}
 
 
 @router.post("/login", response_model=Token, response_model_exclude_none=True)

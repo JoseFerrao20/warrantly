@@ -44,8 +44,10 @@ Endpoints (documentação interativa em `/docs`):
 | `DELETE` | `/auth/me` | Apaga a conta, as compras, os alertas e os ficheiros das faturas (pede a palavra-passe) |
 | `POST` | `/push-tokens` | Regista o token de push (Expo) do telemóvel (`{token, platform}`); se já existia noutra conta, passa para esta |
 | `DELETE` | `/push-tokens` | Apaga o token deste telemóvel (`{token}`), ao sair da conta na app |
+| `POST` | `/auth/verify-email` | Confirma o email com o token do link enviado no registo (`{token}`); não precisa de sessão ([ADR 0008](adr/0008-confirmacao-do-email.md)) |
+| `POST` | `/auth/verify-email/resend` | Envia outra vez o link de confirmação (até 5 por hora); 409 se o email já está confirmado |
 | `GET` | `/sharing` | Com quem partilho o arquivo (`members`) e os arquivos partilhados comigo (`shared_with_me`), aceites ou por aceitar |
-| `POST` | `/sharing` | Convida um email (`{email}`) a ver o meu arquivo e envia-lhe um email; a resposta é igual com ou sem conta. Até 10 pessoas ([ADR 0007](adr/0007-partilha-do-arquivo.md)) |
+| `POST` | `/sharing` | Convida um email (`{email}`) a ver o meu arquivo e envia-lhe um email; a resposta é igual com ou sem conta. Precisa do email confirmado, tal como ver, aceitar e recusar os convites recebidos. Até 10 pessoas ([ADR 0007](adr/0007-partilha-do-arquivo.md)) |
 | `POST` | `/sharing/{id}/accept` | Aceita um convite feito para o meu email |
 | `DELETE` | `/sharing/{id}` | Deixa de partilhar (quem convidou) ou recusa ou sai (quem foi convidado) |
 | `POST` | `/purchases` | Regista uma compra (garantia de 36 meses por omissão) |
@@ -108,7 +110,7 @@ npm run e2e
 
 Se a API e o Vite já estiverem a correr, os testes usam-nos (nesse caso, arrancar a API com `RATE_LIMITS=false`, senão os registos seguidos batem no limite de tentativas). Cada teste cria o seu próprio utilizador (`e2e-…@example.com`); para limpar a base de dados de desenvolvimento: `DELETE FROM users WHERE email LIKE 'e2e-%@example.com'`.
 
-Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `http://localhost:8000` (configurável com `API_URL`), por isso não é preciso configurar CORS. Páginas: login e registo (`/entrar`), painel (`/`), nova compra (`/compras/nova`), detalhe (`/compras/:id`), edição (`/compras/:id/editar`) e conta (`/conta`: nome, tema, exportar, partilha, sessões e apagar conta). O tema segue o modo claro/escuro do sistema, mas pode ser fixado em "Claro" ou "Escuro" (fica guardado no browser).
+Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `http://localhost:8000` (configurável com `API_URL`), por isso não é preciso configurar CORS. Páginas: login e registo (`/entrar`), painel (`/`), nova compra (`/compras/nova`), detalhe (`/compras/:id`), edição (`/compras/:id/editar`) e conta (`/conta`: nome, tema, exportar, partilha, sessões e apagar conta) e a confirmação do email (`/confirmar-email`, a página do link). O tema segue o modo claro/escuro do sistema, mas pode ser fixado em "Claro" ou "Escuro" (fica guardado no browser).
 
 ## App móvel
 
@@ -120,10 +122,11 @@ App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo R
 - **editar e apagar** uma compra (os campos e a validação do formulário estão em `src/lib/purchaseForm.tsx`, partilhados com a compra nova);
 - registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site;
 - **partilhar o arquivo com a família** na conta, como no site: convidar pelo email, aceitar ou recusar os convites, sair ou deixar de partilhar. As compras partilhadas mostram de quem são e não têm "Apagar" nem "Trocar a fatura" ([ADR 0007](adr/0007-partilha-do-arquivo.md));
+- **exportar os dados**: o ZIP (CSV, JSON e faturas) é descarregado para a cache e abre o menu do sistema para o guardar ou enviar;
 - ver as **sessões abertas** na conta (os aparelhos com login feito), terminar a de outro aparelho ou sair de todos os outros, e sair deste;
 - receber os **alertas de garantia como notificações** (tocar abre a compra). O push precisa de uma development build (EAS), porque a Expo Go no Android já não o recebe: ver [`docs/push.md`](push.md).
 
-Só exportar os dados (ZIP) continua a ser exclusivo do site. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
+No site ficam só criar a conta, recuperar a palavra-passe, mudar o nome e o tema, e apagar a conta. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
 
 ```bash
 cd mobile

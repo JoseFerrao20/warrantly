@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test'
 
-import { lastEmailTo, PASSWORD, uniqueEmail } from './helpers'
+import { confirmationLink, lastEmailTo, PASSWORD, uniqueEmail } from './helpers'
 
 test('cria conta, sai e volta a entrar', async ({ page }) => {
   const email = uniqueEmail()
@@ -15,7 +15,17 @@ test('cria conta, sai e volta a entrar', async ({ page }) => {
   await page.getByRole('button', { name: 'Criar conta' }).click()
 
   await expect(page.getByText('Ainda não tens compras registadas')).toBeVisible()
-  await expect(page.getByText(email)).toBeVisible()
+  await expect(page.getByRole('link', { name: email })).toBeVisible()
+
+  // O email por confirmar: o aviso fica até se abrir o link do email.
+  const banner = page.getByRole('region', { name: 'Confirmar o email' })
+  await expect(banner).toContainText(`enviámos para ${email}`)
+  await page.goto(await confirmationLink(email))
+  await expect(page.getByRole('status')).toHaveText(/O teu email está confirmado/)
+  await expect(page).toHaveURL(/\/confirmar-email$/) // o token sai da barra de endereço
+  await page.getByRole('link', { name: 'Ir para as garantias' }).click()
+  await expect(page.getByText('Ainda não tens compras registadas')).toBeVisible()
+  await expect(banner).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Sair' }).click()
   await expect(page.getByRole('heading', { name: 'Entrar' })).toBeVisible()

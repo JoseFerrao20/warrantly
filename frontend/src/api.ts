@@ -134,6 +134,10 @@ export const api = {
     request<{ detail: string }>('/auth/password-reset', { method: 'POST', json: { email } }),
   confirmPasswordReset: (token: string, password: string) =>
     request<void>('/auth/password-reset/confirm', { method: 'POST', json: { token, password } }),
+  verifyEmail: (token: string) =>
+    request<void>('/auth/verify-email', { method: 'POST', json: { token } }),
+  resendVerification: () =>
+    request<{ detail: string }>('/auth/verify-email/resend', { method: 'POST' }),
   register: (email: string, password: string, fullName: string | null) =>
     request<User>('/auth/register', {
       method: 'POST',

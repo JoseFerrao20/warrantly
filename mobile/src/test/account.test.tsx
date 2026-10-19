@@ -1,3 +1,5 @@
+import { File } from 'expo-file-system'
+import { shareAsync } from 'expo-sharing'
 import { fireEvent, screen, waitFor, within } from 'expo-router/testing-library'
 import { Alert } from 'react-native'
 import type { AlertButton } from 'react-native'
@@ -6,6 +8,7 @@ import type { Sharing, UserSession } from '@/shared/types'
 import { USER, mockApi, renderApp, resetStorage, signIn } from '@/test/utils'
 
 beforeEach(resetStorage)
+afterEach(() => jest.clearAllMocks())
 
 const SESSIONS: UserSession[] = [
   {
@@ -188,7 +191,7 @@ describe('partilha', () => {
     expect(screen.getByRole('button', { name: 'Sair do arquivo de Maria Silva' })).toBeOnTheScreen()
 
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Deixar de partilhar com rui@example.com' }),
+      screen.getByRole('button', { name: 'Remover a partilha com rui@example.com' }),
     )
     expect(await screen.findByText('Deixaste de partilhar com rui@example.com.')).toBeOnTheScreen()
     expect(alert).toHaveBeenCalledWith(
@@ -211,4 +214,53 @@ describe('partilha', () => {
     expect(calls.some((c) => c.method === 'DELETE')).toBe(false)
     expect(screen.getByLabelText('Arquivo de Maria Silva')).toBeOnTheScreen()
   })
+})
+
+test('sem o email confirmado, a partilha pede o link e envia-o outra vez', async () => {
+  await signIn()
+  mockApi({
+    'GET /auth/me': { ...USER, email_verified: false },
+    'GET /purchases': [],
+    'POST /auth/verify-email/resend': { detail: 'Enviámos um link para ana@example.com.' },
+  })
+  const app = await renderApp()
+  await fireEvent.press(await screen.findByRole('link', { name: 'Conta' }))
+  await waitFor(() => expect(app.getPathname()).toBe('/conta'))
+
+  expect(await screen.findByText(/confirma primeiro o teu email/)).toBeOnTheScreen()
+  expect(screen.queryByLabelText('Email de quem convidas')).toBeNull()
+  expect(screen.queryByRole('button', { name: 'Convidar' })).toBeNull()
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Enviar outra vez' }))
+  expect(await screen.findByText('Enviámos um link para ana@example.com.')).toBeOnTheScreen()
+})
+
+test('exporta os dados num ZIP e abre o menu do sistema para o guardar', async () => {
+  const { calls } = await openAccount({})
+
+  await fireEvent.press(await screen.findByRole('button', { name: 'Exportar (ZIP)' }))
+
+  await waitFor(() => expect(shareAsync).toHaveBeenCalled())
+  const [[url, destination, options]] = jest.mocked(File.downloadFileAsync).mock.calls
+  expect(url).toMatch(/\/purchases\/export$/)
+  expect(destination.uri).toMatch(/^file:\/\/\/cache\/warrantly-\d{4}-\d{2}-\d{2}\.zip$/)
+  expect(options).toMatchObject({ headers: { Authorization: expect.stringMatching(/^Bearer /) } })
+  expect(shareAsync).toHaveBeenCalledWith(destination.uri, {
+    mimeType: 'application/zip',
+    dialogTitle: 'Guardar a exportação',
+  })
+  // Antes do download, o /auth/me renova o token de acesso se for preciso.
+  expect(calls.some((c) => c.url.endsWith('/auth/me'))).toBe(true)
+})
+
+test('sem rede, a exportação avisa', async () => {
+  await openAccount({})
+  jest.mocked(File.downloadFileAsync).mockRejectedValueOnce(new Error('offline'))
+
+  await fireEvent.press(await screen.findByRole('button', { name: 'Exportar (ZIP)' }))
+
+  expect(await screen.findByRole('alert')).toHaveTextContent(
+    'Não foi possível exportar. Tenta outra vez.',
+  )
+  expect(shareAsync).not.toHaveBeenCalled()
 })
