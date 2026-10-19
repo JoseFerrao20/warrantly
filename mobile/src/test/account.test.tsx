@@ -188,7 +188,7 @@ describe('partilha', () => {
     expect(screen.getByRole('button', { name: 'Sair do arquivo de Maria Silva' })).toBeOnTheScreen()
 
     await fireEvent.press(
-      screen.getByRole('button', { name: 'Deixar de partilhar com rui@example.com' }),
+      screen.getByRole('button', { name: 'Remover a partilha com rui@example.com' }),
     )
     expect(await screen.findByText('Deixaste de partilhar com rui@example.com.')).toBeOnTheScreen()
     expect(alert).toHaveBeenCalledWith(

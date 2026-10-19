@@ -379,9 +379,18 @@
     - os convites da Ana também são limpos no início, senão o convite da Maria daria 409 na segunda corrida.
   - As outras capturas mudaram por causa das datas e da compra nova no painel.
 
+- **2026-10-19 (sessão cloud do Claude Code):** acessibilidade da partilha e da confirmação do email.
+  - **O que faltava:** o axe corria na página da conta só com a partilha vazia, e o aviso de email por confirmar nunca aparecia nos E2E, porque o `signUp` confirma o email.
+  - **Dois testes novos no `a11y.spec.ts`,** nos dois temas:
+    - "partilha com a família", com três pessoas em browsers separados: a conta com um convite por aceitar, um arquivo partilhado e uma pessoa convidada; o painel com "de Rui Silva"; e o detalhe de uma compra partilhada;
+    - "email por confirmar": o aviso com "Enviar outra vez", a partilha fechada, e a página do link, inválido e confirmado. Para isto, o `signUp` ganhou `{ confirmed: false }`.
+  - **O que o axe encontrou:** o botão "Remover" tinha o nome acessível "Deixar de partilhar com …", que não inclui o texto visível (WCAG 2.5.3, *label in name*). Quem usa comandos de voz diz "carregar em Remover", e o botão não tinha esse nome. Passou a "Remover a partilha com …", no site e na app.
+  - **Lição:** um `page.goto` para o mesmo caminho só com outro `#` não volta a carregar a página: o React Router muda o `location.hash`, mas o estado lido ao abrir fica. No teste, passa-se pela `about:blank` entre os dois links. Na vida real, o link do email abre sempre uma página nova.
+  - **E2E:** 29 (4 novos).
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 62, 25 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 62, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -398,7 +407,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
     - só com o teclado e, se possível, com o leitor de ecrã;
     - na conta: tema, e "Descarregar ZIP" (abrir o `compras.csv` no Excel ou no LibreOffice).
   - Uma compra com menos de 60 dias de garantia: `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025). Na mesma compra, gerar a reclamação e descarregar o PDF.
-  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (25 testes).
+  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (29 testes).
   - Anotar aqui o que falhar; não gastar mais de 35 min.
 - [ ] **0:45–2:30 · Primeiro deploy na AWS**: seguir [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez), passo a passo, lendo cada `terraform plan` antes do `apply`:
   1. conta AWS com MFA e utilizador no IAM Identity Center (`aws sso login`);

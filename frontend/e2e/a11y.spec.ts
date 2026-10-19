@@ -2,7 +2,7 @@ import AxeBuilder from '@axe-core/playwright'
 import { expect, test } from '@playwright/test'
 import type { Page } from '@playwright/test'
 
-import { createPurchase, dateFromToday, signUp } from './helpers'
+import { confirmationLink, createPurchase, dateFromToday, signUp } from './helpers'
 
 // WCAG 2.2 nível AA e as boas práticas do axe.
 const TAGS = ['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa', 'best-practice']
@@ -84,6 +84,69 @@ for (const colorScheme of ['light', 'dark'] as const) {
       await page.goto('/conta')
       await expect(page.getByRole('heading', { name: 'A tua conta' })).toBeVisible()
       await expectNoViolations(page, 'conta')
+    })
+
+    test('partilha com a família', async ({ browser, colorScheme }) => {
+      // Duas pessoas, cada uma no seu browser: a Ana e o Rui partilham os arquivos um com o
+      // outro, e a Ana tem ainda um convite por aceitar (e um feito por ela, também pendente).
+      const ana = await (await browser.newContext({ colorScheme })).newPage()
+      const rui = await (await browser.newContext({ colorScheme })).newPage()
+      const owner = await signUp(ana, 'Ana Silva')
+      const member = await signUp(rui, 'Rui Silva')
+      const maria = await (await browser.newContext()).newPage()
+      const third = await signUp(maria, 'Maria Silva')
+      const auth = (token: string) => ({ Authorization: `Bearer ${token}` })
+      const shared = await createPurchase(rui, member.token, {
+        product_name: 'Televisão',
+        store: 'Worten',
+        purchase_date: dateFromToday(-10),
+        price: '999',
+      })
+      const invite = async (from: string, email: string) =>
+        (await (
+          await ana.request.post('/api/sharing', { data: { email }, headers: auth(from) })
+        ).json()) as { id: number }
+      const fromRui = await invite(member.token, owner.email)
+      await ana.request.post(`/api/sharing/${fromRui.id}/accept`, { headers: auth(owner.token) })
+      await invite(third.token, owner.email) // fica por aceitar
+      await invite(owner.token, 'familia@example.com') // também
+
+      await ana.goto('/conta')
+      const sharing = ana.getByRole('region', { name: 'Partilha' })
+      await expect(sharing.getByRole('button', { name: /Aceitar o convite/ })).toBeVisible()
+      await expect(sharing.getByText('Ainda não aceitou')).toBeVisible()
+      await expectNoViolations(ana, 'conta com partilhas')
+
+      await ana.goto('/')
+      await expect(ana.getByText('de Rui Silva')).toBeVisible()
+      await expectNoViolations(ana, 'painel com uma compra partilhada')
+
+      await ana.goto(`/compras/${shared.id}`)
+      await expect(ana.getByText(/Partilhada por Rui Silva/)).toBeVisible()
+      await expectNoViolations(ana, 'detalhe de uma compra partilhada')
+    })
+
+    test('email por confirmar', async ({ page }) => {
+      const { email } = await signUp(page, 'Ana Silva', { confirmed: false })
+      await page.goto('/')
+      await expect(page.getByRole('region', { name: 'Confirmar o email' })).toBeVisible()
+      await page.getByRole('button', { name: 'Enviar outra vez' }).click()
+      await expect(page.getByRole('status')).toHaveText(/Enviámos um link/)
+      await expectNoViolations(page, 'painel com o aviso')
+
+      await page.goto('/conta')
+      await expect(page.getByText(/confirma primeiro o teu email/)).toBeVisible()
+      await expectNoViolations(page, 'conta com a partilha fechada')
+
+      await page.goto('/confirmar-email#token=invalido')
+      await expect(page.getByRole('alert')).toBeVisible()
+      await expectNoViolations(page, 'link de confirmação inválido')
+
+      // Uma página nova (só mudar o # não voltava a carregar a página do link).
+      await page.goto('about:blank')
+      await page.goto(await confirmationLink(email))
+      await expect(page.getByRole('status')).toHaveText(/O teu email está confirmado/)
+      await expectNoViolations(page, 'email confirmado')
     })
   })
 }

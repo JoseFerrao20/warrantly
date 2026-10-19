@@ -189,7 +189,7 @@ export function SharingSection() {
             <Button
               title="Remover"
               variant="secondary"
-              accessibilityLabel={`Deixar de partilhar com ${share.email}`}
+              accessibilityLabel={`Remover a partilha com ${share.email}`}
               disabled={busy}
               onPress={() => removeMember(share)}
             />

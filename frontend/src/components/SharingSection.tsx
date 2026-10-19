@@ -167,7 +167,7 @@ export function SharingSection() {
                   className="button"
                   onClick={() => removeMember(share)}
                   disabled={busy}
-                  aria-label={`Deixar de partilhar com ${share.email}`}
+                  aria-label={`Remover a partilha com ${share.email}`}
                 >
                   Remover
                 </button>

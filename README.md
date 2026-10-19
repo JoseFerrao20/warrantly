@@ -108,7 +108,7 @@ flowchart LR
 | Backend | 299 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
 | Frontend | 98 (Vitest e Testing Library) | oxlint, TypeScript, build |
 | App móvel | 62 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
-| De ponta a ponta | 25 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
+| De ponta a ponta | 29 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
 | Infraestrutura | — | `terraform validate` e, com a AWS configurada, o `plan` em cada PR |
 | App publicada | 26 verificações (`scripts/smoke_test.py`: cabeçalhos, rotas fechadas, cookie da sessão, limite de tentativas) | no fim de cada deploy e contra o contentor de produção |
 

@@ -25,7 +25,11 @@ export function dateFromToday(months: number, days = 0): string {
  * O `page.request` partilha os cookies com o browser: o login deixa lá o cookie do refresh
  * token, e o site, ao abrir, pede com ele o token de acesso (que só vive em memória).
  */
-export async function signUp(page: Page, fullName: string | null = null) {
+export async function signUp(
+  page: Page,
+  fullName: string | null = null,
+  { confirmed = true }: { confirmed?: boolean } = {},
+) {
   const email = uniqueEmail()
   const register = await page.request.post('/api/auth/register', {
     data: { email, password: PASSWORD, full_name: fullName },
@@ -35,7 +39,7 @@ export async function signUp(page: Page, fullName: string | null = null) {
     form: { username: email, password: PASSWORD },
   })
   const { access_token: token } = (await login.json()) as { access_token: string }
-  await confirmEmail(page, email)
+  if (confirmed) await confirmEmail(page, email)
   return { email, token }
 }
 
