@@ -13,6 +13,7 @@ from app.config import settings
 from app.dependencies import CurrentSessionId, CurrentUser, SessionDep
 from app.models import Purchase, User
 from app.observability import metric
+from app.origin import client_ip
 from app.schemas import (
     AccountDelete,
     EmailVerification,
@@ -71,12 +72,6 @@ def token_response(pair: sessions.TokenPair, response: Response, in_body: bool) 
         )
     set_refresh_cookie(response, pair.refresh_token)
     return Token(access_token=pair.access_token, expires_in=pair.expires_in)
-
-
-def client_ip(request: Request) -> str:
-    # O uvicorn (--proxy-headers) põe aqui o IP do X-Forwarded-For, que quem faz o pedido pode
-    # inventar: os limites por email não dependem dele. Ver docs/cloud.md, "IP do cliente".
-    return request.client.host if request.client else "desconhecido"
 
 
 def check_limits(session: Session, *checks: tuple[rate_limit.RateLimiter, str]) -> None:

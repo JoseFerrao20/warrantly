@@ -105,7 +105,7 @@ flowchart LR
 
 | | Testes | No CI |
 | --- | --- | --- |
-| Backend | 299 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
+| Backend | 304 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
 | Frontend | 98 (Vitest e Testing Library) | oxlint, TypeScript, build |
 | App móvel | 72 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
 | De ponta a ponta | 29 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
@@ -117,7 +117,7 @@ Cada alteração entra por um PR com o CI verde. As decisões ficam em [`docs/ad
 ## Segurança
 
 - **Palavras-passe:** Argon2. No login com um email que não existe, a resposta demora o mesmo, para não revelar que emails estão registados.
-- **Limite de tentativas** no login, no registo, na recuperação da palavra-passe e ao apagar a conta. Depois do limite, a resposta é 429 com `Retry-After`. A contagem fica no Postgres, para valer para todas as instâncias do Lambda, e guarda só um HMAC da chave, sem emails nem IPs.
+- **Limite de tentativas** no login, no registo, na recuperação da palavra-passe e ao apagar a conta. Depois do limite, a resposta é 429 com `Retry-After`. A contagem fica no Postgres, para valer para todas as instâncias do Lambda, e guarda só um HMAC da chave, sem emails nem IPs. O IP é o que o CloudFront viu, e não um cabeçalho que o cliente possa inventar, e a API recusa os pedidos que não venham do CloudFront ([ADR 0009](docs/adr/0009-api-so-pelo-cloudfront.md)).
 - **Pedidos e ficheiros:**
   - pedidos acima de 11 MB são cortados (413), mesmo sem `Content-Length`;
   - as faturas são validadas pelos bytes e guardadas com nomes aleatórios.
@@ -170,6 +170,7 @@ O resto está documentado à parte:
 | [0006](docs/adr/0006-alertas-com-eventbridge-scheduler.md) | Alertas diários com o EventBridge Scheduler |
 | [0007](docs/adr/0007-partilha-do-arquivo.md) | Partilha do arquivo de garantias com a família |
 | [0008](docs/adr/0008-confirmacao-do-email.md) | Confirmação do email da conta |
+| [0009](docs/adr/0009-api-so-pelo-cloudfront.md) | A API só responde ao CloudFront, e o IP vem dele |
 
 ## O que aprendi
 

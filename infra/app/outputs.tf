@@ -3,6 +3,11 @@ output "app_url" {
   value       = "https://${aws_cloudfront_distribution.app.domain_name}"
 }
 
+output "api_function_url" {
+  description = "A Function URL do Lambda. Sem o segredo do CloudFront, responde 403 (para verificar)."
+  value       = aws_lambda_function_url.api.function_url
+}
+
 output "ecr_repository_url" {
   description = "Onde o deploy publica as imagens."
   value       = aws_ecr_repository.api.repository_url

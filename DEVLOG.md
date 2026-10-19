@@ -416,9 +416,26 @@
     O lint, os tipos, o bundle de Android e o `expo install --check` passam.
   - **Lição:** no `toHaveTextContent` da Testing Library do React Native, um texto tem de bater com o conteúdo todo; para uma parte, usa-se uma expressão regular.
 
+- **2026-10-19 (sessão cloud do Claude Code):** o IP do cliente corrigido antes do deploy ([ADR 0009](docs/adr/0009-api-so-pelo-cloudfront.md)), e o roteiro do deploy revisto.
+  - **O problema** (da revisão antes do deploy): a app lia o IP do `X-Forwarded-For`, que se inventa, por isso os limites só por IP não serviam. Além disso, a Function URL do Lambda era pública e dava para chamar a API sem passar pelo CloudFront.
+  - **A correção que estava no `docs/cloud.md` não funcionava.**
+    - A ideia era passar o `CloudFront-Viewer-Address` para a origem, mas nenhuma política de pedidos de origem serve. A atual não o inclui. As que o incluem passam também o `Host`, e a Function URL recusa-o. Uma política própria não pode ter o `Authorization`.
+    - **Solução:** uma CloudFront Function no `/api/*` escreve o `event.viewer.ip` em `X-Viewer-IP`, por cima do que o cliente enviar. A política atual já o leva. O CloudFront junta ainda um segredo (`X-Origin-Verify`, no SSM).
+    - A app (`app/origin.py`) só acredita no IP com o segredo certo. Em produção, recusa com 403 os pedidos à API sem ele, menos o `/api/health/live` (Lambda Web Adapter) e os eventos agendados.
+  - **Verificado aqui:**
+    - 5 testes novos (304 no backend), incluindo um `X-Forwarded-For` inventado que deixa de enganar o limite de contas novas por IP;
+    - um servidor de produção a sério com o segredo: 403 sem ele ou com um errado, 200 com o certo, e o `/api/health/live` a passar;
+    - o smoke test continua a correr. A verificação do IP manda agora também um `X-Viewer-IP` inventado.
+  - **O que não se pôde verificar aqui:** o `terraform validate`. O registo do Terraform está bloqueado na sessão cloud (é a mesma razão por que não há lock files). O `terraform fmt` passa, e o workflow Infra valida no CI. No deploy, o smoke test e um `curl` à Function URL (output `api_function_url`, deve dar 403) confirmam tudo.
+  - **Roteiro do deploy (`docs/cloud.md`), revisto pelo que entrou desde a última revisão:**
+    - o passo dos segredos tem o `ORIGIN_VERIFY_SECRET`, que tem de existir antes do primeiro deploy (o Terraform lê-o);
+    - o SES explica o sandbox: afeta a confirmação da conta, os convites de partilha, a recuperação e os alertas. Também diz como pedir a saída (e que demora um ou dois dias) e que as contas do smoke test não recebem emails;
+    - as verificações juntam o 403 da Function URL, a confirmação do email e a partilha entre dois emails verificados no SES.
+  - **Lição:** uma correção descrita "para depois" deve ser revista quando chega a hora. Esta tinha um erro que só aparecia ao escrever o Terraform: as políticas da AWS não deixam passar aquele cabeçalho sem o `Host`.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 304 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -427,7 +444,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (299 testes, sem avisos) e `cd frontend && npm test` (98 testes).
+  - `cd backend && alembic upgrade head && pytest` (304 testes, sem avisos) e `cd frontend && npm test` (98 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -441,7 +458,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   1. conta AWS com MFA e utilizador no IAM Identity Center (`aws sso login`);
   2. projeto no Neon (`eu-central-1`, connection string "pooled");
   3. `infra/bootstrap`: `terraform apply` e confirmar o email do orçamento;
-  4. segredos no SSM (`SECRET_KEY`, `ALERTS_TOKEN`, `DATABASE_URL`);
+  4. segredos no SSM (`SECRET_KEY`, `ALERTS_TOKEN`, `ORIGIN_VERIFY_SECRET`, `DATABASE_URL`);
   5. variáveis e segredo no GitHub;
   6. Actions → Deploy → Run workflow; confirmar o email do SES;
   7. verificações: o último passo do deploy corre o `scripts/smoke_test.py` (cabeçalhos, rotas fechadas, cookie, limite de tentativas; ver o resultado no log do job). À mão:
@@ -463,7 +480,8 @@ Próximos passos, por esta ordem:
    - abrir a fatura de uma compra (o menu do sistema deve mostrar o visualizador de PDF ou de imagens), juntar ou trocar a fatura com uma fotografia, editar e apagar;
    - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
-   - no log do deploy, o `AVISO` do IP do smoke test: se aparecer, aplicar a correção descrita em `docs/cloud.md`, "IP do cliente" (um PR);
+   - no log do deploy, o smoke test deve dar `ok` no IP, e a Function URL direta deve dar 403 (`docs/cloud.md`, "IP do cliente e acesso à API"). Se não, trazer o log para uma sessão do Claude Code;
+   - pedir a saída do sandbox do SES antes de convidar a família (`docs/cloud.md`, passo 7);
    - criar uma conta com um email teu e ver chegar o email de confirmação pelo SES (no sandbox do SES, o email de destino também tem de estar confirmado no SES);
    - criar uma conta nova na app, abrir o email de confirmação no telemóvel e, no fim, apagá-la na app;
    - na partilha, convidar uma segunda conta (outro email teu) na app, aceitar na outra conta e ver lá as compras, com "de …" e sem "Apagar";

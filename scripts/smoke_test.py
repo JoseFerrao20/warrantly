@@ -242,12 +242,13 @@ class Smoke:
         )
 
     def spoofed_ip(self, attempts: int = 6) -> None:
-        """Um IP inventado no X-Forwarded-For engana o limite por IP? Só avisa, não falha.
+        """Um IP inventado (X-Forwarded-For ou X-Viewer-IP) engana o limite por IP? Só avisa.
 
         Com o mesmo email e um IP diferente em cada tentativa, o limite por IP e email (5)
-        só apanha a 6.ª se a app usar o IP verdadeiro. Se a app acreditar no cabeçalho, os
-        limites por IP não servem (os por email continuam a servir): ver docs/cloud.md,
-        "IP do cliente".
+        só apanha a 6.ª se a app usar o IP verdadeiro. Na AWS, o CloudFront escreve o
+        X-Viewer-IP por cima do que o cliente enviar, e a app ignora o X-Forwarded-For. Se a
+        app acreditar num cabeçalho inventado, os limites por IP não servem (os por email
+        continuam a servir): ver docs/cloud.md, "IP do cliente e acesso à API".
         """
         email = f"smoke-{secrets.token_hex(6)}@example.com"
         statuses = []
@@ -256,18 +257,22 @@ class Smoke:
                 "POST",
                 "/api/auth/login",
                 form={"username": email, "password": "errada"},
-                headers={"X-Forwarded-For": f"203.0.113.{i + 1}"},  # endereços de documentação
+                # Endereços de documentação (RFC 5737), um diferente em cada tentativa.
+                headers={
+                    "X-Forwarded-For": f"203.0.113.{i + 1}",
+                    "X-Viewer-IP": f"198.51.100.{i + 1}",
+                },
             )
             statuses.append(resp.status)
             if resp.status == 429:
                 break
         if statuses[-1] == 429:
-            print("ok    um IP inventado no X-Forwarded-For não engana o limite por IP")
+            print("ok    um IP inventado no pedido não engana o limite por IP")
         else:
             print(
-                "AVISO a app usa o IP do X-Forwarded-For, que quem faz o pedido pode inventar: "
+                "AVISO a app usa um IP que quem faz o pedido pode inventar: "
                 "os limites por IP não servem (os por email sim). Ver docs/cloud.md, "
-                f'"IP do cliente". Respostas: {statuses}'
+                f'"IP do cliente e acesso à API". Respostas: {statuses}'
             )
 
     # --- ajudas ---
