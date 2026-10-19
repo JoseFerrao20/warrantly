@@ -2,11 +2,19 @@ import Constants from 'expo-constants'
 import * as Device from 'expo-device'
 import * as Notifications from 'expo-notifications'
 import * as SecureStore from 'expo-secure-store'
-import { act, fireEvent, screen, waitFor } from 'expo-router/testing-library'
+import { act, screen, waitFor } from 'expo-router/testing-library'
 import { Platform } from 'react-native'
 
 import { pushUnavailableReason, registerForPush } from '@/lib/push'
-import { USER, makePurchase, mockApi, renderApp, resetStorage, signIn } from '@/test/utils'
+import {
+  USER,
+  logOut,
+  makePurchase,
+  mockApi,
+  renderApp,
+  resetStorage,
+  signIn,
+} from '@/test/utils'
 
 const PHONE_TOKEN = 'ExponentPushToken[telemovel]'
 const tap = (Notifications as unknown as { __tap: (data: object) => void }).__tap
@@ -119,7 +127,7 @@ test('"Sair" apaga o token na API; a sessão expirada não', async () => {
   const app = await renderApp()
   await waitFor(() => expect(pushCalls(calls, 'POST')).toHaveLength(1))
 
-  await fireEvent.press(await screen.findByRole('button', { name: 'Sair' }))
+  await logOut()
 
   await waitFor(() => expect(app.getPathname()).toBe('/entrar'))
   expect(pushCalls(calls, 'DELETE')).toEqual([{ token: PHONE_TOKEN }])

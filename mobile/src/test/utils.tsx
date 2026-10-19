@@ -1,9 +1,10 @@
 import * as SecureStore from 'expo-secure-store'
-import { renderRouter } from 'expo-router/testing-library'
+import { fireEvent, renderRouter, screen } from 'expo-router/testing-library'
 
 import RootLayout from '@/app/_layout'
 import PurchaseScreen from '@/app/compras/[id]'
 import NewPurchaseScreen from '@/app/compras/nova'
+import AccountScreen from '@/app/conta'
 import LoginScreen from '@/app/entrar'
 import DashboardScreen from '@/app/index'
 import type { Purchase, User } from '@/shared/types'
@@ -56,6 +57,7 @@ export function mockApi(testRoutes: Record<string, unknown | Handler>): Call[] {
     'POST /push-tokens': NO_CONTENT,
     'DELETE /push-tokens': NO_CONTENT,
     'POST /auth/logout': NO_CONTENT,
+    'GET /auth/sessions': [],
     'POST /auth/refresh': { status: 401, body: { detail: 'Sessão terminada. Entra outra vez.' } },
     ...testRoutes,
   }
@@ -84,6 +86,12 @@ export async function signIn() {
   await SecureStore.setItemAsync('warrantly.token', 'token-de-teste')
 }
 
+/** "Sair" está no ecrã da conta, aberto pelo "Conta" no cabeçalho do painel. */
+export async function logOut() {
+  await fireEvent.press(await screen.findByRole('link', { name: 'Conta' }))
+  await fireEvent.press(await screen.findByRole('button', { name: 'Sair' }))
+}
+
 export function resetStorage() {
   ;(SecureStore as unknown as { __reset: () => void }).__reset()
 }
@@ -96,6 +104,7 @@ export function renderApp(initialUrl = '/') {
       entrar: LoginScreen,
       'compras/nova': NewPurchaseScreen,
       'compras/[id]': PurchaseScreen,
+      conta: AccountScreen,
     },
     { initialUrl },
   )

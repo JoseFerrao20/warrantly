@@ -1,6 +1,13 @@
 import * as SecureStore from 'expo-secure-store'
 
-import type { InvoiceScan, Purchase, PurchaseInput, UploadTicket, User } from '@/shared/types'
+import type {
+  InvoiceScan,
+  Purchase,
+  PurchaseInput,
+  UploadTicket,
+  User,
+  UserSession,
+} from '@/shared/types'
 
 import { deviceName } from './device'
 
@@ -148,6 +155,10 @@ export const api = {
     await request<void>('/auth/logout', { method: 'POST', json: { refresh_token: refreshToken } })
   },
   me: () => request<User>('/auth/me'),
+  listSessions: () => request<UserSession[]>('/auth/sessions'),
+  endSession: (id: number) => request<void>(`/auth/sessions/${id}`, { method: 'DELETE' }),
+  endOtherSessions: () =>
+    request<{ ended: number }>('/auth/sessions/end-others', { method: 'POST' }),
   listPurchases: () => request<Purchase[]>('/purchases'),
   getPurchase: (id: number) => request<Purchase>(`/purchases/${id}`),
   createPurchase: (data: PurchaseInput) =>

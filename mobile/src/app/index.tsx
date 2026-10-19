@@ -3,7 +3,6 @@ import { useCallback, useState } from 'react'
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native'
 
 import { api, ApiError } from '@/lib/api'
-import { useAuth } from '@/lib/auth'
 import { useColors } from '@/lib/theme'
 import { Button, ErrorText, StatusBadge } from '@/lib/ui'
 import type { Purchase } from '@/shared/types'
@@ -13,7 +12,6 @@ const STATUS_ORDER = { expiring: 0, active: 1, expired: 2 }
 
 export default function DashboardScreen() {
   const colors = useColors()
-  const { logout } = useAuth()
   const router = useRouter()
   const [purchases, setPurchases] = useState<Purchase[] | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -53,8 +51,8 @@ export default function DashboardScreen() {
       <Stack.Screen
         options={{
           headerRight: () => (
-            <Pressable accessibilityRole="button" onPress={logout} hitSlop={12}>
-              <Text style={{ color: colors.primary, fontSize: 16 }}>Sair</Text>
+            <Pressable accessibilityRole="link" onPress={() => router.push('/conta')} hitSlop={12}>
+              <Text style={{ color: colors.primary, fontSize: 16 }}>Conta</Text>
             </Pressable>
           ),
         }}

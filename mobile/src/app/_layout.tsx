@@ -33,6 +33,7 @@ function Navigation() {
         <Stack.Screen name="index" options={{ title: 'As tuas garantias' }} />
         <Stack.Screen name="compras/nova" options={{ title: 'Nova compra' }} />
         <Stack.Screen name="compras/[id]" options={{ title: 'Compra' }} />
+        <Stack.Screen name="conta" options={{ title: 'A tua conta' }} />
       </Stack.Protected>
       <Stack.Protected guard={user === null}>
         <Stack.Screen name="entrar" options={{ headerShown: false }} />
