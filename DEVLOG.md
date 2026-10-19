@@ -400,9 +400,25 @@
   - **O TypeScript 7 na app fica para depois.** O `dependabot.yml` já o explicava: o `eslint-config-expo` usa a API JavaScript do TypeScript, que o TypeScript 7 (reescrito em Go) já não tem. O site já está no 7; a app sobe quando o Expo o suportar.
   - **Lição:** numa app Expo, as versões do React e do React Native são do SDK, não do Dependabot. "Os testes passam" não chega; o `expo install --check` é que sabe o que o SDK espera.
 
+- **2026-10-19 (sessão cloud do Claude Code):** a conta toda na app móvel.
+  - **O que faltava:** quem instalava a app tinha de ir ao site para criar a conta, recuperar a palavra-passe ou apagá-la. Para publicar na App Store, a Apple exige que uma app que deixa criar conta também a deixe apagar.
+  - **O que faz:**
+    - **no ecrã de entrada,** "Ainda não tens conta? Cria uma" (nome opcional, email e palavra-passe) entra logo no painel. "Esqueci-me da palavra-passe" pede o link por email. O link abre o site, onde se escolhe a palavra-passe nova, tal como a confirmação do email;
+    - **na conta,** o nome (que assina as reclamações), e "Apagar conta" no fim, com a palavra-passe e uma confirmação (`Alert`). Depois de apagar, a app volta ao ecrã de entrada com "A tua conta foi apagada.", como no site;
+    - as secções novas da conta ficam em `src/lib/account.tsx`, como a partilha em `sharing.tsx`, para o ecrã da conta continuar legível.
+  - **Cores:** os links do ecrã de entrada usam um token novo, `link`. O azul dos botões teria só 3.8:1 no tema escuro; com o `#7aa7ff` do site, passa.
+  - **Testes:** 8 novos (72 na app). Cobrem:
+    - criar conta (e o pedido enviado), o email já registado e a palavra-passe curta, que nem chega à API;
+    - pedir o link da palavra-passe;
+    - mudar o nome;
+    - apagar a conta com a palavra-passe certa, com a errada, e cancelar.
+
+    O lint, os tipos, o bundle de Android e o `expo install --check` passam.
+  - **Lição:** no `toHaveTextContent` da Testing Library do React Native, um texto tem de bater com o conteúdo todo; para uma parte, usa-se uma expressão regular.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 64, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 299 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -449,6 +465,7 @@ Próximos passos, por esta ordem:
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - no log do deploy, o `AVISO` do IP do smoke test: se aparecer, aplicar a correção descrita em `docs/cloud.md`, "IP do cliente" (um PR);
    - criar uma conta com um email teu e ver chegar o email de confirmação pelo SES (no sandbox do SES, o email de destino também tem de estar confirmado no SES);
+   - criar uma conta nova na app, abrir o email de confirmação no telemóvel e, no fim, apagá-la na app;
    - na partilha, convidar uma segunda conta (outro email teu) na app, aceitar na outra conta e ver lá as compras, com "de …" e sem "Apagar";
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 

@@ -115,7 +115,7 @@ Em desenvolvimento, o Vite reencaminha os pedidos a `/api/...` para a API em `ht
 ## App móvel
 
 App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo Router), na pasta `mobile/`. Usa a mesma API e a mesma conta do site. Faz o essencial para usar na loja ou em casa:
-- entrar (o token fica guardado no armazenamento seguro do telemóvel, com o `expo-secure-store`);
+- entrar (o token fica guardado no armazenamento seguro do telemóvel, com o `expo-secure-store`), **criar conta** (com o nome, opcional) e pedir o link para **repor a palavra-passe**;
 - ver as garantias, com as que estão a expirar primeiro e o aviso de quantas terminam nos próximos 60 dias, e puxar para atualizar;
 - ver o detalhe de uma compra, **juntar ou trocar a fatura** (fotografar ou escolher um ficheiro) e **abrir a fatura** (descarregada para a cache do telemóvel com o `expo-file-system` e aberta no visualizador do sistema com o `expo-sharing`);
 - **reclamar à loja**: a API escreve a carta (como no site), e o email do telemóvel abre com o destinatário, o assunto, a carta e o PDF (carta e fatura) em anexo, com o `expo-mail-composer`; sem uma conta de email no telemóvel, partilha-se o PDF;
@@ -123,10 +123,11 @@ App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo R
 - registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site;
 - **partilhar o arquivo com a família** na conta, como no site: convidar pelo email, aceitar ou recusar os convites, sair ou deixar de partilhar. As compras partilhadas mostram de quem são e não têm "Apagar" nem "Trocar a fatura" ([ADR 0007](adr/0007-partilha-do-arquivo.md));
 - **exportar os dados**: o ZIP (CSV, JSON e faturas) é descarregado para a cache e abre o menu do sistema para o guardar ou enviar;
+- mudar o **nome** na conta, que assina as reclamações, e **apagar a conta** com a palavra-passe (a App Store exige que uma app que deixa criar conta também a deixe apagar);
 - ver as **sessões abertas** na conta (os aparelhos com login feito), terminar a de outro aparelho ou sair de todos os outros, e sair deste;
 - receber os **alertas de garantia como notificações** (tocar abre a compra). O push precisa de uma development build (EAS), porque a Expo Go no Android já não o recebe: ver [`docs/push.md`](push.md).
 
-No site ficam só criar a conta, recuperar a palavra-passe, mudar o nome e o tema, e apagar a conta. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
+Ficam no site só as páginas dos links dos emails (escolher a palavra-passe nova e confirmar o email) e o tema fixo, porque a app segue sempre o tema do telemóvel. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
 
 ```bash
 cd mobile

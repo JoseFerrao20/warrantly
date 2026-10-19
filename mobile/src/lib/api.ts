@@ -175,6 +175,15 @@ export const api = {
     if (!refreshToken) return
     await request<void>('/auth/logout', { method: 'POST', json: { refresh_token: refreshToken } })
   },
+  register: (email: string, password: string, fullName: string | null) =>
+    request<User>('/auth/register', {
+      method: 'POST',
+      json: { email, password, full_name: fullName },
+    }),
+  requestPasswordReset: (email: string) =>
+    request<{ detail: string }>('/auth/password-reset', { method: 'POST', json: { email } }),
+  deleteMe: (password: string) =>
+    request<void>('/auth/me', { method: 'DELETE', json: { password } }),
   me: () => request<User>('/auth/me'),
   updateMe: (data: { full_name: string | null }) =>
     request<User>('/auth/me', { method: 'PATCH', json: data }),

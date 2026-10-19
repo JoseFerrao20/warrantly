@@ -3,6 +3,7 @@ import * as Sharing from 'expo-sharing'
 import { useCallback, useState } from 'react'
 import { ScrollView, StyleSheet, Text, View } from 'react-native'
 
+import { DeleteAccountSection, ProfileSection } from '@/lib/account'
 import { api, ApiError } from '@/lib/api'
 import { useAuth } from '@/lib/auth'
 import { SharingSection } from '@/lib/sharing'
@@ -25,13 +26,13 @@ function message(err: unknown, fallback: string): string {
 }
 
 /**
- * A conta, como a página da conta do site: a partilha do arquivo com a família (ADR 0007), os
- * aparelhos com sessão aberta, para terminar a de um telemóvel perdido ou emprestado, e o
- * "Sair" deste telemóvel.
+ * A conta, como a página da conta do site: o nome, a partilha do arquivo com a família
+ * (ADR 0007), a exportação, os aparelhos com sessão aberta (para terminar a de um telemóvel
+ * perdido ou emprestado), o "Sair" deste telemóvel e apagar a conta.
  */
 export default function AccountScreen() {
   const colors = useColors()
-  const { user, logout } = useAuth()
+  const { logout } = useAuth()
   const [sessions, setSessions] = useState<UserSession[] | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [status, setStatus] = useState<string | null>(null)
@@ -100,7 +101,7 @@ export default function AccountScreen() {
 
   return (
     <ScrollView contentContainerStyle={styles.page}>
-      <Text style={[styles.email, { color: colors.text }]}>{user?.email}</Text>
+      <ProfileSection />
 
       <SharingSection />
 
@@ -183,13 +184,14 @@ export default function AccountScreen() {
       <View style={styles.logout}>
         <Button title="Sair" onPress={logout} />
       </View>
+
+      <DeleteAccountSection />
     </ScrollView>
   )
 }
 
 const styles = StyleSheet.create({
   page: { padding: 16, gap: 12 },
-  email: { fontSize: 16 },
   title: { fontSize: 20, fontWeight: '600', marginTop: 8 },
   row: { padding: 14, borderRadius: 10, borderWidth: 1, gap: 4 },
   rowHeader: { flexDirection: 'row', alignItems: 'center', flexWrap: 'wrap', gap: 8 },
