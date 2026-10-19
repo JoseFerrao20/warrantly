@@ -389,7 +389,7 @@
   - **E2E:** 29 (4 novos).
 
 - **2026-10-19 (sessão cloud do Claude Code):** exportar os dados na app, e o React da app de volta à versão do Expo.
-  - **Exportar (ZIP) na app:** um botão na conta descarrega a exportação para a cache, como a fatura (`File.downloadFileAsync`, com o `/auth/me` antes para renovar o token), e abre o menu do sistema para guardar o ZIP nos ficheiros, no Drive ou enviá-lo. Era a única coisa que só o site fazia. 2 testes novos (64 na app).
+  - **Exportar (ZIP) na app:** um botão na conta descarrega a exportação para a cache, como a fatura (`File.downloadFileAsync`, com o `/auth/me` antes para renovar o token), e abre o menu do sistema para guardar o ZIP nos ficheiros, no Drive ou enviá-lo. No site ficam só criar a conta, recuperar a palavra-passe, mudar o nome e o tema, e apagar a conta. 2 testes novos (64 na app).
   - **O que se encontrou: o merge do #40 (Dependabot) estragou o React da app.**
     - O #40 subiu o React e o React DOM da app de 19.3.0 para 19.3.1, e o Expo SDK 58 espera exatamente a 19.3.0: o renderer do React Native é feito para essa versão. O `npx expo install --check` diz que "a app pode não funcionar"; não consegui confirmar aqui se chega a falhar no telemóvel.
     - Os testes, o lint, os tipos e o bundle passavam todos: nenhum deles compara as versões. Antes do merge, verifiquei só isso.

@@ -126,7 +126,7 @@ App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo R
 - ver as **sessões abertas** na conta (os aparelhos com login feito), terminar a de outro aparelho ou sair de todos os outros, e sair deste;
 - receber os **alertas de garantia como notificações** (tocar abre a compra). O push precisa de uma development build (EAS), porque a Expo Go no Android já não o recebe: ver [`docs/push.md`](push.md).
 
-A app faz tudo o que o site faz, menos mudar o nome e o tema na conta e apagar a conta. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
+No site ficam só criar a conta, recuperar a palavra-passe, mudar o nome e o tema, e apagar a conta. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
 
 ```bash
 cd mobile
