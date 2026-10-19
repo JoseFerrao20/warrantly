@@ -1,6 +1,6 @@
 # Warrantly
 
-Arquivo de garantias: compras com fatura, prazo da garantia calculado, alertas por email e reclamação à loja (texto, PDF e envio pelo email do utilizador). Projeto de aprendizagem full stack de José Ferrão. O `README.md` descreve a app e o deploy; o `DEVLOG.md` tem o histórico e, no fim, o **plano da próxima sessão**: ler esse plano antes de começar.
+Arquivo de garantias: compras com fatura, prazo da garantia calculado, alertas por email e reclamação à loja (texto, PDF e envio pelo email do utilizador). Projeto de aprendizagem full stack de José Ferrão. O `README.md` apresenta o projeto (portfólio: capturas, arquitetura, destaques, testes e ADR); o `docs/desenvolvimento.md` tem os comandos, as rotas da API e a app móvel; o `docs/cloud.md` o deploy na AWS; o `DEVLOG.md` tem o histórico e, no fim, o **plano da próxima sessão**: ler esse plano antes de começar.
 
 ## Estrutura
 
@@ -65,6 +65,7 @@ terraform fmt -recursive && terraform -chdir=app init -backend=false && terrafor
 - Sessões: o token de acesso dura 15 minutos e os clientes (`frontend/src/api.ts`, `mobile/src/lib/api.ts`) renovam-no sozinhos com um 401. O cookie do refresh token tem o caminho `REFRESH_COOKIE_PATH` (`/api/auth`, como o browser vê a API); nos testes do backend, a API está em `/auth` e o `tests/test_sessions.py` muda o caminho. Os `mockApi` dos testes do frontend e da app respondem 401 ao `/auth/refresh` por omissão.
 - Métricas: cada nome novo em `metric(...)` é uma métrica personalizada no CloudWatch, e o nível gratuito tem 10 (já estão todas usadas; ver ADR 0005). Antes de criar outra, usar `properties` (ficam no log, sem custo) ou trocar uma existente. As rotas nos logs são o modelo (`/purchases/{purchase_id}`), nunca o caminho com ids.
 - Segurança no CI: o ruff tem as regras `S` (Bandit); um `# noqa: S…` leva sempre a razão ao lado. Uma falha nova do Checkov corrige-se ou, se não se aplicar, entra no `skip-check` do `.checkov.yaml` com a razão. Não instalar o Checkov no `.venv` do backend: muda versões do botocore e aparecem avisos nos testes. As tags do ECR são imutáveis: o deploy reutiliza a imagem se o SHA já existir.
+- README: as capturas em `docs/images/` geram-se com `npm run screenshots` (pasta `frontend/`, conta de exemplo `ana.silva@exemplo.pt`, apagada no fim); voltar a gerá-las quando o aspeto mudar. As contagens de testes do README e do DEVLOG atualizam-se à mão.
 - O React StrictMode corre os efeitos duas vezes em desenvolvimento: não contar com "primeira execução" num `useEffect`.
 - O pytest trata `StarletteDeprecationWarning` como erro: o `TestClient` precisa do `httpx2`, não do `httpx`.
 - Variáveis vazias no `.env` contam como não definidas (`env_ignore_empty`); em produção, `ENVIRONMENT=production` recusa a `SECRET_KEY` de exemplo.
