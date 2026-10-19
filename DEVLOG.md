@@ -235,9 +235,30 @@
     A fixture que limpava a memória entre testes saiu: cada teste já começa sem tentativas, porque a transação é desfeita. O smoke test e os 24 E2E passam contra o servidor de produção local.
   - **Lição:** os testes, num só processo, nunca apanhariam isto, porque o limite em memória passava sempre. Um "limite conhecido" anotado num ADR é uma dívida, e esta convinha fechar antes do primeiro deploy, não depois.
 
+- **2026-10-19 (sessão cloud do Claude Code):** app móvel: ver a fatura, editar e apagar compras.
+  - **No detalhe da compra:**
+    - **"Ver a fatura":** descarrega a fatura com o token para a cache do telemóvel (`expo-file-system`, `File.downloadFileAsync`) e abre-a no menu do sistema (`expo-sharing`), onde se vê, guarda ou envia. O ficheiro fica com um nome nosso (`fatura-<id>.pdf`), nunca o original, que pode ter qualquer coisa.
+    - **"Editar":** abre um ecrã novo (`compras/editar/[id]`).
+    - **"Apagar":** pede confirmação antes de apagar.
+
+    O detalhe recarrega ao voltar a aparecer, por isso mostra logo o que se editou.
+  - **Formulário partilhado:** os campos e a validação passaram para `src/lib/purchaseForm.tsx`, usado pela compra nova e pela edição. Entrou o campo "Email da loja" (opcional), que a reclamação vai usar. A edição não apaga a categoria, que a app não mostra.
+  - **Pacotes:** `expo-file-system` e `expo-sharing`, instalados com `expo install` (versões do SDK 58). As APIs foram confirmadas nas definições de tipos da versão instalada, como pede o `AGENTS.md` da app.
+  - **Testes:** 7 novos (44 na app):
+    - o download com o token e o nome seguro, e a abertura;
+    - sem fatura não há botão;
+    - o erro do download;
+    - editar, com o detalhe atualizado e a categoria mantida;
+    - a edição inválida;
+    - apagar com confirmação, e cancelar.
+
+    O lint, os tipos, o bundle de Android, o `expo config` e o `npm audit` passam.
+  - **Decisão:** antes do download, um pedido ao `/auth/me`. O download não passa pelo cliente da API, que é quem renova o token com um 401, por isso, se o token tivesse expirado, o download falhava. Assim renova-se primeiro.
+  - **Falta:** a reclamação na app (próximo PR) e trocar a fatura de uma compra (continua no site).
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 41 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 85, app móvel com 37, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 42 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 85, app móvel com 44, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -279,6 +300,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 Próximos passos, por esta ordem:
 1. **Terminar a app.** Fazer o deploy na AWS (acima). Depois, testar no telemóvel:
    - o ícone, o ecrã de arranque e o push numa development build;
+   - abrir a fatura de uma compra (o menu do sistema deve mostrar o visualizador de PDF ou de imagens), editar e apagar;
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 

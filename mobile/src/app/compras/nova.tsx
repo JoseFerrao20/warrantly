@@ -9,13 +9,12 @@ import type { PickedFile } from '@/lib/api'
 import { attachStaged, scanStaged, stageInvoice } from '@/lib/invoice'
 import type { StagedInvoice } from '@/lib/invoice'
 import { useColors } from '@/lib/theme'
-import { Button, ErrorText, Field } from '@/lib/ui'
-import { parsePrice, todayISO } from '@/shared/warranty'
+import { emptyForm, PurchaseFields, toInput } from '@/lib/purchaseForm'
+import type { PurchaseForm } from '@/lib/purchaseForm'
+import { Button, ErrorText } from '@/lib/ui'
 
-type FormField = 'product_name' | 'store' | 'purchase_date' | 'price' | 'invoice_number'
-type Form = Record<FormField, string> & { warranty_months: string }
-
-const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
+// Os campos que a leitura da fatura pode sugerir.
+type ScannedField = 'product_name' | 'store' | 'purchase_date' | 'price' | 'invoice_number'
 
 function message(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
@@ -24,22 +23,15 @@ function message(err: unknown, fallback: string): string {
 export default function NewPurchaseScreen() {
   const colors = useColors()
   const router = useRouter()
-  const [form, setForm] = useState<Form>({
-    product_name: '',
-    store: '',
-    purchase_date: todayISO(),
-    price: '',
-    warranty_months: '36',
-    invoice_number: '',
-  })
+  const [form, setForm] = useState<PurchaseForm>(emptyForm)
   // Campos em que o utilizador já escreveu: a leitura da fatura nunca os altera.
-  const touched = useRef(new Set<keyof Form>())
+  const touched = useRef(new Set<keyof PurchaseForm>())
   const [invoice, setInvoice] = useState<StagedInvoice | null>(null)
   const [scanNote, setScanNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<'invoice' | 'save' | null>(null)
 
-  function change(name: keyof Form, value: string) {
+  function change(name: keyof PurchaseForm, value: string) {
     touched.current.add(name)
     setForm((current) => ({ ...current, [name]: value }))
   }
@@ -52,7 +44,7 @@ export default function NewPurchaseScreen() {
       const staged = await stageInvoice(file)
       setInvoice(staged)
       const scan = await scanStaged(staged).catch(() => null) // a leitura é só uma ajuda
-      const suggestions: Partial<Record<FormField, string | null>> = scan
+      const suggestions: Partial<Record<ScannedField, string | null>> = scan
         ? {
             product_name: scan.product_name,
             store: scan.store,
@@ -62,7 +54,7 @@ export default function NewPurchaseScreen() {
           }
         : {}
       const filled = Object.entries(suggestions).filter(
-        ([name, value]) => value && !touched.current.has(name as FormField),
+        ([name, value]) => value && !touched.current.has(name as ScannedField),
       )
       setForm((current) => ({ ...current, ...Object.fromEntries(filled) }))
       setScanNote(
@@ -111,34 +103,14 @@ export default function NewPurchaseScreen() {
   }
 
   async function save() {
-    const price = parsePrice(form.price)
-    const months = Number(form.warranty_months)
-    if (!form.product_name.trim() || !form.store.trim()) {
-      return setError('Indica o produto e a loja.')
-    }
-    if (!DATE_PATTERN.test(form.purchase_date)) {
-      return setError('A data da compra tem de estar no formato AAAA-MM-DD.')
-    }
-    if (price === null) return setError('O preço não é válido (ex.: 749,99).')
-    if (!Number.isInteger(months) || months < 1) {
-      return setError('A garantia tem de ser um número de meses.')
-    }
+    const checked = toInput(form)
+    if ('error' in checked) return setError(checked.error)
 
     setError(null)
     setBusy('save')
     let id: number
     try {
-      const purchase = await api.createPurchase({
-        product_name: form.product_name.trim(),
-        store: form.store.trim(),
-        category: null,
-        purchase_date: form.purchase_date,
-        price,
-        warranty_months: months,
-        invoice_number: form.invoice_number.trim() || null,
-        store_email: null,
-      })
-      id = purchase.id
+      id = (await api.createPurchase(checked.input)).id
     } catch (err) {
       setBusy(null)
       return setError(message(err, 'Não foi possível guardar a compra'))
@@ -182,35 +154,7 @@ export default function NewPurchaseScreen() {
         {scanNote && <Text style={{ color: colors.muted }}>{scanNote}</Text>}
       </View>
 
-      <Field
-        label="Produto"
-        value={form.product_name}
-        onChangeText={(v) => change('product_name', v)}
-      />
-      <Field label="Loja" value={form.store} onChangeText={(v) => change('store', v)} />
-      <Field
-        label="Data da compra (AAAA-MM-DD)"
-        value={form.purchase_date}
-        onChangeText={(v) => change('purchase_date', v)}
-        keyboardType="numbers-and-punctuation"
-      />
-      <Field
-        label="Preço (€)"
-        value={form.price}
-        onChangeText={(v) => change('price', v)}
-        keyboardType="decimal-pad"
-      />
-      <Field
-        label="Garantia (meses)"
-        value={form.warranty_months}
-        onChangeText={(v) => change('warranty_months', v)}
-        keyboardType="number-pad"
-      />
-      <Field
-        label="N.º da fatura (opcional)"
-        value={form.invoice_number}
-        onChangeText={(v) => change('invoice_number', v)}
-      />
+      <PurchaseFields form={form} onChange={change} />
 
       {error && <ErrorText>{error}</ErrorText>}
       <View style={{ marginTop: 20 }}>

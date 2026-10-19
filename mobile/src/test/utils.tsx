@@ -3,6 +3,7 @@ import { fireEvent, renderRouter, screen } from 'expo-router/testing-library'
 
 import RootLayout from '@/app/_layout'
 import PurchaseScreen from '@/app/compras/[id]'
+import EditPurchaseScreen from '@/app/compras/editar/[id]'
 import NewPurchaseScreen from '@/app/compras/nova'
 import AccountScreen from '@/app/conta'
 import LoginScreen from '@/app/entrar'
@@ -104,6 +105,7 @@ export function renderApp(initialUrl = '/') {
       entrar: LoginScreen,
       'compras/nova': NewPurchaseScreen,
       'compras/[id]': PurchaseScreen,
+      'compras/editar/[id]': EditPurchaseScreen,
       conta: AccountScreen,
     },
     { initialUrl },

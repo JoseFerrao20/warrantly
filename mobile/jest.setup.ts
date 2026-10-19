@@ -24,6 +24,19 @@ jest.mock('expo-constants', () => {
 })
 jest.mock('expo-device', () => ({ isDevice: true }))
 
+// Descarregar a fatura e abri-la: ficheiros e partilha simulados (o teste vê os pedidos).
+jest.mock('expo-file-system', () => {
+  class File {
+    uri: string
+    constructor(directory: { uri: string }, name: string) {
+      this.uri = `${directory.uri}${name}`
+    }
+    static downloadFileAsync = jest.fn(async (_url: string, destination: File) => destination)
+  }
+  return { File, Paths: { cache: { uri: 'file:///cache/' } } }
+})
+jest.mock('expo-sharing', () => ({ shareAsync: jest.fn(async () => {}) }))
+
 // Notificações simuladas: autorização dada, um token fixo, e `__tap(data)` simula tocar numa.
 jest.mock('expo-notifications', () => {
   const { useSyncExternalStore } = jest.requireActual('react')
