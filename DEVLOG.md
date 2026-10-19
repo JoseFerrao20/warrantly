@@ -181,9 +181,25 @@
     - **Sem métrica nova:** as 10 gratuitas já estão usadas, por isso os números ficam na linha de log "Recibos de push: …".
   - **Lição:** o envio e a entrega são duas coisas diferentes. O "ok" do Expo no envio só quer dizer que a mensagem foi aceite.
 
+- **2026-10-19 (sessão cloud do Claude Code):** ícone próprio no site e na app.
+  - **O desenho:** um escudo branco com um visto, sobre o azul da app (`#2563eb`). Lê-se como "garantia, está protegido" e continua legível a 16 px. O site usava o favicon de origem do Vite e a app as imagens de origem do Expo.
+  - **Uma só fonte:** o desenho está em código (`frontend/scripts/icons/generate.mjs`), e o `npm run icons` gera todas as variantes com o Chromium do Playwright (o mesmo dos E2E, por `PW_CHROMIUM_PATH`):
+    - o favicon em SVG e o `apple-touch-icon.png` do site;
+    - o ícone da app, quadrado e sem transparência, porque o iOS e o Android arredondam os cantos sozinhos;
+    - o ícone adaptativo do Android (frente, fundo e monocromático, com o visto recortado);
+    - o ecrã de arranque.
+  - **Ecrã de arranque:** entrou o `expo-splash-screen` (versão do SDK 58, com `expo install`), com o escudo azul sobre fundo branco no tema claro e sobre o fundo da app no escuro.
+  - **Verificação:**
+    - uma folha de pré-visualização com cada variante, incluindo o recorte circular do Android e o favicon a 16, 32 e 48 px;
+    - o `expo config` e o bundle de Android, como no CI;
+    - o lint, os tipos e os testes do site e da app;
+    - a regra do CloudFront (`spa-rewrite.js`) deixa passar tal como estão os ficheiros com extensão, por isso o `apple-touch-icon.png` não é reescrito para o `index.html`.
+  - **Decisão:** gerar a partir de código e não de um ficheiro de um editor de imagem. Mudar a cor ou o traço é uma linha, e o histórico mostra o que mudou.
+  - **Lição:** o ícone adaptativo do Android só garante o centro (66 %). Com o escudo ao tamanho do ícone do iOS, o recorte circular cortava-lhe as pontas, por isso a frente usa o escudo a 72 %.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 38 PRs. Tudo está testado no CI: backend com 279 testes, frontend com 85, app móvel com 32, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 39 PRs. Tudo está testado no CI: backend com 279 testes, frontend com 85, app móvel com 32, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -222,7 +238,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximos passos: tornar o repositório público (liga também o CodeQL e os badges do README), descrever o projeto no CV e no LinkedIn e, depois do deploy, pôr o link da app no README. Na app móvel: ícone próprio e a lista de sessões (a API já a tem). No push, depois de o testar no telemóvel: desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar). Na AWS, ver na página da conta que o aparelho aparece bem ("Chrome no Windows") e que terminar a sessão do telemóvel o põe a pedir o login.
+Próximos passos: tornar o repositório público (liga também o CodeQL e os badges do README), descrever o projeto no CV e no LinkedIn e, depois do deploy, pôr o link da app no README. Na app móvel: a lista de sessões (a API já a tem) e ver o ícone e o ecrã de arranque numa development build. No push, depois de o testar no telemóvel: desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar). Na AWS, ver na página da conta que o aparelho aparece bem ("Chrome no Windows") e que terminar a sessão do telemóvel o põe a pedir o login.
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).
