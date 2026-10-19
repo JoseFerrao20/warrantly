@@ -126,6 +126,14 @@ npx expo start               # com a development build instalada (com push)
 npm run lint && npm run typecheck && npm test
 ```
 
+**Ícone:** o escudo com o visto, desenhado uma só vez em `frontend/scripts/icons/generate.mjs`. O `npm run icons` (pasta `frontend/`) gera todas as variantes com o Chromium do Playwright:
+- o favicon e o `apple-touch-icon.png` do site;
+- o ícone da app, quadrado e sem transparência, porque o sistema arredonda os cantos;
+- o ícone adaptativo do Android (frente, fundo e monocromático), com o escudo dentro dos 66 % centrais que o sistema nunca corta;
+- o ecrã de arranque (`expo-splash-screen`, com fundo claro e escuro).
+
+As imagens geradas ficam no repositório, por isso só é preciso correr o script ao mudar o desenho.
+
 O telemóvel tem de chegar à API. Há três formas:
 - **Sem contentor:** o telemóvel e o computador na mesma rede Wi-Fi, a API com `uvicorn app.main:app --host 0.0.0.0` e `EXPO_PUBLIC_API_URL=http://<IP do computador>:8000`.
 - **No Codespace:** pôr a porta 8000 como pública e usar o endereço `https://…-8000.app.github.dev`, com `npx expo start --tunnel`.

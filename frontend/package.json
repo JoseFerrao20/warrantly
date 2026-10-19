@@ -12,7 +12,8 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "e2e": "playwright test",
-    "screenshots": "SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts"
+    "screenshots": "SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts",
+    "icons": "node scripts/icons/generate.mjs"
   },
   "dependencies": {
     "react": "^19.2.8",

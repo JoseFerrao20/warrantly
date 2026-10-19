@@ -1,4 +1,4 @@
-# Warrantly
+# <img src="frontend/public/favicon.svg" alt="" width="40" height="40" align="top"> Warrantly
 
 **Arquivo de garantias:** guarda as faturas das tuas compras, calcula até quando cada uma está na garantia, avisa-te antes de expirar e, quando algo avaria, escreve a reclamação para a loja.
 
