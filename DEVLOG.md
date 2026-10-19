@@ -107,9 +107,21 @@
   - **CodeQL:** fica pronto num `codeql.yml`, mas o job só corre em repositórios públicos (o code scanning é grátis aí). O repositório ainda é privado.
   - **Lição:** instalar o Checkov no `.venv` do backend desceu a versão do botocore, e os testes passaram a mostrar 60 avisos de `datetime.utcnow()`. As ferramentas de análise ficam num ambiente à parte, aqui e no CI.
 
+- **2026-10-19 (sessão cloud do Claude Code):** README de portfólio. O README passou de manual de desenvolvimento a apresentação do projeto para quem o visita (recrutadores incluídos).
+  - **Conteúdo:**
+    - frase de apresentação, badges do CI e o estado honesto (a app está completa, o deploy na AWS é o próximo passo);
+    - capturas de ecrã: painel claro e escuro, nova compra com a fatura lida, reclamação e telemóvel;
+    - o problema e o que a app faz;
+    - **diagrama da arquitetura** em Mermaid (o GitHub desenha-o);
+    - stack, destaques técnicos com links para os ADR, tabela de testes, segurança, estrutura, decisões e "o que aprendi";
+    - uma linha a dizer que o projeto foi feito com o Claude Code como assistente, com as decisões, a revisão e os merges meus.
+  - **Desenvolvimento:** os pormenores (rotas da API, comandos, E2E, app móvel) passaram para `docs/desenvolvimento.md`.
+  - **Capturas:** são geradas por um teste do Playwright (`npm run screenshots`, saltado no CI). Usa uma conta de exemplo com nome fictício, que começa sempre vazia e é apagada no fim, para não aparecer o email `e2e-…` dos testes. A reclamação e o formulário são capturados só no seu cartão, sem o resto da página.
+  - **Lição:** o Chromium "headless shell" ignora o idioma do browser nos campos de data (aparece 10/19/2026), um pormenor que só se vê nas capturas.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 32 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 33 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -142,7 +154,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximo passo: o README de portfólio (diagrama da arquitetura, capturas de ecrã, decisões técnicas) e tornar o repositório público, o que liga também o CodeQL. Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
+Próximos passos: tornar o repositório público (liga também o CodeQL e os badges do README), descrever o projeto no CV e no LinkedIn e, depois do deploy, pôr o link da app no README. Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).
