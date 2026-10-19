@@ -112,12 +112,13 @@ App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo R
 - entrar (o token fica guardado no armazenamento seguro do telemóvel, com o `expo-secure-store`);
 - ver as garantias, com as que estão a expirar primeiro e o aviso de quantas terminam nos próximos 60 dias, e puxar para atualizar;
 - ver o detalhe de uma compra e **abrir a fatura** (descarregada para a cache do telemóvel com o `expo-file-system` e aberta no visualizador do sistema com o `expo-sharing`);
+- **reclamar à loja**: a API escreve a carta (como no site), e o email do telemóvel abre com o destinatário, o assunto, a carta e o PDF (carta e fatura) em anexo, com o `expo-mail-composer`; sem uma conta de email no telemóvel, partilha-se o PDF;
 - **editar e apagar** uma compra (os campos e a validação do formulário estão em `src/lib/purchaseForm.tsx`, partilhados com a compra nova);
 - registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site;
 - ver as **sessões abertas** na conta (os aparelhos com login feito), terminar a de outro aparelho ou sair de todos os outros, e sair deste;
 - receber os **alertas de garantia como notificações** (tocar abre a compra). O push precisa de uma development build (EAS), porque a Expo Go no Android já não o recebe: ver [`docs/push.md`](push.md).
 
-Gerar a reclamação, trocar a fatura de uma compra e exportar continuam no site. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
+Trocar a fatura de uma compra e exportar continuam no site. Os tipos e as funções da garantia (`src/shared/`) são cópias do frontend, e um teste confirma que se mantêm iguais.
 
 ```bash
 cd mobile

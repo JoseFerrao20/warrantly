@@ -5,6 +5,7 @@ import RootLayout from '@/app/_layout'
 import PurchaseScreen from '@/app/compras/[id]'
 import EditPurchaseScreen from '@/app/compras/editar/[id]'
 import NewPurchaseScreen from '@/app/compras/nova'
+import ClaimScreen from '@/app/compras/reclamacao/[id]'
 import AccountScreen from '@/app/conta'
 import LoginScreen from '@/app/entrar'
 import DashboardScreen from '@/app/index'
@@ -78,6 +79,7 @@ export function mockApi(testRoutes: Record<string, unknown | Handler>): Call[] {
       ok: status < 400,
       status,
       json: async () => body ?? { detail: 'Não encontrado' },
+      arrayBuffer: async () => new TextEncoder().encode(String(body)).buffer,
     } as Response
   }) as typeof fetch
   return calls
@@ -106,6 +108,7 @@ export function renderApp(initialUrl = '/') {
       'compras/nova': NewPurchaseScreen,
       'compras/[id]': PurchaseScreen,
       'compras/editar/[id]': EditPurchaseScreen,
+      'compras/reclamacao/[id]': ClaimScreen,
       conta: AccountScreen,
     },
     { initialUrl },
