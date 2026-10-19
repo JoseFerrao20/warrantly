@@ -1,7 +1,7 @@
 # Imagem de produção: API (FastAPI) + frontend (build do Vite) num só contentor.
 
 # 1) Build do frontend
-FROM node:22-slim AS frontend
+FROM node:26-slim AS frontend
 WORKDIR /frontend
 COPY frontend/package.json frontend/package-lock.json ./
 RUN npm ci
