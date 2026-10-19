@@ -44,12 +44,16 @@ Endpoints (documentação interativa em `/docs`):
 | `DELETE` | `/auth/me` | Apaga a conta, as compras, os alertas e os ficheiros das faturas (pede a palavra-passe) |
 | `POST` | `/push-tokens` | Regista o token de push (Expo) do telemóvel (`{token, platform}`); se já existia noutra conta, passa para esta |
 | `DELETE` | `/push-tokens` | Apaga o token deste telemóvel (`{token}`), ao sair da conta na app |
+| `GET` | `/sharing` | Com quem partilho o arquivo (`members`) e os arquivos partilhados comigo (`shared_with_me`), aceites ou por aceitar |
+| `POST` | `/sharing` | Convida um email (`{email}`) a ver o meu arquivo e envia-lhe um email; a resposta é igual com ou sem conta. Até 10 pessoas ([ADR 0007](adr/0007-partilha-do-arquivo.md)) |
+| `POST` | `/sharing/{id}/accept` | Aceita um convite feito para o meu email |
+| `DELETE` | `/sharing/{id}` | Deixa de partilhar (quem convidou) ou recusa ou sai (quem foi convidado) |
 | `POST` | `/purchases` | Regista uma compra (garantia de 36 meses por omissão) |
-| `GET` | `/purchases` | Lista as compras pela garantia que expira primeiro; filtros `store`, `category` e `status` (`active`, `expiring`, `expired`) |
+| `GET` | `/purchases` | Lista as compras (as minhas e as dos arquivos partilhados comigo, com `user_id` e `owner_name`) pela garantia que expira primeiro; filtros `store`, `category` e `status` (`active`, `expiring`, `expired`) |
 | `GET` | `/purchases/export` | ZIP com `compras.csv` (`;` e vírgula decimal, para o Excel), `compras.json` e as faturas em `faturas/` |
 | `GET` | `/purchases/{id}` | Detalhe de uma compra |
 | `PATCH` | `/purchases/{id}` | Altera os campos enviados |
-| `DELETE` | `/purchases/{id}` | Apaga uma compra (e a fatura, se tiver) |
+| `DELETE` | `/purchases/{id}` | Apaga uma compra (e a fatura, se tiver). Numa compra partilhada comigo, 403, tal como trocar ou apagar a fatura |
 | `POST` | `/purchases/uploads` | Upload direto para o S3: devolve um POST pré-assinado (válido 5 min, com o tamanho máximo assinado) para o browser enviar a fatura para `uploads/<utilizador>/<token>`. Sem S3, `direct` vem a `false` e usa-se o upload pela API |
 | `POST` | `/purchases/uploads/{token}/scan` | Como `/scan-invoice`, para uma fatura já enviada para o S3 |
 | `PUT` | `/purchases/{id}/invoice/upload` | Associa à compra uma fatura enviada para o S3 (`{token, filename}`); valida-a pelos bytes e apaga o temporário |

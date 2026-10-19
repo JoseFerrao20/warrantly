@@ -329,9 +329,24 @@
     - Está no README, numa linha própria por baixo da galeria.
   - **A conta de exemplo** é apagada no fim, como antes, e as sessões vão com ela.
 
+- **2026-10-19 (sessão cloud do Claude Code):** partilha do arquivo com a família ([ADR 0007](docs/adr/0007-partilha-do-arquivo.md)).
+  - **O que faz:** na conta, convida-se alguém pelo email. Essa pessoa recebe um email e, na página da conta dela, aceita ou recusa o convite. A partir daí vê as compras de quem a convidou, com "de Ana Silva" no painel, e pode abrir a fatura, editar e reclamar à loja.
+  - **Decisões:**
+    - **Partilhar o arquivo de uma conta**, em vez de criar uma "família" dona das compras. Assim, a dona de cada compra, os alertas, a exportação e o apagar da conta ficam como estavam; só muda quem pode ver.
+    - **O convite fica com o email,** exista ou não a conta. A resposta é igual nos dois casos, como na recuperação da palavra-passe, por isso não serve para descobrir quem usa a app.
+    - **Ficam só com quem registou a compra:** apagar a compra, apagar ou trocar a fatura (trocar apaga a anterior), exportar e os alertas. Na API é o `owner_only=True` do `get_purchase_or_404` (403); o site e a app escondem esses botões.
+    - **Limites:** 10 pessoas por arquivo e 20 convites por hora, porque cada convite é um email para um endereço escolhido por quem convida.
+  - **Na app móvel,** o mínimo: "de …" na lista, a nota "Partilhada por …" no detalhe, e sem "Apagar" nem "Trocar a fatura". Convidar e aceitar faz-se no site.
+  - **Testes:**
+    - backend, 9 novos (290): o convite e o email, o convite para quem ainda não tem conta, os erros, o que quem aceita pode e não pode, a partilha num só sentido, quem pode aceitar, sair ou deixar de partilhar, e apagar a conta de quem partilhou;
+    - frontend, 5 novos (92);
+    - app, 2 novos (57);
+    - um E2E novo (25): a Ana convida, o Rui recebe o email e aceita, vê a compra sem o botão de apagar, e deixa de a ver quando a Ana deixa de partilhar.
+  - **Lição:** o `PurchaseRead` lê o `owner_name` de uma propriedade do modelo, por cima de uma relação `lazy="joined"`. Fica uma só consulta por lista, sem mudar as rotas que já devolviam `Purchase`.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 87, app móvel com 55, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 290 testes, frontend com 92, app móvel com 57, 25 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -340,7 +355,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (281 testes, sem avisos) e `cd frontend && npm test` (87 testes).
+  - `cd backend && alembic upgrade head && pytest` (290 testes, sem avisos) e `cd frontend && npm test` (92 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -348,7 +363,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
     - só com o teclado e, se possível, com o leitor de ecrã;
     - na conta: tema, e "Descarregar ZIP" (abrir o `compras.csv` no Excel ou no LibreOffice).
   - Uma compra com menos de 60 dias de garantia: `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025). Na mesma compra, gerar a reclamação e descarregar o PDF.
-  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (24 testes).
+  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (25 testes).
   - Anotar aqui o que falhar; não gastar mais de 35 min.
 - [ ] **0:45–2:30 · Primeiro deploy na AWS**: seguir [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez), passo a passo, lendo cada `terraform plan` antes do `apply`:
   1. conta AWS com MFA e utilizador no IAM Identity Center (`aws sso login`);
@@ -377,6 +392,7 @@ Próximos passos, por esta ordem:
    - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
    - no log do deploy, o `AVISO` do IP do smoke test: se aparecer, aplicar a correção descrita em `docs/cloud.md`, "IP do cliente" (um PR);
+   - na partilha, convidar uma segunda conta (outro email teu), aceitar e ver as compras na app dessa conta;
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 
    O que falhar vem para uma sessão do Claude Code e corrige-se num PR.
@@ -385,5 +401,4 @@ Próximos passos, por esta ordem:
    - pôr o link da app no README e fixá-lo no perfil do GitHub;
    - só então, se fizer falta, a descrição para o CV ou o LinkedIn.
 
-Ideias para depois (do README, por ordem de interesse):
-- Partilhar o arquivo com a família (vários utilizadores na mesma conta).
+Ideias para depois: convidar e aceitar a partilha também na app móvel (hoje só no site).
