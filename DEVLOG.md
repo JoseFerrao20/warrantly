@@ -197,9 +197,28 @@
   - **Decisão:** gerar a partir de código e não de um ficheiro de um editor de imagem. Mudar a cor ou o traço é uma linha, e o histórico mostra o que mudou.
   - **Lição:** o ícone adaptativo do Android só garante o centro (66 %). Com o escudo ao tamanho do ícone do iOS, o recorte circular cortava-lhe as pontas, por isso a frente usa o escudo a 72 %.
 
+- **2026-10-19 (sessão cloud do Claude Code):** lista de sessões na app móvel.
+  - **Ecrã novo "A tua conta"** (`src/app/conta.tsx`), aberto pelo "Conta" no cabeçalho do painel, com:
+    - o email;
+    - as sessões, com "Este telemóvel" marcado e "Terminar" em cada uma das outras;
+    - "Sair dos outros aparelhos";
+    - o "Sair".
+
+    Usa as rotas que a API já tinha (`GET /auth/sessions`, `DELETE /auth/sessions/{id}` e `POST /auth/sessions/end-others`).
+  - **O "Sair" saiu do cabeçalho do painel e passou para a conta.** Assim não se sai por um toque sem querer, e fica tudo o que é da conta no mesmo sítio.
+  - **Testes:** 5 novos na app (37):
+    - a lista com este telemóvel marcado;
+    - terminar outra sessão;
+    - sair dos outros;
+    - sem outros aparelhos não há botão;
+    - o erro ao terminar.
+
+    Os três testes que carregavam em "Sair" no painel passam por um ajudante novo, `logOut()`, que abre a conta primeiro. O lint, os tipos e o bundle de Android passam.
+  - **O plano** passou a seguir a ordem que o José decidiu: primeiro terminar a app (deploy e testes no telemóvel), depois preparar o repositório para o mostrar. A descrição para o CV fica para o fim.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 39 PRs. Tudo está testado no CI: backend com 279 testes, frontend com 85, app móvel com 32, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 40 PRs. Tudo está testado no CI: backend com 279 testes, frontend com 85, app móvel com 37, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -238,7 +257,17 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximos passos: tornar o repositório público (liga também o CodeQL e os badges do README), descrever o projeto no CV e no LinkedIn e, depois do deploy, pôr o link da app no README. Na app móvel: a lista de sessões (a API já a tem) e ver o ícone e o ecrã de arranque numa development build. No push, depois de o testar no telemóvel: desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar). Na AWS, ver na página da conta que o aparelho aparece bem ("Chrome no Windows") e que terminar a sessão do telemóvel o põe a pedir o login.
+Próximos passos, por esta ordem:
+1. **Terminar a app.** Fazer o deploy na AWS (acima). Depois, testar no telemóvel:
+   - o ícone, o ecrã de arranque e o push numa development build;
+   - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
+   - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
+
+   O que falhar vem para uma sessão do Claude Code e corrige-se num PR.
+2. **Mostrar o repositório,** depois de a app estar terminada:
+   - torná-lo público (liga também o CodeQL e os badges do README);
+   - pôr o link da app no README e fixá-lo no perfil do GitHub;
+   - só então, se fizer falta, a descrição para o CV ou o LinkedIn.
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).

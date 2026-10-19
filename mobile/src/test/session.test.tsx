@@ -2,7 +2,15 @@ import * as SecureStore from 'expo-secure-store'
 import { fireEvent, screen, waitFor } from 'expo-router/testing-library'
 
 import { api } from '@/lib/api'
-import { USER, makePurchase, mockApi, renderApp, resetStorage, signIn } from '@/test/utils'
+import {
+  USER,
+  logOut,
+  makePurchase,
+  mockApi,
+  renderApp,
+  resetStorage,
+  signIn,
+} from '@/test/utils'
 
 beforeEach(() => resetStorage())
 
@@ -89,7 +97,7 @@ test('"Sair" revoga a sessão na API e apaga os tokens do telemóvel', async () 
   const calls = mockApi({ 'GET /auth/me': USER, 'GET /purchases': [] })
   const app = await renderApp()
 
-  await fireEvent.press(await screen.findByRole('button', { name: 'Sair' }))
+  await logOut()
 
   await waitFor(() => expect(app.getPathname()).toBe('/entrar'))
   const logout = calls.find((c) => c.url.endsWith('/auth/logout'))!
