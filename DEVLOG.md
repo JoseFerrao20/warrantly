@@ -127,9 +127,25 @@
   - **Decisão:** no `dependabot.yml`, a app só recebe versões maiores do TypeScript e do ESLint com o SDK do Expo, e o `@types/node` não salta de versão maior sozinho, nem no site nem na app (deve acompanhar o Node do CI e do Docker). Com a configuração no `main`, o Dependabot refaz os PRs sem esses saltos.
   - **Lição:** um PR agrupado mistura correções pequenas com saltos grandes. Basta um salto partido para bloquear todas as atualizações, por isso as exceções ficam escritas na configuração.
 
+- **2026-10-19 (sessão cloud do Claude Code):** verificações automáticas da app publicada (smoke test).
+  - **O quê:** `scripts/smoke_test.py`, só com a biblioteca padrão do Python, corre contra um endereço e falha se algo estiver errado. São 26 verificações:
+    - a API e a base de dados;
+    - o frontend na raiz e nas rotas do React;
+    - os cabeçalhos (CSP sem scripts inline, `frame-ancestors 'none'`, HSTS de um ano, `nosniff`, `DENY`, `no-referrer`);
+    - o `/api/docs` e o `/api/openapi.json` com 404, e o 403 em `/api/internal/events`;
+    - o ciclo da sessão: criar conta, entrar, o cookie `warrantly_refresh` com `Secure`, `HttpOnly`, `SameSite=Strict` e caminho `/api/auth`, o token de acesso aceite, o 401 sem token, a renovação com rotação e, no fim, apagar a conta;
+    - os logins errados a acabarem em 429.
+  - **Onde corre:** no fim do deploy (substitui os dois `curl`) e no CI do Docker, contra o contentor de produção. No Docker, o limite de tentativas fica de fora (`--no-rate-limit`), porque os E2E correm com `RATE_LIMITS=false`. O ruff do CI passa também por `scripts/`.
+  - **Decisões:**
+    - **A conta de teste:** é `smoke-…@example.com`, aleatória, e apaga-se num `finally`. Assim não fica lixo na base de dados de produção, mesmo quando uma verificação falha a meio.
+    - **O limite de tentativas:** está em memória em cada instância do Lambda. Com pedidos seguidos responde quase sempre a mesma, mas não é garantido, por isso aceita-se o 429 em qualquer das 10 tentativas, para o deploy não falhar por azar.
+    - **Os alarmes:** a renovação da sessão faz-se uma só vez, porque reutilizar o refresh token dispararia o alarme de roubo de sessão. Não há alarme para os logins falhados.
+  - **Teste do teste:** contra um servidor local em modo de produção dá tudo certo. Em modo de desenvolvimento falha onde deve: o `/api/docs` aberto e o cookie sem `Secure`.
+  - **Lição:** escrever o teste obrigou a ler o que a AWS acrescenta e o que a app já envia. Os cabeçalhos vêm da app e são repetidos pelo CloudFront, por isso o mesmo teste serve para o contentor e para a AWS.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 33 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 35 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -155,7 +171,13 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   4. segredos no SSM (`SECRET_KEY`, `ALERTS_TOKEN`, `DATABASE_URL`);
   5. variáveis e segredo no GitHub;
   6. Actions → Deploy → Run workflow; confirmar o email do SES;
-  7. verificações: fatura PDF inteira (CSP), cabeçalhos, `/api/docs` com 404, 6 logins errados dão "Demasiadas tentativas", o cookie `warrantly_refresh` com `Secure` e `HttpOnly` (DevTools → Application → Cookies) e a sessão a continuar depois de 15 minutos, o dashboard do CloudWatch (output `dashboard_url`), uma pesquisa por `request_id` no Logs Insights e o email de confirmação dos alarmes (variável `ALARM_EMAIL`), o Lambda testado com o evento `{"task": "alerts"}` e o 403 em `POST /api/internal/events` (ver o runbook);
+  7. verificações: o último passo do deploy corre o `scripts/smoke_test.py` (cabeçalhos, rotas fechadas, cookie, limite de tentativas; ver o resultado no log do job). À mão:
+     - a fatura PDF a abrir inteira (CSP);
+     - a sessão a continuar depois de 15 minutos;
+     - o dashboard do CloudWatch (output `dashboard_url`);
+     - uma pesquisa por `request_id` no Logs Insights;
+     - o email de confirmação dos alarmes (variável `ALARM_EMAIL`);
+     - o Lambda testado com o evento `{"task": "alerts"}` (ver o runbook);
   8. commit dos `.terraform.lock.hcl`.
   - Se algo falhar, copiar o erro (do Actions ou do terminal) para a sessão do Claude Code e corrigir num PR.
 - [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério e ver o que a leitura preenche. Anotar o que correr mal.

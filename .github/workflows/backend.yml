@@ -51,8 +51,8 @@ jobs:
 
       - name: Lint e formatação (ruff)
         run: |
-          ruff check --output-format=github .
-          ruff format --check .
+          ruff check --output-format=github . ../scripts
+          ruff format --check . ../scripts
 
       - name: Migrações (upgrade, downgrade e check)
         run: |

@@ -99,14 +99,18 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    - Pôr esse endereço na variável `APP_URL`, para correr os alertas à mão (Actions → Alertas). Os diários correm sozinhos, com o EventBridge Scheduler.
 7. **SES**: confirmar o email de verificação que a AWS envia para `MAIL_FROM_ADDRESS`. Enquanto o SES estiver em "sandbox", só envia para endereços verificados, por isso verifica também o teu (SES → Identities).
 8. **Verificações**
+   - O último passo do deploy corre `scripts/smoke_test.py` contra o `APP_URL` e falha se algo não estiver certo. Verifica:
+     - a API e a base de dados (`/api/health`);
+     - os cabeçalhos de segurança (CSP, HSTS e os outros);
+     - o `/api/docs` com 404 e o 403 em `POST /api/internal/events`;
+     - o cookie da sessão (`Secure`, `HttpOnly`, `SameSite=Strict`, caminho `/api/auth`) e a renovação da sessão;
+     - os logins errados seguidos a darem "Demasiadas tentativas".
+
+     Cria uma conta `smoke-…@example.com` e apaga-a no fim. Corre também à mão: `python3 scripts/smoke_test.py <APP_URL>`.
    - Criar conta e registar uma compra com uma fatura PDF; a fatura abre inteira.
    - Fotografia grande (até 10 MB), com a leitura a preencher os campos. Vai do browser diretamente para o S3; no browser, em Rede, o POST vai para `…s3.eu-central-1.amazonaws.com`.
-   - `curl -sI <APP_URL> | grep -i content-security` mostra a CSP.
-   - `<APP_URL>/api/docs` dá 404.
-   - 6 logins errados seguidos dão "Demasiadas tentativas".
    - Em CloudWatch → Log groups → `/aws/lambda/warrantly-api`, os logs aparecem.
    - Alertas agendados: Lambda → `warrantly-api` → Testar, com o evento `{"task": "alerts"}`; a resposta tem `emails_sent`. Ver também o agendamento em EventBridge → Scheduler → Schedules.
-   - `curl -s -X POST <APP_URL>/api/internal/events -H 'Content-Type: application/json' -d '{"task":"alerts"}'` dá 403: a rota só aceita eventos do próprio Lambda.
 9. **Lock files do Terraform**: depois do primeiro `terraform init` em `infra/bootstrap` e `infra/app`, fazer commit dos ficheiros `.terraform.lock.hcl`. Fixam as versões exatas dos providers; não foi possível gerá-los na sessão cloud.
 
 A partir daqui, cada merge no `main` com o CI verde é publicado sozinho. Em cada PR que mexa em `infra/`, o workflow Infra mostra o `terraform plan`.

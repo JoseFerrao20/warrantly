@@ -151,7 +151,7 @@ jobs:
       - name: Verificar a app publicada
         if: steps.config.outputs.ready == 'true'
         run: |
-          # O primeiro pedido acorda o Lambda e o Neon: pode demorar alguns segundos.
-          curl -fsS --retry 5 --retry-delay 10 --retry-all-errors "$APP_URL/api/health"
-          curl -fsS "$APP_URL/" | grep -q "<title>Warrantly</title>"
+          # Saúde da API, cabeçalhos, rotas fechadas, cookie da sessão e limite de tentativas.
+          # Cria uma conta smoke-…@example.com e apaga-a no fim.
           echo "### Publicado em $APP_URL" >> "$GITHUB_STEP_SUMMARY"
+          python3 scripts/smoke_test.py "$APP_URL"
