@@ -7,6 +7,15 @@ export interface User {
   created_at: string
 }
 
+/** Uma sessão aberta (um aparelho com login feito), na página da conta. */
+export interface UserSession {
+  id: number
+  device: string
+  created_at: string
+  last_used_at: string
+  current: boolean
+}
+
 export interface Purchase {
   id: number
   product_name: string

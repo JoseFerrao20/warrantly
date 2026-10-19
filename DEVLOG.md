@@ -143,9 +143,25 @@
   - **Teste do teste:** contra um servidor local em modo de produção dá tudo certo. Em modo de desenvolvimento falha onde deve: o `/api/docs` aberto e o cookie sem `Secure`.
   - **Lição:** escrever o teste obrigou a ler o que a AWS acrescenta e o que a app já envia. Os cabeçalhos vêm da app e são repetidos pelo CloudFront, por isso o mesmo teste serve para o contentor e para a AWS.
 
+- **2026-10-19 (sessão cloud do Claude Code):** lista de sessões na página da conta.
+  - **Backend:**
+    - **A tabela:** `user_sessions`, com uma linha por sessão (o aparelho, a entrada e a última renovação). Os refresh tokens apontam para ela com `ON DELETE CASCADE`.
+    - **As rotas:** `GET /auth/sessions`, `DELETE /auth/sessions/{id}` e `POST /auth/sessions/end-others`.
+    - **O aparelho:** sai do `User-Agent` ("Chrome no Windows") ou, na app, do cabeçalho `X-Device-Name` com o modelo do telemóvel. Não se guarda o IP.
+    - **A migração:** cria uma sessão para cada família de tokens que já existia ("Aparelho desconhecido"), antes de pôr a chave estrangeira. Testada com dados, com upgrade, downgrade e `alembic check`.
+  - **Revogação imediata:** o token de acesso leva o id da sessão (`sid`), e o `get_current_user` confirma que a sessão ainda existe. Terminar uma sessão, sair ou repor a palavra-passe corta logo o acesso desse aparelho, em vez de esperar até 15 minutos. Os tokens sem `sid` (de antes do deploy) servem até expirarem.
+  - **Site:** secção "Sessões" na conta. Mostra a lista, com "Este aparelho" marcado, "Terminar" em cada uma das outras e "Sair dos outros aparelhos".
+  - **App:** manda o modelo no login. Mostrar a lista na app fica para depois.
+  - **Testes:** 23 novos no backend (270), 5 no frontend (85) e 3 na app (32). Há também um E2E com dois browsers: um termina a sessão do outro, e o outro volta ao login na página seguinte (24 E2E). O ADR 0004 ganhou uma atualização.
+  - **Decisões:**
+    - **"Sair dos outros aparelhos" em vez de "sair de todos":** para sair deste, já há o "Sair". O caso real é um telemóvel perdido, visto a partir do portátil.
+    - **Uma consulta por pedido:** é o preço da revogação imediata. É pela chave única, e a API já ia buscar o utilizador; num projeto maior, uma cache curta resolveria.
+    - **O nome do aparelho na app:** é o modelo ("Pixel 8"), não o nome que a pessoa deu ao telemóvel. Só leva ASCII, porque um cabeçalho HTTP com acentos pode partir o pedido.
+  - **Lição:** o `test_internal.py` falhou com `emails_sent == 2`, mas também falhava no `main`. Era um utilizador `e2e-…` que tinha ficado na base de dados de desenvolvimento com compras a expirar. Ficou escrito no `CLAUDE.md`: limpar os utilizadores dos E2E antes de correr o pytest.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 35 PRs. Tudo está testado no CI: backend com 247 testes, frontend com 80, app móvel com 29, 23 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 37 PRs. Tudo está testado no CI: backend com 270 testes, frontend com 85, app móvel com 32, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -154,7 +170,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (247 testes, sem avisos) e `cd frontend && npm test` (80 testes).
+  - `cd backend && alembic upgrade head && pytest` (270 testes, sem avisos) e `cd frontend && npm test` (85 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -162,7 +178,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
     - só com o teclado e, se possível, com o leitor de ecrã;
     - na conta: tema, e "Descarregar ZIP" (abrir o `compras.csv` no Excel ou no LibreOffice).
   - Uma compra com menos de 60 dias de garantia: `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025). Na mesma compra, gerar a reclamação e descarregar o PDF.
-  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (23 testes).
+  - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (24 testes).
   - Anotar aqui o que falhar; não gastar mais de 35 min.
 - [ ] **0:45–2:30 · Primeiro deploy na AWS**: seguir [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez), passo a passo, lendo cada `terraform plan` antes do `apply`:
   1. conta AWS com MFA e utilizador no IAM Identity Center (`aws sso login`);
@@ -184,7 +200,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
-Próximos passos: tornar o repositório público (liga também o CodeQL e os badges do README), descrever o projeto no CV e no LinkedIn e, depois do deploy, pôr o link da app no README. Na app móvel: ícone próprio e ler os "receipts" do push. Nas sessões: "sair de todos os aparelhos" e a lista de sessões ativas na página da conta (a tabela `refresh_tokens` já tem o necessário).
+Próximos passos: tornar o repositório público (liga também o CodeQL e os badges do README), descrever o projeto no CV e no LinkedIn e, depois do deploy, pôr o link da app no README. Na app móvel: ícone próprio, ler os "receipts" do push e a lista de sessões (a API já a tem). Na AWS, ver na página da conta que o aparelho aparece bem ("Chrome no Windows") e que terminar a sessão do telemóvel o põe a pedir o login.
 
 Ideias para depois (do README, por ordem de interesse):
 - Partilhar o arquivo com a família (vários utilizadores na mesma conta).

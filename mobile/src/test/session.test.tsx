@@ -31,7 +31,9 @@ test('o login pede o refresh token no corpo e guarda-o no armazenamento seguro',
 
   await screen.findByText(/Ainda não tens compras/)
   const login = calls.find((c) => c.url.endsWith('/auth/login'))!
-  expect((login.init.headers as Record<string, string>)['X-Client']).toBe('mobile')
+  const headers = login.init.headers as Record<string, string>
+  expect(headers['X-Client']).toBe('mobile')
+  expect(headers['X-Device-Name']).toMatch(/^(iOS|Android)$/) // o simulado não tem modelo
   expect(await SecureStore.getItemAsync('warrantly.token')).toBe('abc')
   expect(await SecureStore.getItemAsync('warrantly.refreshToken')).toBe('refresh-1')
 })

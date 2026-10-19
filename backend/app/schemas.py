@@ -186,3 +186,19 @@ class Token(BaseModel):
 
 class RefreshRequest(BaseModel):
     refresh_token: str | None = Field(default=None, max_length=200)
+
+
+class SessionRead(BaseModel):
+    """Uma sessão (um aparelho com login feito) na página da conta."""
+
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    device: str
+    created_at: datetime
+    last_used_at: datetime
+    current: bool = False  # a sessão deste pedido ("este aparelho")
+
+
+class SessionsEnded(BaseModel):
+    ended: int

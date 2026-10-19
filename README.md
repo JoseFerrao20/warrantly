@@ -2,7 +2,7 @@
 
 **Arquivo de garantias:** guarda as faturas das tuas compras, calcula até quando cada uma está na garantia, avisa-te antes de expirar e, quando algo avaria, escreve a reclamação para a loja.
 
-Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura na AWS em Terraform, CI/CD no GitHub Actions e cerca de 380 testes automáticos.
+Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura na AWS em Terraform, CI/CD no GitHub Actions e cerca de 410 testes automáticos.
 
 [![Backend](https://github.com/JoseFerrao20/warrantly/actions/workflows/backend.yml/badge.svg)](https://github.com/JoseFerrao20/warrantly/actions/workflows/backend.yml)
 [![Frontend](https://github.com/JoseFerrao20/warrantly/actions/workflows/frontend.yml/badge.svg)](https://github.com/JoseFerrao20/warrantly/actions/workflows/frontend.yml)
@@ -35,7 +35,7 @@ Em Portugal, os bens novos têm 3 anos de garantia legal (Decreto-Lei n.º 84/20
 - **Alertas.** Recebes um email e uma notificação na app móvel 60 e 15 dias antes do fim.
 - **Reclamação pronta.** A carta já vem preenchida com os dados da compra e a descrição da avaria, em PDF com a fatura anexada. Abre no teu email com tudo escrito.
 - **Exportar.** Um ZIP com todas as compras (CSV para o Excel e JSON) e as faturas.
-- **Conta.** Recuperação da palavra-passe por email, sessões longas e apagar a conta com todos os dados.
+- **Conta.** Recuperação da palavra-passe por email, sessões longas, a lista dos aparelhos com sessão aberta (para terminar a de um telemóvel perdido) e apagar a conta com todos os dados.
 - **App móvel** (Android e iOS). Vês as garantias e registas uma compra fotografando a fatura na loja.
 
 ## Arquitetura
@@ -83,7 +83,7 @@ flowchart LR
   - Os PDF com texto são lidos diretamente; as fotografias passam por OCR com o Tesseract, no próprio servidor.
   - A app sugere os campos e preenche só os que estão vazios: a pessoa confirma sempre.
   - O tipo do ficheiro é reconhecido pelos bytes, não pelo nome, e as fotografias HEIC do iPhone são convertidas para JPEG.
-- **Sessões seguras.** O token de acesso dura 15 minutos e o refresh token **muda a cada uso**: se um já usado voltar a aparecer, a sessão desse aparelho é revogada. No browser, o refresh token vai num cookie `HttpOnly` e `SameSite=Strict`; na app, no armazenamento seguro do telemóvel ([ADR 0004](docs/adr/0004-sessoes-com-refresh-token.md)).
+- **Sessões seguras.** O token de acesso dura 15 minutos e o refresh token **muda a cada uso**: se um já usado voltar a aparecer, a sessão desse aparelho é revogada. Na conta, a lista de sessões deixa terminar a de outro aparelho, e o corte é imediato: o token de acesso leva o id da sessão. No browser, o refresh token vai num cookie `HttpOnly` e `SameSite=Strict`; na app, no armazenamento seguro do telemóvel ([ADR 0004](docs/adr/0004-sessoes-com-refresh-token.md)).
 - **Recuperar a palavra-passe sem guardar tokens.**
   - O link leva um JWT com uma impressão do hash da palavra-passe, por isso deixa de servir assim que a palavra-passe muda.
   - O token vai no fragmento do URL, que nunca chega aos logs do servidor.
@@ -100,10 +100,10 @@ flowchart LR
 
 | | Testes | No CI |
 | --- | --- | --- |
-| Backend | 247 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
-| Frontend | 80 (Vitest e Testing Library) | oxlint, TypeScript, build |
-| App móvel | 29 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
-| De ponta a ponta | 23 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
+| Backend | 270 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
+| Frontend | 85 (Vitest e Testing Library) | oxlint, TypeScript, build |
+| App móvel | 32 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
+| De ponta a ponta | 24 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
 | Infraestrutura | — | `terraform validate` e, com a AWS configurada, o `plan` em cada PR |
 | App publicada | 26 verificações (`scripts/smoke_test.py`: cabeçalhos, rotas fechadas, cookie da sessão, limite de tentativas) | no fim de cada deploy e contra o contentor de produção |
 

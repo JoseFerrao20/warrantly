@@ -20,7 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.config import settings
 from app.mailer import build_message
-from app.models import RefreshToken, User
+from app.models import User, UserSession
 from app.security import ALGORITHM, hash_password
 
 RESET_TOKEN_MINUTES = 60
@@ -88,5 +88,6 @@ def build_reset_email(user: User, token: str) -> EmailMessage:
 def reset_password(session: Session, user: User, password: str) -> None:
     """Muda a palavra-passe e termina todas as sessões (quem a roubou deixa de ter acesso)."""
     user.password_hash = hash_password(password)
-    session.execute(delete(RefreshToken).where(RefreshToken.user_id == user.id))
+    # Os refresh tokens vão com as sessões (ON DELETE CASCADE).
+    session.execute(delete(UserSession).where(UserSession.user_id == user.id))
     session.commit()

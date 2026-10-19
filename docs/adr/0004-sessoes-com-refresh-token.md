@@ -22,4 +22,12 @@ O login devolvia um JWT de 60 minutos e nada mais. Passada uma hora, era preciso
 - Um pedido extra a cada 15 minutos de uso e uma tabela nova. Os tokens gastos são apagados na rotação seguinte, por isso a tabela não cresce sem fim.
 - Um token de acesso roubado serve no máximo 15 minutos. Um refresh token roubado é detetado quando os dois (o legítimo e o ladrão) o usam.
 - O token de acesso do site continua no `localStorage` (um XSS ainda o pode usar durante 15 minutos). Passá-lo para memória obrigaria a uma renovação em cada abertura da página; fica para depois, se valer a pena.
-- Ainda não há "sair de todos os aparelhos" nem uma lista de sessões ativas. A tabela já tem o que é preciso para isso.
+- ~~Ainda não há "sair de todos os aparelhos" nem uma lista de sessões ativas.~~ Ver a atualização abaixo.
+
+## Atualização (2026-10-19): lista de sessões
+
+- **Uma linha por sessão.** A tabela `user_sessions` tem uma linha por família: o aparelho, a hora de entrada e a última renovação. Os refresh tokens apontam para ela, com `ON DELETE CASCADE`: apagar a sessão apaga os tokens. A rotação apaga os tokens gastos, por isso só com eles não se sabia quando a sessão começou.
+- **O aparelho** vem do `User-Agent` ("Chrome no Windows") ou, na app, do cabeçalho `X-Device-Name` com o modelo do telemóvel. Serve só para a pessoa reconhecer o aparelho. Não se guarda o IP.
+- **Na página da conta:** a lista das sessões, com "Este aparelho" marcado, "Terminar" em cada uma das outras e "Sair dos outros aparelhos" (`GET /auth/sessions`, `DELETE /auth/sessions/{id}` e `POST /auth/sessions/end-others`).
+- **Revogação imediata.** O token de acesso passou a levar o id da sessão (`sid`), e cada pedido confirma que a sessão ainda existe. Terminar uma sessão, sair ou repor a palavra-passe corta logo o acesso desse aparelho, em vez de esperar até 15 minutos. Custa uma consulta por pedido, pela chave única, e a API já ia à base de dados buscar o utilizador. Os tokens sem `sid` (emitidos antes desta mudança) servem até expirarem.
+- As sessões sem renovações há mais de 30 dias são apagadas quando a pessoa abre a lista.

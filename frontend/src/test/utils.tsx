@@ -27,6 +27,7 @@ export function mockApi(routes: Record<string, Handler | { status?: number; body
     // Por omissão, a sessão não se renova (o 401 volta ao login) e sair funciona.
     'POST /auth/refresh': { status: 401, body: { detail: 'Sessão terminada. Entra outra vez.' } },
     'POST /auth/logout': { status: 204 },
+    'GET /auth/sessions': { body: [] },
     ...routes,
   }
   const fetchMock = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {

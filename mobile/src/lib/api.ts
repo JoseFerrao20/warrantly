@@ -2,6 +2,8 @@ import * as SecureStore from 'expo-secure-store'
 
 import type { InvoiceScan, Purchase, PurchaseInput, UploadTicket, User } from '@/shared/types'
 
+import { deviceName } from './device'
+
 // Endereço da API (ver .env.example): em desenvolvimento, o computador na rede local; na AWS,
 // o CloudFront com /api.
 export const API_URL = (process.env.EXPO_PUBLIC_API_URL ?? 'http://localhost:8000').replace(
@@ -129,8 +131,13 @@ export const api = {
     const body = `username=${encodeURIComponent(email)}&password=${encodeURIComponent(password)}`
     return request<Session>('/auth/login', {
       method: 'POST',
-      // A app não tem cookies: pede o refresh token no corpo da resposta.
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Client': 'mobile' },
+      // A app não tem cookies: pede o refresh token no corpo da resposta. O nome do telemóvel
+      // aparece na lista de sessões da conta.
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'X-Client': 'mobile',
+        'X-Device-Name': deviceName(),
+      },
       body,
     })
   },
