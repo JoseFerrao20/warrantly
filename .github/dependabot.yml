@@ -10,16 +10,22 @@ updates:
       backend:
         patterns: ["*"]
 
+  # O @types/node não salta de versão maior sozinho: deve acompanhar o Node do CI e do Docker.
   - package-ecosystem: npm
     directory: /frontend
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       frontend:
         patterns: ["*"]
 
   # A app móvel segue o SDK do Expo: o Expo, o React e o React Native só mudam de versão com o
-  # SDK (npx expo install --fix). Aqui entram só correções (patch) desses pacotes.
+  # SDK (npx expo install --fix). Aqui entram só correções (patch) desses pacotes. O TypeScript e
+  # o ESLint também: o eslint-config-expo usa a API JavaScript do TypeScript, que o TypeScript 7
+  # (em Go) já não tem, e ainda não suporta o ESLint 10.
   - package-ecosystem: npm
     directory: /mobile
     schedule:
@@ -37,6 +43,12 @@ updates:
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
       - dependency-name: "jest-expo"
         update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
     groups:
       mobile:
         patterns: ["*"]
