@@ -28,6 +28,14 @@ jobs:
       - name: Instalar dependências
         run: npm ci
 
+      # As versões que o SDK do Expo espera (React, React Native, módulos expo-*). O React
+      # Native traz um renderer feito para uma versão exata do React: os testes e o bundle não
+      # dão por uma diferença, mas o Expo avisa que a app pode não funcionar no telemóvel.
+      - name: Versões do SDK do Expo
+        run: npx expo install --check
+        env:
+          EXPO_OFFLINE: "1"
+
       - name: Lint
         run: npm run lint
 
