@@ -66,7 +66,10 @@ def test_rate_limit_stores_no_emails_or_ips(db_session: Session):
 
     limiter.hit(db_session, "ana@example.com")
 
-    [event] = db_session.scalars(select(RateLimitEvent)).all()
+    # Só as deste teste: a base de dados de desenvolvimento pode ter tentativas de outras corridas.
+    [event] = db_session.scalars(
+        select(RateLimitEvent).where(RateLimitEvent.bucket == "teste")
+    ).all()
     assert event.bucket == "teste"
     assert len(event.key_hash) == 64 and "ana" not in event.key_hash
 
@@ -79,7 +82,10 @@ def test_old_rate_limit_events_are_deleted(db_session: Session):
 
     limiter.hit(db_session, "b")  # cada tentativa registada limpa as antigas
 
-    assert db_session.scalar(select(func.count()).select_from(RateLimitEvent)) == 1
+    remaining = (
+        select(func.count()).select_from(RateLimitEvent).where(RateLimitEvent.bucket == "teste")
+    )
+    assert db_session.scalar(remaining) == 1
 
 
 def login(client: TestClient, email: str, password: str):

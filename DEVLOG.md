@@ -304,9 +304,26 @@
     Os 6 testes da compra nova continuam a passar. O lint, os tipos e o bundle de Android também.
   - **Com isto, só exportar os dados (ZIP) continua a ser exclusivo do site.**
 
+- **2026-10-19 (sessão cloud do Claude Code):** revisão antes do primeiro deploy.
+  - **O que se reviu:** o roteiro (`docs/cloud.md`) e o Terraform, à luz do que entrou depois de terem sido escritos (tabelas novas, o segundo agendamento, o limite de tentativas no Postgres, o token em memória no site, a app móvel completa).
+  - **O que está bem:**
+    - as migrações correm no deploy antes do Lambda novo;
+    - o segundo agendamento usa o mesmo papel e a mesma rota protegida;
+    - o CORS do bucket e a CSP do CloudFront deixam o browser enviar a fatura para o S3;
+    - o Lambda tem 1536 MB e 60 s para o OCR e o PDF;
+    - o `EXPO_PUBLIC_API_URL` das builds da app está no `docs/push.md`.
+  - **Os cabeçalhos no CloudFront:** no `/api/*`, a cache está desligada e a política de origem é a `AllViewerExceptHostHeader`. É a combinação que a AWS documenta para passar o `Authorization` também nos GET, e passa também o `Cookie`, o `X-Client` e o `X-Device-Name`, de que a app e o site precisam. O smoke test do deploy faz um `GET /api/auth/me` com o token, por isso um erro aqui seria apanhado logo.
+  - **O que se encontrou: o IP do cliente pode ser inventado.**
+    - O uvicorn corre com `--forwarded-allow-ips='*'` e usa a primeira entrada do `X-Forwarded-For`, que quem faz o pedido pode escrever. Os limites só por IP (contas novas por IP, logins falhados de um IP) não servem; os limites por email continuam a travar quem tenta adivinhar a palavra-passe de uma conta.
+    - Mudar isto às cegas era pior: se a app passasse a ver o IP do CloudFront, todos os utilizadores partilhariam o mesmo limite.
+    - Por isso, o smoke test ganhou uma verificação que só avisa: 6 logins errados, cada um com um IP inventado, e um `AVISO` se nenhum der 429. Testei-a nos dois sentidos (avisa com o uvicorn a acreditar no cabeçalho, "ok" com `--no-proxy-headers`).
+    - A correção ficou descrita no `docs/cloud.md` ("IP do cliente"), para depois do primeiro deploy: um cabeçalho secreto do CloudFront e o `CloudFront-Viewer-Address`.
+  - **Lição:** o uvicorn liga o `--proxy-headers` por omissão e confia em `127.0.0.1`. Num teste local, a app acredita sempre no `X-Forwarded-For`, mesmo sem a opção na linha de comando.
+  - **De caminho:** dois testes do limite de tentativas contavam com a tabela `rate_limit_events` vazia, e falharam com as linhas que os smoke tests locais deixaram na base de dados de desenvolvimento. Passaram a contar só as linhas do limite de teste.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 45 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 87, app móvel com 55, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 87, app móvel com 55, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -351,6 +368,7 @@ Próximos passos, por esta ordem:
    - abrir a fatura de uma compra (o menu do sistema deve mostrar o visualizador de PDF ou de imagens), juntar ou trocar a fatura com uma fotografia, editar e apagar;
    - reclamar à loja: o email do telemóvel deve abrir com a carta e o PDF em anexo (enviar para ti próprio);
    - no push, desinstalar a app, correr os alertas e, meia hora depois, ver no log "Recibos de push" a app desinstalada (Lambda → Testar com `{"task": "push-receipts"}`, para não esperar);
+   - no log do deploy, o `AVISO` do IP do smoke test: se aparecer, aplicar a correção descrita em `docs/cloud.md`, "IP do cliente" (um PR);
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 
    O que falhar vem para uma sessão do Claude Code e corrige-se num PR.
