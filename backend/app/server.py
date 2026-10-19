@@ -8,12 +8,13 @@ Em desenvolvimento continua a usar-se `app.main:app` (com o Vite à parte); em p
 from pathlib import Path
 
 from fastapi import FastAPI
-from fastapi.responses import FileResponse
-from starlette.datastructures import MutableHeaders
+from fastapi.responses import FileResponse, JSONResponse
+from starlette.datastructures import Headers, MutableHeaders
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.staticfiles import StaticFiles
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
+from app import origin
 from app.config import settings
 from app.main import app as api
 
@@ -70,6 +71,36 @@ class SecurityHeadersMiddleware:
         await self.app(scope, receive, send_with_headers)
 
 
+# Os pedidos à API que não passam pelo CloudFront, e que por isso não trazem o segredo: a
+# verificação de saúde do Lambda Web Adapter e os eventos agendados (ADR 0006), que têm a sua
+# própria proteção.
+WITHOUT_ORIGIN_SECRET = {"/api/health/live", "/api/internal/events"}
+
+
+class OriginVerifyMiddleware:
+    """Com ORIGIN_VERIFY_SECRET definido, a API só responde a pedidos vindos do CloudFront.
+
+    Fecha o acesso direto à Function URL do Lambda, que é pública (ver app/origin.py).
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        path = scope.get("path", "")
+        if (
+            scope["type"] == "http"
+            and settings.origin_verify_secret
+            and path.startswith("/api/")
+            and path not in WITHOUT_ORIGIN_SECRET
+            and not origin.from_cloudfront(Headers(scope=scope))
+        ):
+            response = JSONResponse({"detail": "Acesso direto não permitido"}, status_code=403)
+            await response(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
 class SPAStaticFiles(StaticFiles):
     """Ficheiros do frontend; caminhos que não existem (ex.: /compras/3) devolvem o index.html."""
 
@@ -88,7 +119,8 @@ class SPAStaticFiles(StaticFiles):
 
 def create_server(static_dir: Path | None) -> FastAPI:
     server = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-    server.add_middleware(SecurityHeadersMiddleware)
+    server.add_middleware(OriginVerifyMiddleware)
+    server.add_middleware(SecurityHeadersMiddleware)  # a última fica por fora: também no 403
     server.mount("/api", api)
     if static_dir and (static_dir / "index.html").is_file():
         server.mount("/", SPAStaticFiles(directory=static_dir, html=True), name="frontend")

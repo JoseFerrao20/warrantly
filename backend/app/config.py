@@ -70,6 +70,11 @@ class Settings(BaseSettings):
     # diário no GitHub Actions. Sem token, a rota não existe.
     alerts_token: str | None = Field(default=None, min_length=32)
 
+    # Segredo que o CloudFront junta a cada pedido à API (cabeçalho X-Origin-Verify; ver
+    # app/origin.py). Com ele definido, os pedidos à API sem o segredo são recusados e o IP dos
+    # limites de tentativas passa a ser o que o CloudFront viu. Na AWS vem do SSM.
+    origin_verify_secret: str | None = Field(default=None, min_length=32)
+
     # Limite de tentativas no login, no registo e ao apagar a conta (ver app/rate_limit.py).
     # Só se desliga nos testes E2E, que criam muitas contas seguidas a partir do mesmo IP.
     rate_limits: bool = True

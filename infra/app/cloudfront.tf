@@ -30,6 +30,21 @@ resource "aws_cloudfront_function" "spa" {
   code    = file("${path.module}/spa-rewrite.js")
 }
 
+# O IP de quem faz o pedido, para os limites de tentativas da API (ver docs/cloud.md, "IP do
+# cliente").
+resource "aws_cloudfront_function" "api_viewer_ip" {
+  name    = "${var.project}-api-viewer-ip"
+  runtime = "cloudfront-js-2.0"
+  publish = true
+  code    = file("${path.module}/api-viewer-ip.js")
+}
+
+# O segredo que prova à API que o pedido passou pelo CloudFront (cabeçalho X-Origin-Verify).
+# Criado à mão no SSM, como os outros segredos; o Lambda lê-o de lá ao arrancar.
+data "aws_ssm_parameter" "origin_verify_secret" {
+  name = "${local.ssm_path}ORIGIN_VERIFY_SECRET"
+}
+
 # Os mesmos cabeçalhos de segurança que a API envia (backend/app/server.py), para o frontend.
 resource "aws_cloudfront_response_headers_policy" "security" {
   name = "${var.project}-security"
@@ -100,6 +115,11 @@ resource "aws_cloudfront_distribution" "app" {
       origin_ssl_protocols   = ["TLSv1.2"]
       origin_read_timeout    = 60 # o mesmo que o timeout do Lambda (OCR, PDF)
     }
+    # Sem este segredo, a API recusa o pedido: fecha o acesso direto à Function URL.
+    custom_header {
+      name  = "X-Origin-Verify"
+      value = data.aws_ssm_parameter.origin_verify_secret.value
+    }
   }
 
   default_cache_behavior {
@@ -126,6 +146,11 @@ resource "aws_cloudfront_distribution" "app" {
     compress                 = true
     cache_policy_id          = data.aws_cloudfront_cache_policy.disabled.id
     origin_request_policy_id = data.aws_cloudfront_origin_request_policy.all_except_host.id
+
+    function_association {
+      event_type   = "viewer-request"
+      function_arn = aws_cloudfront_function.api_viewer_ip.arn
+    }
   }
 
   restrictions {

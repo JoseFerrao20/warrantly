@@ -28,7 +28,7 @@ A AWS cobra por uso, e alguns serviços custam dinheiro mesmo parados (Postgres 
 
 | Variável | No Lambda | Para quê |
 |---|---|---|
-| `SSM_PARAMETERS_PATH` | `/warrantly/prod/` | Lê os segredos (`SECRET_KEY`, `DATABASE_URL`, `ALERTS_TOKEN` e, opcional, `EXPO_ACCESS_TOKEN` para o push; ver [`push.md`](push.md)) do SSM Parameter Store ao arrancar |
+| `SSM_PARAMETERS_PATH` | `/warrantly/prod/` | Lê os segredos (`SECRET_KEY`, `DATABASE_URL`, `ALERTS_TOKEN`, `ORIGIN_VERIFY_SECRET` e, opcional, `EXPO_ACCESS_TOKEN` para o push; ver [`push.md`](push.md)) do SSM Parameter Store ao arrancar |
 | `APP_URL` | no SSM | Endereço do site nos links dos emails; o Terraform escreve o domínio do CloudFront em `/warrantly/prod/APP_URL` |
 | `DATABASE_POOL` | `null` | Sem pool de ligações na app: o pooler do Neon trata disso |
 | `MAIL_BACKEND` | `ses` | Email pela API do SES, com o papel IAM |
@@ -52,19 +52,19 @@ Outras perguntas úteis:
 - **Erros por rota:** `filter status >= 500 | stats count() by route`
 - **Arranques a frio:** `filter @type = "REPORT" and ispresent(@initDuration) | stats count(), avg(@initDuration)`
 
-## IP do cliente
+## IP do cliente e acesso à API
 
-Os limites de tentativas (`app/rate_limit.py`) contam por IP e por email. O IP vem do `X-Forwarded-For`: o uvicorn corre com `--proxy-headers --forwarded-allow-ips='*'` (Dockerfile) e usa a primeira entrada, e essa quem faz o pedido pode inventar.
+[ADR 0009](adr/0009-api-so-pelo-cloudfront.md). Os limites de tentativas (`app/rate_limit.py`) contam por IP e por email. O `X-Forwarded-For` não serve para o IP: quem faz o pedido pode escrever lá o que quiser. Por isso:
 
-- **O que já protege:** os limites **por email** (20 logins falhados em 15 minutos, 3 pedidos de recuperação por hora) não dependem do IP. Adivinhar a palavra-passe de uma conta continua travado.
-- **O que fica mais fraco:** os limites **só por IP**, ou seja, as contas novas por IP e os logins falhados de um IP em muitos emails.
-- **Como saber:** o `scripts/smoke_test.py`, no fim do deploy, faz 6 logins errados com um IP inventado em cada um e escreve `AVISO a app usa o IP do X-Forwarded-For…` quando o limite não os apanha. É só um aviso: o deploy não falha.
-- **A correção, se o aviso aparecer** (fica para depois do primeiro deploy, porque só se testa na AWS):
-  1. o CloudFront junta a cada pedido para `/api/*` um cabeçalho secreto (origin custom header, por exemplo `X-Origin-Verify`, com um valor no SSM);
-  2. a política de pedidos de origem passa a incluir o `CloudFront-Viewer-Address`, o IP que o próprio CloudFront viu;
-  3. a app só aceita esse IP quando o cabeçalho secreto vem certo, e ignora o `X-Forwarded-For`.
+- uma CloudFront Function no `/api/*` (`infra/app/api-viewer-ip.js`) escreve em `X-Viewer-IP` o IP que o CloudFront viu, por cima do que o cliente enviar;
+- o CloudFront junta a cada pedido à API um segredo, o cabeçalho `X-Origin-Verify`, com o valor de `/warrantly/prod/ORIGIN_VERIFY_SECRET` no SSM;
+- a app (`app/origin.py`) só acredita no `X-Viewer-IP` com o segredo certo, e recusa com 403 os pedidos à API sem ele. Isto fecha o acesso direto à Function URL. As exceções são `/api/health/live` (a verificação do Lambda Web Adapter) e `/api/internal/events` (os agendamentos), que não passam pelo CloudFront.
 
-  De caminho, a app pode recusar os pedidos sem o cabeçalho secreto, o que fecha o acesso direto à Function URL (hoje pública).
+Sem o segredo configurado (desenvolvimento, Docker), o IP é o da ligação, como antes.
+
+**Como verificar:**
+- o smoke test do deploy escreve `ok    um IP inventado no pedido não engana o limite por IP` (ou um `AVISO`, se algo não estiver certo);
+- `curl -s -o /dev/null -w '%{http_code}' "$(terraform -chdir=infra/app output -raw api_function_url)api/health"` dá `403`.
 
 ## Armazenamento das faturas
 
@@ -98,12 +98,14 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    terraform output                               # anotar os 3 valores
    ```
    Depois, confirmar a subscrição no email do AWS Budgets.
-4. **Segredos no SSM Parameter Store**: a app lê-os ao arrancar.
+4. **Segredos no SSM Parameter Store**: a app lê-os ao arrancar. Têm de existir antes do primeiro deploy: o Terraform lê o `ORIGIN_VERIFY_SECRET` para o CloudFront, e o `plan` falha sem ele.
    ```bash
-   aws ssm put-parameter --type SecureString --name /warrantly/prod/SECRET_KEY   --value '<token>'
-   aws ssm put-parameter --type SecureString --name /warrantly/prod/ALERTS_TOKEN --value '<outro-token>'
-   aws ssm put-parameter --type SecureString --name /warrantly/prod/DATABASE_URL --value '<connection string do Neon>'
+   aws ssm put-parameter --type SecureString --name /warrantly/prod/SECRET_KEY           --value '<token>'
+   aws ssm put-parameter --type SecureString --name /warrantly/prod/ALERTS_TOKEN         --value '<outro-token>'
+   aws ssm put-parameter --type SecureString --name /warrantly/prod/ORIGIN_VERIFY_SECRET --value '<mais-um-token>'
+   aws ssm put-parameter --type SecureString --name /warrantly/prod/DATABASE_URL         --value '<connection string do Neon>'
    ```
+   Cada token é diferente, gerado com o comando do início desta secção. O `ORIGIN_VERIFY_SECRET` é o segredo entre o CloudFront e a API (secção "IP do cliente e acesso à API").
 5. **GitHub** (Settings → Secrets and variables → Actions)
    - Variáveis: `AWS_DEPLOY_ROLE_ARN` e `AWS_PLAN_ROLE_ARN` (outputs do bootstrap), `TF_STATE_BUCKET` (output `state_bucket`) e `MAIL_FROM_ADDRESS` (o email que envia os alertas). Opcional: `ALARM_EMAIL` (recebe os alarmes do CloudWatch; confirmar o email da AWS "Subscription Confirmation").
    - Segredo: `ALERTS_TOKEN`, com o mesmo valor do passo 4.
@@ -111,7 +113,11 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    - O workflow cria o ECR, publica a imagem, aplica as migrações no Neon, cria o resto com o Terraform e publica o frontend.
    - O endereço aparece no resumo da execução: `https://<id>.cloudfront.net`.
    - Pôr esse endereço na variável `APP_URL`, para correr os alertas à mão (Actions → Alertas). Os diários correm sozinhos, com o EventBridge Scheduler.
-7. **SES**: confirmar o email de verificação que a AWS envia para `MAIL_FROM_ADDRESS`. Enquanto o SES estiver em "sandbox", só envia para endereços verificados, por isso verifica também o teu (SES → Identities).
+7. **SES**: confirmar o email de verificação que a AWS envia para `MAIL_FROM_ADDRESS`.
+   - **Sandbox:** uma conta nova do SES está em "sandbox" e só envia para endereços verificados (SES → Identities). Isto afeta todos os emails: a confirmação da conta, os convites de partilha, a recuperação da palavra-passe e os alertas.
+   - Para testar sozinho, verificar o teu email (e um segundo, para a partilha) chega.
+   - Antes de convidar outras pessoas, pedir a saída do sandbox (SES → Account dashboard → Request production access). Explicar que são emails transacionais (confirmação de conta e avisos de garantia) e que não há listas de marketing. A resposta da AWS demora um ou dois dias.
+   - As contas `smoke-…@example.com` do smoke test não recebem nada: a app não envia para domínios de exemplo pelo SES (bounces estragavam a reputação da conta).
 8. **Verificações**
    - O último passo do deploy corre `scripts/smoke_test.py` contra o `APP_URL` e falha se algo não estiver certo. Verifica:
      - a API e a base de dados (`/api/health`);
@@ -121,10 +127,12 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
      - os logins errados seguidos a darem "Demasiadas tentativas".
 
      Cria uma conta `smoke-…@example.com` e apaga-a no fim. Corre também à mão: `python3 scripts/smoke_test.py <APP_URL>`.
-   - Criar conta e registar uma compra com uma fatura PDF; a fatura abre inteira.
+   - Acesso direto à Function URL com 403, e o smoke test com `ok` no IP (secção "IP do cliente e acesso à API").
+   - Criar conta com o teu email (verificado no SES): chega o email de confirmação, e o link abre `/confirmar-email` e tira o aviso "Confirma o teu email".
+   - Registar uma compra com uma fatura PDF; a fatura abre inteira.
+   - Partilha: convidar o segundo email (também verificado no SES e com a conta confirmada), aceitar nessa conta e ver a compra com "de …".
    - Fotografia grande (até 10 MB), com a leitura a preencher os campos. Vai do browser diretamente para o S3; no browser, em Rede, o POST vai para `…s3.eu-central-1.amazonaws.com`.
    - Em CloudWatch → Log groups → `/aws/lambda/warrantly-api`, os logs aparecem.
-   - No log do passo "Verificar a app publicada", ver se aparece o `AVISO` do IP (secção "IP do cliente", acima).
    - Alertas agendados: Lambda → `warrantly-api` → Testar, com o evento `{"task": "alerts"}`; a resposta tem `emails_sent`. O evento `{"task": "push-receipts"}` responde com `checked` e `tokens_removed`. Ver também os dois agendamentos em EventBridge → Scheduler → Schedules.
 9. **Lock files do Terraform**: depois do primeiro `terraform init` em `infra/bootstrap` e `infra/app`, fazer commit dos ficheiros `.terraform.lock.hcl`. Fixam as versões exatas dos providers; não foi possível gerá-los na sessão cloud.
 
