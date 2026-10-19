@@ -2,7 +2,7 @@
 
 **Arquivo de garantias:** guarda as faturas das tuas compras, calcula até quando cada uma está na garantia, avisa-te antes de expirar e, quando algo avaria, escreve a reclamação para a loja.
 
-Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura na AWS em Terraform, CI/CD no GitHub Actions e cerca de 420 testes automáticos.
+Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura na AWS em Terraform, CI/CD no GitHub Actions e cerca de 430 testes automáticos.
 
 [![Backend](https://github.com/JoseFerrao20/warrantly/actions/workflows/backend.yml/badge.svg)](https://github.com/JoseFerrao20/warrantly/actions/workflows/backend.yml)
 [![Frontend](https://github.com/JoseFerrao20/warrantly/actions/workflows/frontend.yml/badge.svg)](https://github.com/JoseFerrao20/warrantly/actions/workflows/frontend.yml)
@@ -100,7 +100,7 @@ flowchart LR
 
 | | Testes | No CI |
 | --- | --- | --- |
-| Backend | 279 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
+| Backend | 281 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
 | Frontend | 85 (Vitest e Testing Library) | oxlint, TypeScript, build |
 | App móvel | 37 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
 | De ponta a ponta | 24 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
@@ -112,7 +112,7 @@ Cada alteração entra por um PR com o CI verde. As decisões ficam em [`docs/ad
 ## Segurança
 
 - **Palavras-passe:** Argon2. No login com um email que não existe, a resposta demora o mesmo, para não revelar que emails estão registados.
-- **Limite de tentativas** no login, no registo, na recuperação da palavra-passe e ao apagar a conta. Depois do limite, a resposta é 429 com `Retry-After`.
+- **Limite de tentativas** no login, no registo, na recuperação da palavra-passe e ao apagar a conta. Depois do limite, a resposta é 429 com `Retry-After`. A contagem fica no Postgres, para valer para todas as instâncias do Lambda, e guarda só um HMAC da chave, sem emails nem IPs.
 - **Pedidos e ficheiros:**
   - pedidos acima de 11 MB são cortados (413), mesmo sem `Content-Length`;
   - as faturas são validadas pelos bytes e guardadas com nomes aleatórios.

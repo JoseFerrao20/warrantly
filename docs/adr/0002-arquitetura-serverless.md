@@ -38,6 +38,9 @@ GitHub Actions ──OIDC──▶ papel IAM de deploy: ECR, Lambda, S3 e CloudF
 - **Pedidos até 6 MB** (limite do Lambda, com o corpo em base64). *Atualização (2026-10-16):* resolvido com o upload direto do browser para o S3 (POST pré-assinado); as faturas voltam a poder ter 10 MB e não passam pelo Lambda.
 - **Arranque a frio:** a primeira chamada depois de algum tempo parado demora alguns segundos (imagem com o Tesseract, e o Neon a acordar). Para uma app pessoal, é aceitável.
 - **Limite de tentativas** (`app/rate_limit.py`) em memória, por instância do Lambda: com várias instâncias, cada uma conta à parte. Passa para o DynamoDB se for preciso.
+  - *Atualização (2026-10-19):* resolvido de outra forma: o limite passou para o **Postgres** (tabela `rate_limit_events`), e não para o DynamoDB.
+  - A base de dados já existe e todos os pedidos que contam já lhe acedem. O DynamoDB seria mais um serviço, com permissões IAM e Terraform, para muito pouco tráfego (só se contam falhas e pedidos de conta nova).
+  - Não se guardam emails nem IPs, só um HMAC da chave. Cada tentativa registada apaga as linhas com mais de uma hora.
 - **Function URL pública:** a autenticação é a da própria API (JWT), e o CloudFront fica à frente para HTTPS e cache. Não se usa OAC para o Lambda, porque obrigaria o browser a enviar o hash do corpo nos POST/PUT.
 - **Alertas diários:** continuam no `alerts.yml` do GitHub Actions, que chama `POST /api/internal/alerts`. Passar para o EventBridge Scheduler fica para o passo da observabilidade.
 - **SES em modo "sandbox"** no início: só envia para emails verificados. Para enviar a qualquer pessoa, pede-se acesso de produção à AWS.

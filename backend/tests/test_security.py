@@ -1,12 +1,15 @@
 """Limites de tentativas, tamanho dos pedidos e cabeçalhos de segurança."""
 
+from datetime import UTC, datetime, timedelta
+
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app import rate_limit
 from app.config import settings
-from app.models import User
+from app.models import RateLimitEvent, User
 from app.rate_limit import RateLimiter
 from app.server import SECURITY_HEADERS, create_server
 from tests.conftest import TEST_PASSWORD, make_user
@@ -14,30 +17,69 @@ from tests.conftest import TEST_PASSWORD, make_user
 
 class FakeClock:
     def __init__(self) -> None:
-        self.now = 1000.0
+        self.now = datetime(2026, 10, 19, 9, 0, tzinfo=UTC)
 
-    def __call__(self) -> float:
+    def __call__(self) -> datetime:
         return self.now
 
+    def advance(self, seconds: int) -> None:
+        self.now += timedelta(seconds=seconds)
 
-def test_rate_limiter_sliding_window():
+
+def test_rate_limiter_sliding_window(db_session: Session):
     clock = FakeClock()
-    limiter = RateLimiter(limit=2, window=60, clock=clock)
+    limiter = RateLimiter("teste", limit=2, window=60, clock=clock)
 
-    limiter.hit("a")
-    assert limiter.retry_after("a") is None
-    clock.now += 10
-    limiter.hit("a")
-    assert limiter.retry_after("a") == 50  # o primeiro evento sai da janela daqui a 50 s
-    assert limiter.retry_after("b") is None  # outras chaves não contam
+    limiter.hit(db_session, "a")
+    assert limiter.retry_after(db_session, "a") is None
+    clock.advance(10)
+    limiter.hit(db_session, "a")
+    assert limiter.retry_after(db_session, "a") == 50  # a primeira sai da janela daqui a 50 s
+    assert limiter.retry_after(db_session, "b") is None  # outras chaves não contam
 
-    clock.now += 50
-    assert limiter.retry_after("a") is None
-    limiter.hit("a")
-    assert limiter.retry_after("a") == 10
+    clock.advance(50)
+    assert limiter.retry_after(db_session, "a") is None
+    limiter.hit(db_session, "a")
+    assert limiter.retry_after(db_session, "a") == 10
 
-    limiter.reset("a")
-    assert limiter.retry_after("a") is None
+    limiter.reset(db_session, "a")
+    assert limiter.retry_after(db_session, "a") is None
+
+
+def test_rate_limit_is_shared_between_instances(db_session: Session):
+    """Dois objetos com o mesmo nome contam juntos, como duas instâncias do Lambda."""
+    clock = FakeClock()
+    one = RateLimiter("teste", limit=2, window=60, clock=clock)
+    other = RateLimiter("teste", limit=2, window=60, clock=clock)
+    different = RateLimiter("outro", limit=2, window=60, clock=clock)
+
+    one.hit(db_session, "a")
+    other.hit(db_session, "a")
+
+    assert one.retry_after(db_session, "a") == 60
+    assert other.retry_after(db_session, "a") == 60
+    assert different.retry_after(db_session, "a") is None  # cada limite conta à parte
+
+
+def test_rate_limit_stores_no_emails_or_ips(db_session: Session):
+    limiter = RateLimiter("teste", limit=2, window=60, clock=FakeClock())
+
+    limiter.hit(db_session, "ana@example.com")
+
+    [event] = db_session.scalars(select(RateLimitEvent)).all()
+    assert event.bucket == "teste"
+    assert len(event.key_hash) == 64 and "ana" not in event.key_hash
+
+
+def test_old_rate_limit_events_are_deleted(db_session: Session):
+    clock = FakeClock()
+    limiter = RateLimiter("teste", limit=2, window=60, clock=clock)
+    limiter.hit(db_session, "a")
+    clock.advance(int(rate_limit.MAX_WINDOW.total_seconds()) + 1)
+
+    limiter.hit(db_session, "b")  # cada tentativa registada limpa as antigas
+
+    assert db_session.scalar(select(func.count()).select_from(RateLimitEvent)) == 1
 
 
 def login(client: TestClient, email: str, password: str):
@@ -151,8 +193,3 @@ def test_security_headers_on_frontend_and_api(tmp_path):
     csp = SECURITY_HEADERS["Content-Security-Policy"]
     assert "script-src 'self';" in csp  # sem 'unsafe-inline' nos scripts
     assert "frame-ancestors 'none'" in csp
-
-
-def test_limiters_start_empty_in_each_test():
-    # A fixture reset_rate_limits limpa tudo; aqui só confirmamos que não ficou nada.
-    assert all(not limiter._events for limiter in rate_limit.ALL)

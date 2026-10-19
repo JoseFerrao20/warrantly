@@ -216,9 +216,28 @@
     Os três testes que carregavam em "Sair" no painel passam por um ajudante novo, `logOut()`, que abre a conta primeiro. O lint, os tipos e o bundle de Android passam.
   - **O plano** passou a seguir a ordem que o José decidiu: primeiro terminar a app (deploy e testes no telemóvel), depois preparar o repositório para o mostrar. A descrição para o CV fica para o fim.
 
+- **2026-10-19 (sessão cloud do Claude Code):** limite de tentativas no Postgres.
+  - **O problema:** o limite de tentativas (login, registo, recuperação e confirmação da palavra-passe) estava em memória. No Lambda, cada instância tem a sua memória, por isso quem tentasse adivinhar uma palavra-passe só tinha de cair em instâncias diferentes. O ADR 0002 já o tinha anotado como limite conhecido.
+  - **A solução:** a tabela `rate_limit_events`, com uma linha por tentativa contada (o nome do limite, o HMAC-SHA256 da chave com a `SECRET_KEY` e a hora).
+    - Continua a ser uma janela deslizante, com os mesmos limites e o mesmo `Retry-After` de antes.
+    - Não se guardam emails nem IPs: uma cópia da base de dados não diz quem tentou entrar.
+    - Cada tentativa registada apaga as linhas com mais de uma hora (a maior janela), por isso a tabela fica pequena sem uma tarefa de limpeza à parte.
+    - A tentativa é gravada logo (commit), mesmo que o pedido acabe num erro a seguir.
+  - **Decisões:**
+    - **Postgres e não DynamoDB** (como o ADR 0002 sugeria): a base de dados já existe e os pedidos que contam já lhe acedem. O DynamoDB seria mais um serviço, com permissões IAM e Terraform, para muito pouco tráfego. O ADR ficou com a atualização.
+    - **Sem trancas:** dois pedidos ao mesmo tempo podem passar uma tentativa a mais. Para um limite de tentativas chega.
+  - **Testes:** 281 no backend:
+    - a janela deslizante e o `Retry-After`;
+    - dois objetos com o mesmo nome contam juntos, como duas instâncias do Lambda;
+    - nada de emails na tabela;
+    - as linhas antigas são apagadas.
+
+    A fixture que limpava a memória entre testes saiu: cada teste já começa sem tentativas, porque a transação é desfeita. O smoke test e os 24 E2E passam contra o servidor de produção local.
+  - **Lição:** os testes, num só processo, nunca apanhariam isto, porque o limite em memória passava sempre. Um "limite conhecido" anotado num ADR é uma dívida, e esta convinha fechar antes do primeiro deploy, não depois.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 40 PRs. Tudo está testado no CI: backend com 279 testes, frontend com 85, app móvel com 37, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 41 PRs. Tudo está testado no CI: backend com 281 testes, frontend com 85, app móvel com 37, 24 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -227,7 +246,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (279 testes, sem avisos) e `cd frontend && npm test` (85 testes).
+  - `cd backend && alembic upgrade head && pytest` (281 testes, sem avisos) e `cd frontend && npm test` (85 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);

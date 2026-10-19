@@ -9,7 +9,7 @@ from fastapi.testclient import TestClient
 from moto import mock_aws
 from sqlalchemy.orm import Session
 
-from app import rate_limit, storage
+from app import storage
 from app.config import settings
 from app.db import engine, get_session
 from app.main import app
@@ -74,14 +74,6 @@ def upload_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     directory = tmp_path / "uploads"
     monkeypatch.setattr(settings, "upload_dir", directory)
     return directory
-
-
-@pytest.fixture(autouse=True)
-def reset_rate_limits() -> Iterator[None]:
-    """Os limites de tentativas ficam em memória: cada teste começa do zero."""
-    rate_limit.reset_all()
-    yield
-    rate_limit.reset_all()
 
 
 S3_BUCKET = "warrantly-faturas-teste"
