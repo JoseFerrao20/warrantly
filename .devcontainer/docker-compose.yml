@@ -3,12 +3,15 @@ services:
     image: mcr.microsoft.com/devcontainers/python:3.12-bookworm
     volumes:
       - ..:/workspaces/warrantly:cached
+      # A sessão e as definições do Claude Code, para não se perderem ao reconstruir o container.
+      - claude-config:/home/vscode/.claude
     command: sleep infinity
     env_file:
       - path: ../.env
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://warrantly:warrantly@db:5432/warrantly
+      CLAUDE_CONFIG_DIR: /home/vscode/.claude
     depends_on:
       db:
         condition: service_healthy
@@ -37,3 +40,4 @@ services:
 
 volumes:
   postgres-data:
+  claude-config:
