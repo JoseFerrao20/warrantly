@@ -10,6 +10,11 @@ fi
 python --version
 node --version
 
+# O volume da sessão do Claude Code é criado pelo Docker como root; o utilizador é o vscode.
+claude_dir="${CLAUDE_CONFIG_DIR:-$HOME/.claude}"
+sudo mkdir -p "$claude_dir"
+sudo chown -R "$(id -u):$(id -g)" "$claude_dir"
+
 # Tesseract (OCR das fotografias das faturas), com o português.
 if ! command -v tesseract >/dev/null; then
   sudo apt-get update -q

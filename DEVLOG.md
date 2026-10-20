@@ -433,6 +433,14 @@
     - as verificações juntam o 403 da Function URL, a confirmação do email e a partilha entre dois emails verificados no SES.
   - **Lição:** uma correção descrita "para depois" deve ser revista quando chega a hora. Esta tinha um erro que só aparecia ao escrever o Terraform: as políticas da AWS não deixam passar aquele cabeçalho sem o `Host`.
 
+- **2026-10-20 (sessão cloud do Claude Code):** o Claude Code no dev container.
+  - **O que aconteceu:** ao abrir o dev container no Windows, o VS Code ficou preso à espera do Docker Desktop, que não estava a correr. Depois, dentro do container, o `claude` não existia.
+  - **O que mudou:**
+    - o `.devcontainer` instala o Claude Code (a feature oficial, `ghcr.io/anthropics/devcontainer-features/claude-code`);
+    - a sessão e as definições ficam num volume (`claude-config`, com `CLAUDE_CONFIG_DIR`), para não se perderem ao reconstruir o container. O `post-create.sh` dá o volume ao utilizador `vscode`, porque o Docker cria-o como root;
+    - o `docs/desenvolvimento.md` explica o Docker Desktop no Windows e porque se deve clonar o repositório dentro do WSL.
+  - **Não testado aqui:** a sessão cloud não tem Docker para construir o dev container. O JSON, o YAML e o script foram validados. Fica para testar no "Rebuild Container" seguinte.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
 Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 304 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
@@ -442,7 +450,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
 - [ ] **0:00–0:10 · Atualizar:**
   - `git pull` no `main`.
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
-  - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform e o Tesseract. No portátil, criar um Codespace novo no `main`.
+  - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform, o Tesseract e o Claude Code (`claude` no terminal; a sessão sobrevive a reconstruções). No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
   - `cd backend && alembic upgrade head && pytest` (304 testes, sem avisos) e `cd frontend && npm test` (98 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:

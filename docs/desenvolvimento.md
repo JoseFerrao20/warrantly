@@ -4,11 +4,16 @@ Como correr, testar e mexer em cada parte do Warrantly. A apresentação do proj
 
 ## Ambiente
 
-O ambiente fica definido em `.devcontainer/`: Python 3.12, Node 22 e PostgreSQL 16 (num contentor à parte).
+O ambiente fica definido em `.devcontainer/`: Python 3.12, Node 22, PostgreSQL 16 (num contentor à parte), Mailpit, AWS CLI, Terraform e o Claude Code.
 
 1. Abre o repositório no VS Code com a extensão Dev Containers e escolhe **Reopen in Container**, ou cria um Codespace.
 2. No primeiro arranque, o `.env` é criado a partir de `.env.example`.
 3. A base de dados fica disponível em `db:5432` (utilizador, palavra-passe e base de dados: `warrantly`).
+4. O Claude Code arranca com `claude` no terminal. Na primeira vez, pede para entrar na conta. A sessão fica num volume do Docker (`claude-config`), por isso sobrevive a um "Rebuild Container".
+
+**No Windows:**
+- O Docker Desktop tem de estar a correr ("Engine running") antes do "Reopen in Container". Se o VS Code ficar preso em "Start: Run: Docker Desktop.exe", o problema é o Docker. Abre-o à mão; se não arrancar, corre `wsl --update` e `wsl --shutdown` no PowerShell, e em Settings → Resources → WSL integration liga o Ubuntu.
+- Clona o repositório dentro do WSL (`~/dev/warrantly`, no terminal do Ubuntu) e abre-o com `code .`. Num disco do Windows (`C:\...`), tudo fica muito mais lento.
 
 ## Backend
 
