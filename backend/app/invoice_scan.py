@@ -6,6 +6,9 @@ na dúvida, é melhor não sugerir nada do que sugerir um valor errado.
 - PDF com texto (a maioria das faturas digitais): pypdf, sem OCR.
 - Fotografia ou PDF digitalizado: Tesseract (programa `tesseract`, com o português instalado).
   Sem o Tesseract, as fotografias simplesmente não dão sugestões.
+- Código QR da AT (obrigatório nas faturas desde 2022), lido com o faturapt: dá a data, o
+  total e o número da fatura sem adivinhar. Quando existe, ganha ao texto nesses três campos;
+  a loja, o artigo e o email continuam a vir do texto, porque o QR não os tem.
 """
 
 import io
@@ -18,6 +21,7 @@ from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal, InvalidOperation
 
+import faturapt
 from PIL import Image, ImageOps
 from pypdf import PdfReader
 
@@ -29,6 +33,9 @@ OCR_LANGUAGES = "por+eng"
 # O OCR ocupa um processador durante alguns segundos: no máximo dois de cada vez.
 _ocr_slots = threading.BoundedSemaphore(2)
 
+# Só faturas normais (não anuladas): uma nota de crédito ou um orçamento não são a compra.
+QR_DOCUMENT_TYPES = {"FT", "FS", "FR"}
+
 
 @dataclass
 class ScanResult:
@@ -39,6 +46,7 @@ class ScanResult:
     price: Decimal | None = None
     invoice_number: str | None = None
     store_email: str | None = None
+    from_qr: bool = False  # a data, o total e o número vieram do código QR da AT
 
 
 # --- Extração do texto ---------------------------------------------------------------------
@@ -103,6 +111,33 @@ def extract_text(data: bytes, content_type: str) -> str:
     except Exception:
         return ""
     return ocr_image(image)
+
+
+# --- Código QR da AT -------------------------------------------------------------------------
+
+
+def read_qr(data: bytes, content_type: str) -> faturapt.InvoiceQR | None:
+    """O QR da fatura, numa fotografia ou nas imagens da primeira página de um PDF.
+
+    Num PDF desenhado (vetorial), o QR não é uma imagem e não se encontra: fica o texto.
+    """
+    try:
+        if content_type == "application/pdf":
+            pages = PdfReader(io.BytesIO(data)).pages[:1]
+            images = [image_file.image for page in pages for image_file in page.images]
+        else:
+            images = [Image.open(io.BytesIO(data))]
+    except Exception:
+        return None
+    for image in images:
+        try:
+            invoice = faturapt.read_image(image)
+        except (ValueError, OSError):  # sem QR, QR de outra coisa ou imagem ilegível
+            invoice = None
+        normal = invoice and invoice.document_status == "N"
+        if normal and invoice.document_type in QR_DOCUMENT_TYPES:
+            return invoice
+    return None
 
 
 # --- Interpretação do texto ----------------------------------------------------------------
@@ -299,4 +334,13 @@ def parse_invoice_text(text: str, today: date | None = None) -> ScanResult:
 
 
 def scan_invoice(data: bytes, content_type: str, today: date | None = None) -> ScanResult:
-    return parse_invoice_text(extract_text(data, content_type), today)
+    today = today or date.today()
+    result = parse_invoice_text(extract_text(data, content_type), today)
+    qr = read_qr(data, content_type)
+    if qr is not None:
+        if date(2000, 1, 1) <= qr.document_date <= today:
+            result.purchase_date = qr.document_date
+        result.price = qr.total
+        result.invoice_number = qr.document_id
+        result.from_qr = True
+    return result

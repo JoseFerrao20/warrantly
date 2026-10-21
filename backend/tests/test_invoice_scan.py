@@ -3,12 +3,14 @@ from datetime import date
 from decimal import Decimal
 
 import pytest
+import segno
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib.pagesizes import A4
+from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-from app.invoice_scan import ocr_available, parse_invoice_text
+from app.invoice_scan import ocr_available, parse_invoice_text, scan_invoice
 
 TODAY = date(2026, 10, 15)
 
@@ -94,9 +96,11 @@ def test_nothing_found_in_unrelated_text():
     assert result.store_email is None
 
 
-def make_pdf(lines: list[str]) -> bytes:
+def make_pdf(lines: list[str], qr: str | None = None) -> bytes:
     buffer = io.BytesIO()
     pdf = canvas.Canvas(buffer, pagesize=A4)
+    if qr is not None:  # como os programas de faturação: o QR como imagem no fim da página
+        pdf.drawImage(ImageReader(qr_image(qr)), 60, 80, width=120, height=120)
     y = 800
     for line in lines:
         pdf.drawString(60, y, line)
@@ -165,3 +169,79 @@ def test_scan_rejects_other_file_types(auth_client: TestClient):
 
 def test_scan_requires_authentication(client: TestClient):
     assert scan(client, make_pdf(["x"]), "f.pdf").status_code == 401
+
+
+# --- Código QR da AT ---------------------------------------------------------------------------
+
+# O QR da mesma fatura da Worten, mas com a data e o total certos (o texto acima tem outros,
+# para se ver qual ganha).
+WORTEN_QR = (
+    "A:503630330*B:999999990*C:PT*D:FR*E:N*F:20231105*G:FR 0123/456790*H:JJ3XY2KD-456790"
+    "*I1:PT*I7:398.37*I8:91.63*N:91.63*O:490.00*Q:Ab1z*R:1234"
+)
+
+
+def qr_image(text: str) -> Image.Image:
+    buffer = io.BytesIO()
+    segno.make(text, error="m", micro=False).save(buffer, kind="png", scale=4, border=4)
+    return Image.open(buffer).convert("RGB")
+
+
+def png(image: Image.Image) -> bytes:
+    buffer = io.BytesIO()
+    image.save(buffer, format="PNG")
+    return buffer.getvalue()
+
+
+def test_qr_wins_over_text_for_date_total_and_number():
+    result = scan_invoice(make_pdf(WORTEN.splitlines(), qr=WORTEN_QR), "application/pdf", TODAY)
+
+    assert result.from_qr is True
+    assert result.purchase_date == date(2023, 11, 5)
+    assert result.price == Decimal("490.00")
+    assert result.invoice_number == "FR 0123/456790"
+    # O QR não tem a loja, o artigo nem o email: continuam a vir do texto.
+    assert result.store == "Worten"
+    assert result.product_name == "Máquina de Lavar Roupa Bosch WAN28280ES 8kg"
+    assert result.store_email == "apoio.cliente@worten.pt"
+
+
+def test_photo_with_only_the_qr_works_without_tesseract(auth_client: TestClient, monkeypatch):
+    monkeypatch.setattr("app.invoice_scan.shutil.which", lambda _: None)
+    page = Image.new("RGB", (1200, 1600), "white")
+    page.paste(qr_image(WORTEN_QR), (400, 1000))
+
+    body = scan(auth_client, png(page), "talao.png").json()
+
+    assert body["text_found"] is True
+    assert body["ocr_available"] is False
+    assert body["purchase_date"] == "2023-11-05"
+    assert body["price"] == "490.00"
+    assert body["invoice_number"] == "FR 0123/456790"
+    assert body["store"] is None
+
+
+@pytest.mark.parametrize(
+    "qr",
+    [
+        WORTEN_QR.replace("D:FR", "D:NC"),  # nota de crédito: não é a compra
+        WORTEN_QR.replace("E:N", "E:A"),  # fatura anulada
+        "https://www.worten.pt/promocoes",  # QR de outra coisa
+    ],
+)
+def test_other_qr_codes_are_ignored(qr: str):
+    result = scan_invoice(make_pdf(WORTEN.splitlines(), qr=qr), "application/pdf", TODAY)
+
+    assert result.from_qr is False
+    assert result.purchase_date == date(2023, 11, 3)
+    assert result.price == Decimal("429.00")
+
+
+def test_future_date_in_qr_is_not_suggested():
+    qr = WORTEN_QR.replace("F:20231105", "F:20271105")
+
+    result = scan_invoice(png(qr_image(qr)), "image/png", TODAY)
+
+    assert result.from_qr is True
+    assert result.purchase_date is None
+    assert result.price == Decimal("490.00")

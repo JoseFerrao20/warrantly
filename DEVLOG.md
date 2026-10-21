@@ -441,6 +441,17 @@
     - o `docs/desenvolvimento.md` explica o Docker Desktop no Windows e porque se deve clonar o repositório dentro do WSL.
   - **Não testado aqui:** a sessão cloud não tem Docker para construir o dev container. O JSON, o YAML e o script foram validados. Fica para testar no "Rebuild Container" seguinte.
 
+- **2026-10-21 (sessão cloud do Claude Code):** a leitura da fatura passa a usar o código QR da AT.
+  - **Contexto:** o Warrantly ficou em pausa e, entretanto, nasceu o [faturapt](https://github.com/JoseFerrao20/faturapt), uma biblioteca Python que lê e valida o QR das faturas portuguesas (já publicada no PyPI, versão 0.1.0).
+  - **O que mudou:**
+    - o `app/invoice_scan.py` procura o QR na fotografia ou nas imagens da primeira página do PDF. Quando o encontra, a data, o total e o número da fatura vêm do QR e ganham ao texto; a loja, o artigo e o email continuam a vir do texto, porque o QR não os tem;
+    - só contam faturas normais (FT, FS, FR, não anuladas): uma nota de crédito ou um QR de um site são ignorados. Uma data no futuro também não é sugerida;
+    - sem o Tesseract, uma fotografia com QR já dá sugestões (antes não dava nada), e o `text_found` passa a contar o QR;
+    - a métrica `InvoiceFieldsSuggested` leva a propriedade `qr` ("yes"/"no"), para se ver no log quantas leituras usam o QR, sem criar uma métrica nova.
+  - **Verificado aqui:** 6 testes novos (310 no backend), com os QR gerados pelo `segno`: um PDF com o texto de uma fatura e um QR com outros valores (ganha o QR), uma fotografia só com o QR e sem Tesseract, nota de crédito, fatura anulada, QR de um site e data no futuro.
+  - **Limite conhecido:** num PDF desenhado pelo programa de faturação (vetorial), o QR não é uma imagem e não se encontra; aí fica o texto do PDF, que já era lido bem. Ler esses QR obrigava a desenhar a página como imagem, com mais uma dependência.
+  - **Lição:** separar a parte genérica (ler o QR) numa biblioteca deu testes mais fortes (a especificação da AT, ida e volta com o Hypothesis) do que teria dentro do Warrantly, e o Warrantly só precisou de umas 40 linhas para a usar.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
 Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 304 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
@@ -478,7 +489,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
      - o Lambda testado com o evento `{"task": "alerts"}` (ver o runbook);
   8. commit dos `.terraform.lock.hcl`.
   - Se algo falhar, copiar o erro (do Actions ou do terminal) para a sessão do Claude Code e corrigir num PR.
-- [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério e ver o que a leitura preenche. Anotar o que correr mal.
+- [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério (com o QR da AT dentro da fotografia) e ver o que a leitura preenche: a data, o total e o número devem vir do QR. Anotar o que correr mal.
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 
