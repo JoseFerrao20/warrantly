@@ -285,9 +285,14 @@ def scan_response(data: bytes, content_type: str) -> InvoiceScanRead:
         if getattr(result, name) is not None
     ]
     # Quantos campos a leitura sugere, em média: mostra se o OCR está a ajudar.
-    metric("InvoiceFieldsSuggested", len(suggested), content_type=content_type)
+    metric(
+        "InvoiceFieldsSuggested",
+        len(suggested),
+        content_type=content_type,
+        qr="yes" if result.from_qr else "no",
+    )
     return InvoiceScanRead(
-        text_found=bool(result.text.strip()),
+        text_found=bool(result.text.strip()) or result.from_qr,
         ocr_available=invoice_scan.ocr_available(),
         product_name=result.product_name,
         store=result.store,

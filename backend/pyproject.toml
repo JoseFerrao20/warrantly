@@ -18,6 +18,7 @@ dependencies = [
     "pypdf",
     "pillow-heif",
     "boto3",
+    "faturapt[image]>=0.1",
 ]
 
 [project.optional-dependencies]
@@ -26,6 +27,7 @@ dev = [
     "httpx2",
     "ruff",
     "moto[s3,ssm]",
+    "segno",
 ]
 
 [tool.ruff]

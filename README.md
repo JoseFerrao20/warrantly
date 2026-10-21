@@ -85,6 +85,7 @@ flowchart LR
 
 - **Leitura das faturas.**
   - Os PDF com texto são lidos diretamente; as fotografias passam por OCR com o Tesseract, no próprio servidor.
+  - Se a fatura tiver o código QR da AT (obrigatório desde 2022), a data, o total e o número vêm dele, sem adivinhar. A leitura do QR é o [faturapt](https://github.com/JoseFerrao20/faturapt), uma biblioteca que escrevi e publiquei no PyPI.
   - A app sugere os campos e preenche só os que estão vazios: a pessoa confirma sempre.
   - O tipo do ficheiro é reconhecido pelos bytes, não pelo nome, e as fotografias HEIC do iPhone são convertidas para JPEG.
 - **Sessões seguras.** O token de acesso dura 15 minutos e o refresh token **muda a cada uso**: se um já usado voltar a aparecer, a sessão desse aparelho é revogada. Na conta, a lista de sessões deixa terminar a de outro aparelho, e o corte é imediato: o token de acesso leva o id da sessão. No browser, o refresh token vai num cookie `HttpOnly` e `SameSite=Strict`, e o token de acesso só existe em memória (nunca no `localStorage`); na app, no armazenamento seguro do telemóvel ([ADR 0004](docs/adr/0004-sessoes-com-refresh-token.md)).
@@ -105,7 +106,7 @@ flowchart LR
 
 | | Testes | No CI |
 | --- | --- | --- |
-| Backend | 304 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
+| Backend | 310 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
 | Frontend | 98 (Vitest e Testing Library) | oxlint, TypeScript, build |
 | App móvel | 72 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
 | De ponta a ponta | 29 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |

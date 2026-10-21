@@ -159,7 +159,7 @@ class ClaimRead(BaseModel):
 class InvoiceScanRead(BaseModel):
     """Sugestões lidas da fatura (cada campo a null se não foi encontrado)."""
 
-    text_found: bool  # False: a fatura não tinha texto legível (ou não há OCR)
+    text_found: bool  # False: a fatura não tinha texto nem QR legíveis (ou não há OCR)
     ocr_available: bool  # o servidor tem o Tesseract para ler fotografias
     product_name: str | None
     store: str | None
