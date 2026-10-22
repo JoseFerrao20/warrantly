@@ -117,26 +117,17 @@ def extract_text(data: bytes, content_type: str) -> str:
 
 
 def read_qr(data: bytes, content_type: str) -> faturapt.InvoiceQR | None:
-    """O QR da fatura, numa fotografia ou nas imagens da primeira página de um PDF.
-
-    Num PDF desenhado (vetorial), o QR não é uma imagem e não se encontra: fica o texto.
-    """
+    """O QR da fatura, numa fotografia ou num PDF (o faturapt desenha a página como imagem,
+    por isso também encontra o QR desenhado pelos programas de faturação)."""
     try:
         if content_type == "application/pdf":
-            pages = PdfReader(io.BytesIO(data)).pages[:1]
-            images = [image_file.image for page in pages for image_file in page.images]
+            invoice = faturapt.read_pdf(data)
         else:
-            images = [Image.open(io.BytesIO(data))]
-    except Exception:
+            invoice = faturapt.read_image(data)
+    except Exception:  # sem QR, QR de outra coisa ou ficheiro ilegível: fica o texto
         return None
-    for image in images:
-        try:
-            invoice = faturapt.read_image(image)
-        except (ValueError, OSError):  # sem QR, QR de outra coisa ou imagem ilegível
-            invoice = None
-        normal = invoice and invoice.document_status == "N"
-        if normal and invoice.document_type in QR_DOCUMENT_TYPES:
-            return invoice
+    if invoice.document_status == "N" and invoice.document_type in QR_DOCUMENT_TYPES:
+        return invoice
     return None
 
 

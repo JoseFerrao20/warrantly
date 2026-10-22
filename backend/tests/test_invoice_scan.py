@@ -6,6 +6,9 @@ import pytest
 import segno
 from fastapi.testclient import TestClient
 from PIL import Image, ImageDraw, ImageFont
+from reportlab.graphics import renderPDF
+from reportlab.graphics.barcode.qr import QrCodeWidget
+from reportlab.graphics.shapes import Drawing
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
@@ -204,6 +207,27 @@ def test_qr_wins_over_text_for_date_total_and_number():
     assert result.store == "Worten"
     assert result.product_name == "Máquina de Lavar Roupa Bosch WAN28280ES 8kg"
     assert result.store_email == "apoio.cliente@worten.pt"
+
+
+def test_qr_drawn_in_the_pdf():
+    # Os programas de faturação desenham o QR (vetorial), não o põem como imagem.
+    buffer = io.BytesIO()
+    pdf = canvas.Canvas(buffer, pagesize=A4)
+    for i, line in enumerate(WORTEN.splitlines()):
+        pdf.drawString(60, 800 - i * 20, line)
+    widget = QrCodeWidget(WORTEN_QR, barLevel="M")
+    x0, y0, x1, y1 = widget.getBounds()
+    size = 85  # pontos: 30 mm, o mínimo da especificação da AT
+    drawing = Drawing(size, size, transform=[size / (x1 - x0), 0, 0, size / (y1 - y0), 0, 0])
+    drawing.add(widget)
+    renderPDF.draw(drawing, pdf, 60, 60)
+    pdf.save()
+
+    result = scan_invoice(buffer.getvalue(), "application/pdf", TODAY)
+
+    assert result.from_qr is True
+    assert result.price == Decimal("490.00")
+    assert result.store == "Worten"
 
 
 def test_photo_with_only_the_qr_works_without_tesseract(auth_client: TestClient, monkeypatch):

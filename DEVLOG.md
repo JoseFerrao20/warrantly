@@ -452,6 +452,11 @@
   - **Limite conhecido:** num PDF desenhado pelo programa de faturação (vetorial), o QR não é uma imagem e não se encontra; aí fica o texto do PDF, que já era lido bem. Ler esses QR obrigava a desenhar a página como imagem, com mais uma dependência.
   - **Lição:** separar a parte genérica (ler o QR) numa biblioteca deu testes mais fortes (a especificação da AT, ida e volta com o Hypothesis) do que teria dentro do Warrantly, e o Warrantly só precisou de umas 40 linhas para a usar.
 
+- **2026-10-22 (sessão cloud do Claude Code):** o QR também nos PDFs.
+  - **O que mudou:** o limite da entrada anterior (o QR desenhado no PDF não se encontrava) resolveu-se no faturapt 0.2.0, com o `read_pdf`: desenha a primeira e a última página a 300 dpi (com o pypdfium2) e procura o QR na imagem. O `read_qr` do Warrantly passa a usá-lo e fica mais curto (o faturapt já ignora os QR que não são de faturas). A dependência passa a `faturapt[pdf]>=0.2`.
+  - **Verificado aqui:** 1 teste novo (311 no backend), com o QR desenhado pelo reportlab (vetorial, 30 mm), como num PDF de um programa de faturação.
+  - **Cuidado que ficou no faturapt:** o PDFium não aguenta duas threads ao mesmo tempo, e o FastAPI corre as rotas síncronas em várias threads. O `read_pdf` desenha as páginas com um lock, por isso o Warrantly não precisa de fazer nada.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
 Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 304 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
