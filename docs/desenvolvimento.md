@@ -65,6 +65,7 @@ Endpoints (documentação interativa em `/docs`):
 | `POST` | `/purchases/uploads/{token}/scan` | Como `/scan-invoice`, para uma fatura já enviada para o S3 |
 | `PUT` | `/purchases/{id}/invoice/upload` | Associa à compra uma fatura enviada para o S3 (`{token, filename}`); valida-a pelos bytes e apaga o temporário |
 | `POST` | `/purchases/scan-invoice` | Lê uma fatura (multipart, campo `file`) e devolve sugestões para os campos da compra; não guarda nada. Fotografias precisam do `tesseract` com o português (`tesseract-ocr-por`) |
+| `POST` | `/purchases/scan-qr` | Lê o texto do código QR da AT (`{"text": "A:…"}`, lido pela câmara da app) e sugere a data, o total e o n.º da fatura; 422 se não for o QR de uma fatura |
 | `PUT` | `/purchases/{id}/invoice` | Carrega a fatura (multipart, campo `file`); substitui a anterior |
 | `GET` | `/purchases/{id}/invoice` | Devolve a fatura |
 | `DELETE` | `/purchases/{id}/invoice` | Apaga a fatura |
@@ -126,6 +127,7 @@ App para Android e iOS em [Expo](https://expo.dev) (React Native, SDK 58, Expo R
 - **reclamar à loja**: a API escreve a carta (como no site), e o email do telemóvel abre com o destinatário, o assunto, a carta e o PDF (carta e fatura) em anexo, com o `expo-mail-composer`; sem uma conta de email no telemóvel, partilha-se o PDF;
 - **editar e apagar** uma compra (os campos e a validação do formulário estão em `src/lib/purchaseForm.tsx`, partilhados com a compra nova);
 - registar uma compra **fotografando a fatura** (ou escolhendo um PDF): a fatura vai para o S3 (ou pela API, sem S3) e a leitura preenche os campos vazios, como no site;
+- **ler só o código QR da fatura com a câmara** (`expo-camera`, a leitura é automática): a API valida o texto com o faturapt e preenche a data, o preço e o n.º da fatura, sem fotografia. Um QR de outra coisa só dá um aviso, e a câmara continua à procura;
 - **partilhar o arquivo com a família** na conta, como no site: convidar pelo email, aceitar ou recusar os convites, sair ou deixar de partilhar. As compras partilhadas mostram de quem são e não têm "Apagar" nem "Trocar a fatura" ([ADR 0007](adr/0007-partilha-do-arquivo.md));
 - **exportar os dados**: o ZIP (CSV, JSON e faturas) é descarregado para a cache e abre o menu do sistema para o guardar ou enviar;
 - mudar o **nome** na conta, que assina as reclamações, e **apagar a conta** com a palavra-passe (a App Store exige que uma app que deixa criar conta também a deixe apagar);

@@ -275,6 +275,9 @@ export const api = {
     request<InvoiceScan>(`/purchases/uploads/${token}/scan`, { method: 'POST' }),
   scanInvoice: (file: PickedFile) =>
     request<InvoiceScan>('/purchases/scan-invoice', { method: 'POST', body: fileForm(file) }),
+  /** O texto do código QR da fatura, lido pela câmara: a API sugere a data, o total e o n.º. */
+  scanQr: (text: string) =>
+    request<InvoiceScan>('/purchases/scan-qr', { method: 'POST', json: { text } }),
   attachUpload: (id: number, token: string, filename: string) =>
     request<Purchase>(`/purchases/${id}/invoice/upload`, {
       method: 'PUT',

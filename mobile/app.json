@@ -43,9 +43,16 @@
       "expo-sharing",
       "expo-mail-composer",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "O Warrantly usa a câmara para fotografar as faturas e ler o código QR.",
+          "recordAudioAndroid": false
+        }
+      ],
+      [
         "expo-image-picker",
         {
-          "cameraPermission": "O Warrantly usa a câmara para fotografar faturas.",
+          "cameraPermission": "O Warrantly usa a câmara para fotografar as faturas e ler o código QR.",
           "photosPermission": "O Warrantly acede às fotografias para escolheres a fatura."
         }
       ],

@@ -9,6 +9,7 @@ na dúvida, é melhor não sugerir nada do que sugerir um valor errado.
 - Código QR da AT (obrigatório nas faturas desde 2022), lido com o faturapt: dá a data, o
   total e o número da fatura sem adivinhar. Quando existe, ganha ao texto nesses três campos;
   a loja, o artigo e o email continuam a vir do texto, porque o QR não os tem.
+- Só o QR (`scan_qr_text`): a app móvel lê-o com a câmara e envia o texto, sem fotografia.
 """
 
 import io
@@ -126,9 +127,33 @@ def read_qr(data: bytes, content_type: str) -> faturapt.InvoiceQR | None:
             invoice = faturapt.read_image(data)
     except Exception:  # sem QR, QR de outra coisa ou ficheiro ilegível: fica o texto
         return None
-    if invoice.document_status == "N" and invoice.document_type in QR_DOCUMENT_TYPES:
-        return invoice
-    return None
+    return invoice if is_purchase_invoice(invoice) else None
+
+
+def is_purchase_invoice(invoice: faturapt.InvoiceQR) -> bool:
+    return invoice.document_status == "N" and invoice.document_type in QR_DOCUMENT_TYPES
+
+
+def apply_qr(result: ScanResult, qr: faturapt.InvoiceQR, today: date) -> None:
+    """O QR ganha ao texto na data (se não estiver no futuro), no total e no número."""
+    if date(2000, 1, 1) <= qr.document_date <= today:
+        result.purchase_date = qr.document_date
+    result.price = qr.total
+    result.invoice_number = qr.document_id
+    result.from_qr = True
+
+
+def scan_qr_text(text: str, today: date | None = None) -> ScanResult | None:
+    """O texto de um QR lido pela câmara do telemóvel; None se não for de uma fatura."""
+    try:
+        invoice = faturapt.parse(text)
+    except faturapt.QRCodeError:
+        return None
+    if not is_purchase_invoice(invoice):
+        return None
+    result = ScanResult(text="")
+    apply_qr(result, invoice, today or date.today())
+    return result
 
 
 # --- Interpretação do texto ----------------------------------------------------------------
@@ -329,9 +354,5 @@ def scan_invoice(data: bytes, content_type: str, today: date | None = None) -> S
     result = parse_invoice_text(extract_text(data, content_type), today)
     qr = read_qr(data, content_type)
     if qr is not None:
-        if date(2000, 1, 1) <= qr.document_date <= today:
-            result.purchase_date = qr.document_date
-        result.price = qr.total
-        result.invoice_number = qr.document_id
-        result.from_qr = True
+        apply_qr(result, qr, today)
     return result

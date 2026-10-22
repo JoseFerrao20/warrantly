@@ -25,6 +25,7 @@ from app.schemas import (
     PurchaseCreate,
     PurchaseRead,
     PurchaseUpdate,
+    QRScanRequest,
     UploadAttach,
     UploadTicketRead,
     WarrantyStatus,
@@ -277,8 +278,24 @@ def scan_invoice(file: UploadFile, user: CurrentUser) -> InvoiceScanRead:
     return scan_response(data, content_type)
 
 
+@router.post("/scan-qr", response_model=InvoiceScanRead)
+def scan_qr(body: QRScanRequest, user: CurrentUser) -> InvoiceScanRead:
+    """Lê o texto do código QR da AT (a app móvel lê-o com a câmara) e sugere a data, o total
+    e o número da fatura. 422 se o QR não for de uma fatura (ou for de uma anulada ou de uma
+    nota de crédito)."""
+    result = invoice_scan.scan_qr_text(body.text)
+    if result is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Este código QR não é de uma fatura"
+        )
+    return scan_result_response(result, "qr")
+
+
 def scan_response(data: bytes, content_type: str) -> InvoiceScanRead:
-    result = invoice_scan.scan_invoice(data, content_type)
+    return scan_result_response(invoice_scan.scan_invoice(data, content_type), content_type)
+
+
+def scan_result_response(result: invoice_scan.ScanResult, content_type: str) -> InvoiceScanRead:
     suggested = [
         name
         for name in ("product_name", "store", "purchase_date", "price", "invoice_number")
