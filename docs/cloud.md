@@ -79,7 +79,9 @@ As credenciais nunca vão para variáveis da app em produção: na AWS, o servi�
 
 ## Primeiro deploy (em casa, uma vez)
 
-Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) e [Terraform](https://developer.hashicorp.com/terraform/install) 1.13 (o dev container já os traz). Gerar cada segredo com `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html) e [Terraform](https://developer.hashicorp.com/terraform/install) 1.13 (o dev container já os traz) e, para a verificação, o [GitHub CLI](https://cli.github.com) com `gh auth login`. Gerar cada segredo com `python -c "import secrets; print(secrets.token_urlsafe(32))"`.
+
+**Verificação:** `python3 scripts/preflight.py` (no dev container, ou com o Python onde está instalado o backend, que traz o boto3) confirma os passos 1 a 5 e, depois do deploy, o 6 e o 7. Não muda nada e nunca mostra o valor de um segredo. Para cada falha, diz o que falta e o comando ou o sítio onde se corrige; no fim, indica o primeiro passo por fazer. Corre-o depois de cada passo: quando disser "Tudo o que o deploy precisa está pronto", segue para o passo 6.
 
 1. **Conta AWS segura**
    - Criar a conta. Confirmar que ficou no plano gratuito ("Free plan").
@@ -109,6 +111,7 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
 5. **GitHub** (Settings → Secrets and variables → Actions)
    - Variáveis: `AWS_DEPLOY_ROLE_ARN` e `AWS_PLAN_ROLE_ARN` (outputs do bootstrap), `TF_STATE_BUCKET` (output `state_bucket`) e `MAIL_FROM_ADDRESS` (o email que envia os alertas). Opcional: `ALARM_EMAIL` (recebe os alarmes do CloudWatch; confirmar o email da AWS "Subscription Confirmation") e `AWS_REGION` (só se não for `eu-central-1`; tem de ser a mesma do bootstrap e do `aws configure sso`).
    - Segredo: `ALERTS_TOKEN`, com o mesmo valor do passo 4.
+   - Antes do passo 6: `python3 scripts/preflight.py` sem nenhum `FALTA`. Confere também se as variáveis batem certo com o que o bootstrap criou (o bucket e os ARN dos papéis), se a região da tua sessão é a do deploy e se o Neon responde com o `DATABASE_URL` do SSM.
 6. **Primeiro deploy**: Actions → Deploy → Run workflow.
    - O workflow cria o ECR, publica a imagem, aplica as migrações no Neon, cria o resto com o Terraform e publica o frontend.
    - O endereço aparece no resumo da execução: `https://<id>.cloudfront.net`.
@@ -136,6 +139,24 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    - Em CloudWatch → Log groups → `/aws/lambda/warrantly-api`, os logs aparecem.
    - Alertas agendados: Lambda → `warrantly-api` → Testar, com o evento `{"task": "alerts"}`; a resposta tem `emails_sent`. O evento `{"task": "push-receipts"}` responde com `checked` e `tokens_removed`. Ver também os dois agendamentos em EventBridge → Scheduler → Schedules.
 9. **Lock files do Terraform**: depois do primeiro `terraform init` em `infra/bootstrap` e `infra/app`, fazer commit dos ficheiros `.terraform.lock.hcl`. Fixam as versões exatas dos providers; não foi possível gerá-los na sessão cloud.
+
+### Se algo falhar
+
+Primeiro, `python3 scripts/preflight.py`: apanha a maior parte dos casos abaixo. Depois, o erro exato (do terminal ou do log do job no Actions) vai para uma sessão do Claude Code, e a correção para um PR.
+
+| Erro | Onde | O que fazer |
+|---|---|---|
+| `Token has expired`, `The SSO session associated with this profile has expired` | terminal | `aws sso login` (a sessão dura umas horas) |
+| `Not authorized to perform sts:AssumeRoleWithWebIdentity` | Actions, "Configure AWS credentials" | Só o ramo `main` deste repositório pode fazer deploy: no "Run workflow", escolher `main`. Se o repositório mudou de nome ou de dono, corrigir `github_repository` no `infra/bootstrap/terraform.tfvars` e voltar a fazer `terraform apply` |
+| `Could not load credentials from any providers` | Actions | Falta a variável `AWS_DEPLOY_ROLE_ARN` (passo 5) |
+| `ParameterNotFound` com `ORIGIN_VERIFY_SECRET` | Actions, `terraform plan` | Falta o segredo no SSM (passo 4), ou foi criado noutra região |
+| `password authentication failed` ou `could not translate host name` | Actions, migrações | O `DATABASE_URL` do SSM está errado: copiá-lo outra vez do Neon e `aws ssm put-parameter --overwrite` |
+| `Email address is not verified` | log do Lambda | O SES está no sandbox e o destinatário não está confirmado (passo 7) |
+| 403 ou 502 no `https://<id>.cloudfront.net` logo a seguir ao primeiro deploy | browser, smoke test | O CloudFront demora alguns minutos a chegar a todo o lado. Esperar 10 minutos e correr outra vez o smoke test |
+| `Task timed out` ou `Runtime.ExitError` | log do Lambda | A app não conseguiu ler os segredos do SSM ou ligar ao Neon: ver a primeira linha de erro do log |
+| Smoke test falha num cabeçalho ou no cookie | Actions, último passo | A app está no ar mas há uma configuração errada: trazer o log do smoke test |
+
+Um deploy que falha a meio pode voltar a correr (Actions → Deploy → Re-run jobs): o Terraform só cria o que falta, as migrações só aplicam as que ainda não correram e a imagem é reutilizada se já existir.
 
 A partir daqui, cada merge no `main` com o CI verde é publicado sozinho. Em cada PR que mexa em `infra/`, o workflow Infra mostra o `terraform plan`.
 
