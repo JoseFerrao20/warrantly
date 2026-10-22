@@ -36,11 +36,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
+      # Sem a cache do pip: uma cache antiga (de outra versão do pyproject) traz as respostas
+      # do PyPI de quando foi guardada, e o pip não via versões publicadas depois (aconteceu
+      # com o faturapt 0.2.0). A auditoria tem de resolver contra o PyPI de hoje.
       - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
-          cache: pip
-          cache-dependency-path: backend/pyproject.toml
 
       # O pip-audit fica num ambiente à parte, para não auditar as suas próprias dependências.
       - name: Backend (pip-audit)
