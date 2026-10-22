@@ -7,7 +7,8 @@ import { confirmEmail, createPurchase, dateFromToday, PASSWORD } from './helpers
 test.skip(!process.env.SCREENSHOTS, 'só com SCREENSHOTS=1 (npm run screenshots)')
 
 const OUT = new URL('../../docs/images/', import.meta.url).pathname
-const INVOICE = new URL('./fixtures/fatura.pdf', import.meta.url).pathname
+// Uma fatura com o código QR da AT: a leitura preenche também a data, o n.º e o NIF da loja.
+const INVOICE = new URL('./fixtures/fatura-qr.pdf', import.meta.url).pathname
 
 // Uma conta de exemplo (nome fictício), apagada no fim; não aparece o email de teste e2e-….
 const EMAIL = 'ana.silva@exemplo.pt'

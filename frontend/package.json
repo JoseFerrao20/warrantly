@@ -12,7 +12,7 @@
     "test:watch": "vitest",
     "preview": "vite preview",
     "e2e": "playwright test",
-    "screenshots": "SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts",
+    "screenshots": "LANG=pt_PT.UTF-8 SCREENSHOTS=1 playwright test e2e/screenshots.spec.ts",
     "icons": "node scripts/icons/generate.mjs"
   },
   "dependencies": {
