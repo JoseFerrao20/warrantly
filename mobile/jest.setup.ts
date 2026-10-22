@@ -79,3 +79,28 @@ jest.mock('expo-notifications', () => {
       setResponse({ notification: { request: { content: { data } } } }),
   }
 })
+
+// Câmara para o código QR: autorizada, a não ser que o teste mude `__setPermission`. A
+// CameraView é uma View; o teste simula uma leitura com fireEvent(câmara, 'barcodeScanned', …).
+jest.mock('expo-camera', () => {
+  const { View } = jest.requireActual('react-native')
+  const { createElement, useState } = jest.requireActual('react')
+  let permission = { granted: true, canAskAgain: true }
+  const requestCameraPermissionsAsync = jest.fn(async () => permission)
+  return {
+    CameraView: (props: object) => createElement(View, props),
+    useCameraPermissions: () => {
+      const [current, setCurrent] = useState(permission)
+      const request = async () => {
+        const result = await requestCameraPermissionsAsync()
+        setCurrent(result)
+        return result
+      }
+      return [current, request]
+    },
+    requestCameraPermissionsAsync,
+    __setPermission: (value: typeof permission) => {
+      permission = value
+    },
+  }
+})

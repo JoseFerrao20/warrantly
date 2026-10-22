@@ -12,10 +12,12 @@ import {
   takeInvoicePhoto,
 } from '@/lib/invoice'
 import type { StagedInvoice } from '@/lib/invoice'
+import { InvoiceQRScanner } from '@/lib/qrScanner'
 import { useColors } from '@/lib/theme'
 import { emptyForm, PurchaseFields, toInput } from '@/lib/purchaseForm'
 import type { PurchaseForm } from '@/lib/purchaseForm'
 import { Button, ErrorText } from '@/lib/ui'
+import type { InvoiceScan } from '@/shared/types'
 
 // Os campos que a leitura da fatura pode sugerir.
 type ScannedField = 'product_name' | 'store' | 'purchase_date' | 'price' | 'invoice_number'
@@ -34,10 +36,39 @@ export default function NewPurchaseScreen() {
   const [scanNote, setScanNote] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<'invoice' | 'save' | null>(null)
+  const [scanningQr, setScanningQr] = useState(false)
 
   function change(name: keyof PurchaseForm, value: string) {
     touched.current.add(name)
     setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  /** Preenche os campos vazios com o que a leitura sugere; devolve quantos preencheu. */
+  function applyScan(scan: InvoiceScan | null): number {
+    const suggestions: Partial<Record<ScannedField, string | null>> = scan
+      ? {
+          product_name: scan.product_name,
+          store: scan.store,
+          purchase_date: scan.purchase_date,
+          price: scan.price?.replace('.', ','),
+          invoice_number: scan.invoice_number,
+        }
+      : {}
+    const filled = Object.entries(suggestions).filter(
+      ([name, value]) => value && !touched.current.has(name as ScannedField),
+    )
+    setForm((current) => ({ ...current, ...Object.fromEntries(filled) }))
+    return filled.length
+  }
+
+  function handleQr(scan: InvoiceScan) {
+    setScanningQr(false)
+    setError(null)
+    applyScan(scan)
+    setScanNote(
+      'Lemos o código QR da fatura. Confirma a data, o preço e o n.º, e indica o produto e a ' +
+        'loja. Para guardar a fatura, fotografa-a ou escolhe o ficheiro.',
+    )
   }
 
   async function handleFile(file: PickedFile) {
@@ -48,21 +79,8 @@ export default function NewPurchaseScreen() {
       const staged = await stageInvoice(file)
       setInvoice(staged)
       const scan = await scanStaged(staged).catch(() => null) // a leitura é só uma ajuda
-      const suggestions: Partial<Record<ScannedField, string | null>> = scan
-        ? {
-            product_name: scan.product_name,
-            store: scan.store,
-            purchase_date: scan.purchase_date,
-            price: scan.price?.replace('.', ','),
-            invoice_number: scan.invoice_number,
-          }
-        : {}
-      const filled = Object.entries(suggestions).filter(
-        ([name, value]) => value && !touched.current.has(name as ScannedField),
-      )
-      setForm((current) => ({ ...current, ...Object.fromEntries(filled) }))
       setScanNote(
-        filled.length > 0
+        applyScan(scan) > 0
           ? 'Preenchemos alguns campos com o que lemos na fatura. Confirma antes de guardar.'
           : 'Não conseguimos ler os dados da fatura; preenche à mão.',
       )
@@ -132,11 +150,21 @@ export default function NewPurchaseScreen() {
             />
           </View>
         </View>
+        <Button
+          title="Ler o código QR"
+          variant="secondary"
+          onPress={() => setScanningQr(true)}
+          disabled={busy !== null}
+        />
         {busy === 'invoice' && <Text style={{ color: colors.muted }}>A ler a fatura…</Text>}
         {scanNote && <Text style={{ color: colors.muted }}>{scanNote}</Text>}
       </View>
 
       <PurchaseFields form={form} onChange={change} />
+
+      {scanningQr && (
+        <InvoiceQRScanner onScanned={handleQr} onClose={() => setScanningQr(false)} />
+      )}
 
       {error && <ErrorText>{error}</ErrorText>}
       <View style={{ marginTop: 20 }}>

@@ -13,7 +13,7 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
 
-from app.invoice_scan import ocr_available, parse_invoice_text, scan_invoice
+from app.invoice_scan import ocr_available, parse_invoice_text, scan_invoice, scan_qr_text
 
 TODAY = date(2026, 10, 15)
 
@@ -267,5 +267,57 @@ def test_future_date_in_qr_is_not_suggested():
     result = scan_invoice(png(qr_image(qr)), "image/png", TODAY)
 
     assert result.from_qr is True
+    assert result.purchase_date is None
+    assert result.price == Decimal("490.00")
+
+
+# --- QR lido pela câmara do telemóvel ----------------------------------------------------------
+
+
+def test_scan_qr_text_from_the_phone(auth_client: TestClient):
+    response = auth_client.post("/purchases/scan-qr", json={"text": WORTEN_QR})
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "text_found": True,
+        "ocr_available": ocr_available(),
+        "product_name": None,
+        "store": None,
+        "purchase_date": "2023-11-05",
+        "price": "490.00",
+        "invoice_number": "FR 0123/456790",
+        "store_email": None,
+    }
+
+
+@pytest.mark.parametrize(
+    "qr",
+    [
+        WORTEN_QR.replace("D:FR", "D:NC"),
+        WORTEN_QR.replace("E:N", "E:A"),
+        "https://www.worten.pt/promocoes",
+        "A:503630330*B:999999990",  # QR da AT incompleto
+    ],
+)
+def test_scan_qr_text_rejects_other_codes(auth_client: TestClient, qr: str):
+    response = auth_client.post("/purchases/scan-qr", json={"text": qr})
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Este código QR não é de uma fatura"
+
+
+def test_scan_qr_text_limits(auth_client: TestClient):
+    assert auth_client.post("/purchases/scan-qr", json={"text": ""}).status_code == 422
+    assert auth_client.post("/purchases/scan-qr", json={"text": "A" * 1001}).status_code == 422
+
+
+def test_scan_qr_text_requires_authentication(client: TestClient):
+    assert client.post("/purchases/scan-qr", json={"text": WORTEN_QR}).status_code == 401
+
+
+def test_future_date_in_scanned_qr_is_not_suggested():
+    result = scan_qr_text(WORTEN_QR.replace("F:20231105", "F:20271105"), TODAY)
+
+    assert result is not None
     assert result.purchase_date is None
     assert result.price == Decimal("490.00")

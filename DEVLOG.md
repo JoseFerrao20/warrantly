@@ -474,9 +474,20 @@
   - **Licença:** MIT, decidida pelo José (a mesma do faturapt). Ficheiro `LICENSE` e secção no README.
   - **Por decidir (o José):** os emails dos commits, que ficam públicos com o repositório (`zemiguelferrao20@hotmail.com` em 58 commits, o Gmail nos commits das sessões do Claude Code).
 
+- **2026-10-22 (sessão cloud do Claude Code):** ler o código QR com a câmara na app móvel.
+  - **O que mudou:**
+    - na compra nova da app, o botão "Ler o código QR" abre a câmara (`expo-camera`, com a leitura de códigos de barras do próprio sistema). A leitura é automática: quando a câmara vê um QR que começa como o da AT (`A:` e um NIF), o texto vai para a API;
+    - a rota nova `POST /purchases/scan-qr` valida o texto com o `faturapt.parse` e aceita as mesmas faturas da leitura dos ficheiros (FT, FS, FR, não anuladas). Responde como o `/scan-invoice`, com a data (se não estiver no futuro), o total e o n.º da fatura, ou 422 se o QR não for de uma fatura. O `invoice_scan.py` ganhou o `scan_qr_text`, e a regra "o QR ganha ao texto" passou para o `apply_qr`, usado pelas duas leituras;
+    - um QR de outra coisa (um site, uma nota de crédito) só dá um aviso, e a câmara continua à procura. Cada texto só é verificado uma vez, porque a câmara vê o mesmo QR muitas vezes por segundo; depois de uma falha de rede, pode ser lido outra vez;
+    - sem autorização, o ecrã pede acesso à câmara ou, se foi recusado de vez, leva às definições do telemóvel. O `app.json` tem o texto da autorização (o mesmo do `expo-image-picker`, porque no iOS só fica um) e não pede o microfone;
+    - o QR não tem a loja nem o produto, por isso a mensagem pede-os e lembra que a fatura só fica guardada se for fotografada ou escolhida.
+  - **Verificado aqui:** 8 testes novos no backend (319) e 5 na app (77), com a câmara simulada no `jest.setup.ts` (`fireEvent(câmara, 'barcodeScanned', …)` e `__setPermission`); o lint, os tipos e o bundle de Android.
+  - **Por verificar no telemóvel:** a leitura a sério, com o talão de uma loja. A leitura de códigos da `expo-camera` funciona na Expo Go, por isso não precisa de uma development build.
+  - **Lição:** a leitura do QR ficou toda no backend, com o faturapt, em vez de copiar as regras da AT para TypeScript. A app só faz um filtro barato (`A:` e um NIF) para não chamar a API por cada QR de publicidade.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 311 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 319 testes, frontend com 98, app móvel com 77, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -485,7 +496,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform, o Tesseract e o Claude Code (`claude` no terminal; a sessão sobrevive a reconstruções). No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (311 testes, sem avisos) e `cd frontend && npm test` (98 testes).
+  - `cd backend && alembic upgrade head && pytest` (319 testes, sem avisos) e `cd frontend && npm test` (98 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -512,7 +523,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
      - a leitura pelo QR: o PDF de uma fatura recebida por email e uma fotografia de um talão, com a data, o total e o n.º a virem do QR (`docs/cloud.md`, passo 8);
   8. commit dos `.terraform.lock.hcl`.
   - Se algo falhar, copiar o erro (do Actions ou do terminal) para a sessão do Claude Code e corrigir num PR.
-- [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério (com o QR da AT dentro da fotografia) e ver o que a leitura preenche: a data, o total e o número devem vir do QR. Anotar o que correr mal.
+- [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério (com o QR da AT dentro da fotografia) e ver o que a leitura preenche: a data, o total e o número devem vir do QR. Experimentar também "Ler o código QR" com a câmara, num talão e num QR de outra coisa. Anotar o que correr mal.
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 

@@ -169,6 +169,12 @@ class InvoiceScanRead(BaseModel):
     store_email: str | None
 
 
+class QRScanRequest(BaseModel):
+    """O texto do código QR da fatura, lido pela câmara do telemóvel."""
+
+    text: str = Field(min_length=1, max_length=1000)  # o QR da AT tem no máximo cerca de 700
+
+
 class UploadTicketRead(BaseModel):
     """Upload direto para o S3: o browser faz POST de `fields` + o ficheiro para `url`."""
 
