@@ -458,9 +458,18 @@
   - **Cuidado que ficou no faturapt:** o PDFium não aguenta duas threads ao mesmo tempo, e o FastAPI corre as rotas síncronas em várias threads. O `read_pdf` desenha as páginas com um lock, por isso o Warrantly não precisa de fazer nada.
   - **CI:** a auditoria de dependências falhou duas vezes com "faturapt>=0.2 não existe", com a 0.2.0 já no PyPI. Com o `pyproject.toml` novo, o `setup-python` não tinha cache com a chave certa e restaurou uma antiga, e as respostas do PyPI guardadas nela só conheciam a 0.1.0 (no mesmo minuto, o job dos testes instalou a 0.2.0 sem problemas). A auditoria deixa de usar a cache do pip: tem de resolver contra o PyPI de hoje, e custa só alguns segundos.
 
+- **2026-10-22 (sessão cloud do Claude Code):** preparar o deploy na AWS.
+  - **O que se verificou:**
+    - as variáveis e o segredo que os workflows usam (`AWS_DEPLOY_ROLE_ARN`, `AWS_PLAN_ROLE_ARN`, `TF_STATE_BUCKET`, `MAIL_FROM_ADDRESS`, `ALARM_EMAIL`, `APP_URL`, `ALERTS_TOKEN`) são os que o `docs/cloud.md` manda criar. Só faltava a `AWS_REGION`, opcional, que passou a estar no passo 5;
+    - a leitura das faturas cabe à vontade no Lambda (1536 MB, 60 s). Medido aqui com a app inteira importada (cerca de 145 MB): um PDF de duas páginas com o QR desenhado na última chega a cerca de 225 MB e demora 0,6 s; uma fotografia de 4000×3000 com OCR chega a cerca de 210 MB mais o Tesseract (outro processo, cerca de 205 MB) e demora 1,2 s;
+    - a imagem Docker com o `faturapt[pdf]` passou o build e o smoke test no CI (`main`, PR #61), e o Terraform não mudou desde a última validação no CI (PR #57);
+    - o workflow Deploy está pronto, à espera das variáveis da AWS (sem elas, termina sem fazer nada).
+  - **O que mudou:** o passo 8 do `docs/cloud.md` e o plano abaixo passam a verificar a leitura pelo QR, com uma pesquisa no Logs Insights pela propriedade `qr` da métrica.
+  - **O que não se pôde verificar aqui:** o `terraform validate`, porque o registo dos providers continua bloqueado na sessão cloud. Fica a validação do CI.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-16 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS. Entraram no `main` 46 PRs. Tudo está testado no CI: backend com 304 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 311 testes, frontend com 98, app móvel com 72, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -469,7 +478,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform, o Tesseract e o Claude Code (`claude` no terminal; a sessão sobrevive a reconstruções). No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (304 testes, sem avisos) e `cd frontend && npm test` (98 testes).
+  - `cd backend && alembic upgrade head && pytest` (311 testes, sem avisos) e `cd frontend && npm test` (98 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -493,6 +502,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
      - uma pesquisa por `request_id` no Logs Insights;
      - o email de confirmação dos alarmes (variável `ALARM_EMAIL`);
      - o Lambda testado com o evento `{"task": "alerts"}` (ver o runbook);
+     - a leitura pelo QR: o PDF de uma fatura recebida por email e uma fotografia de um talão, com a data, o total e o n.º a virem do QR (`docs/cloud.md`, passo 8);
   8. commit dos `.terraform.lock.hcl`.
   - Se algo falhar, copiar o erro (do Actions ou do terminal) para a sessão do Claude Code e corrigir num PR.
 - [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério (com o QR da AT dentro da fotografia) e ver o que a leitura preenche: a data, o total e o número devem vir do QR. Anotar o que correr mal.
@@ -516,5 +526,6 @@ Próximos passos, por esta ordem:
 2. **Mostrar o repositório,** depois de a app estar terminada:
    - torná-lo público (liga também o CodeQL e os badges do README);
    - pôr o link da app no README e fixá-lo no perfil do GitHub;
+   - no README do perfil (repositório `JoseFerrao20/JoseFerrao20`), trocar a nota "o repositório fica público…" pelo link e por uma captura;
    - só então, se fizer falta, a descrição para o CV ou o LinkedIn.
 

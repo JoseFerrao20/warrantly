@@ -107,7 +107,7 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    ```
    Cada token é diferente, gerado com o comando do início desta secção. O `ORIGIN_VERIFY_SECRET` é o segredo entre o CloudFront e a API (secção "IP do cliente e acesso à API").
 5. **GitHub** (Settings → Secrets and variables → Actions)
-   - Variáveis: `AWS_DEPLOY_ROLE_ARN` e `AWS_PLAN_ROLE_ARN` (outputs do bootstrap), `TF_STATE_BUCKET` (output `state_bucket`) e `MAIL_FROM_ADDRESS` (o email que envia os alertas). Opcional: `ALARM_EMAIL` (recebe os alarmes do CloudWatch; confirmar o email da AWS "Subscription Confirmation").
+   - Variáveis: `AWS_DEPLOY_ROLE_ARN` e `AWS_PLAN_ROLE_ARN` (outputs do bootstrap), `TF_STATE_BUCKET` (output `state_bucket`) e `MAIL_FROM_ADDRESS` (o email que envia os alertas). Opcional: `ALARM_EMAIL` (recebe os alarmes do CloudWatch; confirmar o email da AWS "Subscription Confirmation") e `AWS_REGION` (só se não for `eu-central-1`; tem de ser a mesma do bootstrap e do `aws configure sso`).
    - Segredo: `ALERTS_TOKEN`, com o mesmo valor do passo 4.
 6. **Primeiro deploy**: Actions → Deploy → Run workflow.
    - O workflow cria o ECR, publica a imagem, aplica as migrações no Neon, cria o resto com o Terraform e publica o frontend.
@@ -132,6 +132,7 @@ Pré-requisitos no teu computador: [AWS CLI v2](https://docs.aws.amazon.com/cli/
    - Registar uma compra com uma fatura PDF; a fatura abre inteira.
    - Partilha: convidar o segundo email (também verificado no SES e com a conta confirmada), aceitar nessa conta e ver a compra com "de …".
    - Fotografia grande (até 10 MB), com a leitura a preencher os campos. Vai do browser diretamente para o S3; no browser, em Rede, o POST vai para `…s3.eu-central-1.amazonaws.com`.
+   - Leitura pelo QR da AT: registar uma compra com o PDF de uma fatura recebida por email e outra com uma fotografia de um talão (com o QR na fotografia). A data, o total e o n.º da fatura devem vir do QR. No Logs Insights, `filter ispresent(InvoiceFieldsSuggested) | stats count() by qr` mostra quantas leituras usaram o QR (`yes`).
    - Em CloudWatch → Log groups → `/aws/lambda/warrantly-api`, os logs aparecem.
    - Alertas agendados: Lambda → `warrantly-api` → Testar, com o evento `{"task": "alerts"}`; a resposta tem `emails_sent`. O evento `{"task": "push-receipts"}` responde com `checked` e `tokens_removed`. Ver também os dois agendamentos em EventBridge → Scheduler → Schedules.
 9. **Lock files do Terraform**: depois do primeiro `terraform init` em `infra/bootstrap` e `infra/app`, fazer commit dos ficheiros `.terraform.lock.hcl`. Fixam as versões exatas dos providers; não foi possível gerá-los na sessão cloud.
