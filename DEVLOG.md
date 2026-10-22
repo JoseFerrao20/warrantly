@@ -498,9 +498,23 @@
   - **Verificado aqui:** 6 testes novos no backend (325), 1 no site (99, mais o NIF no teste do detalhe) e 1 na app (78); os E2E de acessibilidade, compras e reclamação; o lint, os tipos e os bundles.
   - **Lição:** dentro de uma transação, o `now()` do Postgres é sempre o mesmo, por isso duas compras criadas no mesmo teste têm o mesmo `created_at`. "A mais recente" ordena também pelo `id`, senão o resultado depende da sorte.
 
+- **2026-10-22 (sessão cloud do Claude Code):** verificação antes do primeiro deploy.
+  - **Contexto:** a app tem cerca de 600 testes e nunca correu na AWS. O primeiro deploy são 9 passos à mão, e um engano num deles (um segredo noutra região, uma variável com o ARN errado) só aparecia a meio do workflow Deploy.
+  - **O que mudou:**
+    - `scripts/preflight.py` confirma, pela ordem do `docs/cloud.md`:
+      - a sessão da AWS e a região do deploy;
+      - o bootstrap: o bucket do estado, os dois papéis, o OIDC do GitHub e o orçamento;
+      - os segredos no SSM: existem, estão cifrados, são diferentes uns dos outros e a `SECRET_KEY` tem 32 caracteres ou mais. Também liga ao Neon com o `DATABASE_URL`;
+      - as variáveis e o segredo do GitHub (com o `gh`), comparados com o que existe na AWS;
+      - depois do deploy, o `APP_URL` e o SES (email confirmado, sandbox).
+    - Para cada falha, o script diz o comando ou o sítio onde se corrige e, no fim, o primeiro passo por fazer. Não muda nada e nunca mostra o valor de um segredo (há um teste para isso);
+    - o `docs/cloud.md` ganhou a secção "Se algo falhar", com os erros mais prováveis e onde aparecem: a sessão SSO expirada, o OIDC recusado (Run workflow fora do `main`), o segredo em falta no `plan`, o Neon a recusar a ligação, o SES no sandbox e o CloudFront ainda a propagar.
+  - **Verificado aqui:** 11 testes novos (336 no backend), com a AWS simulada pelo moto e o `gh` simulado. O moto não tem o `get_account` do SES, por isso esse cliente é um objeto de teste. Também corri o script a sério, sem credenciais, e apareceu um erro: com um `AWS_PROFILE` que não existe, o boto3 falhava logo ao abrir a sessão e o script mostrava um traceback. Passou a mostrar o que fazer.
+  - **Lição:** na primeira versão, a região esperada vinha da própria sessão, por isso a verificação passava sempre. A região certa é a do deploy (a variável `AWS_REGION` do GitHub, ou `eu-central-1`). Um teste que estraga a regra e confirma que falha apanha estes casos.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 325 testes, frontend com 99, app móvel com 78, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 336 testes, frontend com 99, app móvel com 78, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -509,7 +523,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform, o Tesseract e o Claude Code (`claude` no terminal; a sessão sobrevive a reconstruções). No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (325 testes, sem avisos) e `cd frontend && npm test` (99 testes).
+  - `cd backend && alembic upgrade head && pytest` (336 testes, sem avisos) e `cd frontend && npm test` (99 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -519,7 +533,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Uma compra com menos de 60 dias de garantia: `cd backend && python -m app.alerts` e ver o email no Mailpit (porta 8025). Na mesma compra, gerar a reclamação e descarregar o PDF.
   - E2E: `cd frontend && npx playwright install --with-deps chromium && npm run e2e` (29 testes).
   - Anotar aqui o que falhar; não gastar mais de 35 min.
-- [ ] **0:45–2:30 · Primeiro deploy na AWS**: seguir [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez), passo a passo, lendo cada `terraform plan` antes do `apply`:
+- [ ] **0:45–2:30 · Primeiro deploy na AWS**: seguir [`docs/cloud.md`, "Primeiro deploy"](docs/cloud.md#primeiro-deploy-em-casa-uma-vez), passo a passo, lendo cada `terraform plan` antes do `apply`. Depois de cada passo, correr `python3 scripts/preflight.py` (precisa do `gh auth login`); só seguir para o 6 quando não houver nenhum `FALTA`. Se algo falhar, ver a secção "Se algo falhar":
   1. conta AWS com MFA e utilizador no IAM Identity Center (`aws sso login`);
   2. projeto no Neon (`eu-central-1`, connection string "pooled");
   3. `infra/bootstrap`: `terraform apply` e confirmar o email do orçamento;
