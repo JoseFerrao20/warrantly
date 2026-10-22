@@ -32,6 +32,7 @@ export interface Purchase {
   warranty_end: string // AAAA-MM-DD
   invoice_number: string | null
   store_email: string | null
+  store_nif: string | null // de quem passou a fatura (do código QR)
   invoice_filename: string | null
   invoice_content_type: string | null
   invoice_size: number | null
@@ -49,6 +50,7 @@ export interface PurchaseInput {
   warranty_months: number
   invoice_number: string | null
   store_email: string | null
+  store_nif: string | null
 }
 
 /** Upload direto browser → S3 (POST pré-assinado). Sem S3, `direct` é false. */
@@ -70,6 +72,9 @@ export interface InvoiceScan {
   price: string | null
   invoice_number: string | null
   store_email: string | null
+  store_nif: string | null
+  /** Uma compra que já tem esta fatura (mesmo NIF e mesmo n.º), se houver. */
+  duplicate_purchase_id: number | null
 }
 
 export interface Claim {

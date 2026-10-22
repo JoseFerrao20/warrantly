@@ -38,7 +38,9 @@ def test_format_price(price: Decimal, expected: str):
 
 def test_claim_letter_within_warranty(db_session: Session, user: User):
     user.full_name = "José Ferrão"
-    purchase = make_purchase(db_session, user, invoice_number="FT 2023/48213")
+    purchase = make_purchase(
+        db_session, user, invoice_number="FT 2023/48213", store_nif="503630330"
+    )
 
     subject, body = build_claim(
         purchase, user, "Não centrifuga e dá o erro E18.", today=date(2026, 10, 15)
@@ -50,7 +52,7 @@ def test_claim_letter_within_warranty(db_session: Session, user: User):
     assert "ainda dentro do prazo de garantia (válida até 03/11/2026)" in body
     assert "- Data de compra: 03/11/2023" in body
     assert "- Preço: 429,00 €" in body
-    assert "- Fatura n.º FT 2023/48213" in body
+    assert "- Fatura n.º FT 2023/48213\n- NIF do vendedor: 503630330" in body
     assert "Descrição da avaria:\nNão centrifuga e dá o erro E18." in body
     assert "Junto cópia da fatura" not in body  # sem ficheiro carregado
     assert body.endswith("Com os melhores cumprimentos,\nJosé Ferrão\nana@example.com")
@@ -64,6 +66,7 @@ def test_claim_letter_after_warranty_and_with_invoice_file(db_session: Session, 
 
     assert "dentro do prazo" not in body
     assert "Fatura n.º" not in body
+    assert "NIF do vendedor" not in body
     assert "Junto cópia da fatura de compra." in body
 
 

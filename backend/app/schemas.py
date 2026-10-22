@@ -3,7 +3,17 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field, computed_field, model_validator
+import faturapt
+from pydantic import (
+    AfterValidator,
+    BaseModel,
+    ConfigDict,
+    EmailStr,
+    Field,
+    computed_field,
+    model_validator,
+)
+from pydantic_core import PydanticCustomError
 
 from app.models.purchase import DEFAULT_WARRANTY_MONTHS
 
@@ -35,6 +45,18 @@ Price = Annotated[Decimal, Field(ge=0, max_digits=10, decimal_places=2)]
 WarrantyMonths = Annotated[int, Field(gt=0, le=1200)]
 
 
+def _store_nif(value: str) -> str:
+    nif = faturapt.normalize_nif(value)
+    if not faturapt.is_valid_nif(nif):
+        # Sem o prefixo "Value error, " do ValueError: a mensagem chega tal e qual à interface.
+        raise PydanticCustomError("store_nif", "O NIF da loja não é válido")
+    return nif
+
+
+# Aceita "PT 503 630 330" e guarda "503630330".
+StoreNif = Annotated[str, Field(max_length=20), AfterValidator(_store_nif)]
+
+
 class PurchaseCreate(BaseModel):
     product_name: Name
     store: Name
@@ -44,6 +66,7 @@ class PurchaseCreate(BaseModel):
     warranty_months: WarrantyMonths = DEFAULT_WARRANTY_MONTHS
     invoice_number: InvoiceNumber | None = None
     store_email: StoreEmail | None = None
+    store_nif: StoreNif | None = None
 
 
 class PurchaseUpdate(BaseModel):
@@ -57,11 +80,12 @@ class PurchaseUpdate(BaseModel):
     warranty_months: WarrantyMonths | None = None
     invoice_number: InvoiceNumber | None = None
     store_email: StoreEmail | None = None
+    store_nif: StoreNif | None = None
 
     @model_validator(mode="after")
     def reject_null_required_fields(self) -> "PurchaseUpdate":
         # Omitir um campo deixa-o como está; enviá-lo a null só é válido nos campos opcionais.
-        nullable = {"category", "invoice_number", "store_email"}
+        nullable = {"category", "invoice_number", "store_email", "store_nif"}
         nulls = [f for f in self.model_fields_set if getattr(self, f) is None and f not in nullable]
         if nulls:
             raise ValueError(f"Campos que não podem ser null: {', '.join(sorted(nulls))}")
@@ -84,6 +108,7 @@ class PurchaseRead(BaseModel):
     warranty_end: date
     invoice_number: str | None
     store_email: str | None
+    store_nif: str | None
     invoice_filename: str | None
     invoice_content_type: str | None
     invoice_size: int | None
@@ -167,6 +192,9 @@ class InvoiceScanRead(BaseModel):
     price: Decimal | None
     invoice_number: str | None
     store_email: str | None
+    store_nif: str | None  # de quem passou a fatura, lido do código QR
+    # Uma compra (do utilizador ou partilhada com ele) com o mesmo NIF e n.º de fatura.
+    duplicate_purchase_id: int | None = None
 
 
 class QRScanRequest(BaseModel):

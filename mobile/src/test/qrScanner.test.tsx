@@ -17,6 +17,8 @@ const SCAN: InvoiceScan = {
   price: '490.00',
   invoice_number: 'FR 0123/456790',
   store_email: null,
+  store_nif: null,
+  duplicate_purchase_id: null,
 }
 const NOT_AN_INVOICE = /Encontrei um código QR, mas não é de uma fatura/
 
@@ -150,4 +152,31 @@ test('com a câmara recusada de vez, leva às definições do telemóvel', async
 
   await fireEvent.press(screen.getByRole('button', { name: 'Abrir as definições' }))
   expect(openSettings).toHaveBeenCalled()
+})
+
+test('com o NIF já conhecido, preenche a loja e avisa de uma fatura já registada', async () => {
+  const calls = mockApi({
+    'GET /auth/me': USER,
+    'POST /purchases/scan-qr': {
+      ...SCAN,
+      store: 'Worten Amadora',
+      store_email: 'amadora@worten.pt',
+      store_nif: '503630330',
+      duplicate_purchase_id: 3,
+    },
+    'GET /purchases/3': makePurchase({ id: 3, product_name: 'Máquina de lavar' }),
+  })
+  const app = await openScanner()
+
+  await scanCode(QR)
+
+  expect(await screen.findByText(/Confirma os valores e indica o produto\./)).toBeOnTheScreen()
+  expect(screen.getByLabelText('Loja', { exact: true })).toHaveDisplayValue('Worten Amadora')
+  expect(screen.getByLabelText(/Email da loja/)).toHaveDisplayValue('amadora@worten.pt')
+  expect(screen.getByLabelText(/NIF da loja/)).toHaveDisplayValue('503630330')
+  expect(screen.getByRole('alert')).toHaveTextContent(/Já tens uma compra com esta fatura/)
+
+  await fireEvent.press(screen.getByRole('button', { name: 'Ver a compra registada' }))
+  await waitFor(() => expect(app.getPathname()).toBe('/compras/3'))
+  expect(calls.some((c) => c.url.endsWith('/purchases/3'))).toBe(true)
 })

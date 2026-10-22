@@ -485,9 +485,22 @@
   - **Por verificar no telemóvel:** a leitura a sério, com o talão de uma loja. A leitura de códigos da `expo-camera` funciona na Expo Go, por isso não precisa de uma development build.
   - **Lição:** a leitura do QR ficou toda no backend, com o faturapt, em vez de copiar as regras da AT para TypeScript. A app só faz um filtro barato (`A:` e um NIF) para não chamar a API por cada QR de publicidade.
 
+- **2026-10-22 (sessão cloud do Claude Code):** o NIF da loja, a partir do código QR.
+  - **Contexto:** o QR da AT traz o NIF de quem passou a fatura (campo `A`), e o Warrantly deitava-o fora. Por isso, ler o QR com a câmara deixava sempre a loja por escrever.
+  - **O que mudou:**
+    - coluna nova `purchases.store_nif` (migração gerada, testada com upgrade, downgrade e `alembic check`). A API aceita "PT 503 630 330", guarda "503630330" e recusa um NIF com o dígito de controlo errado (validado com o faturapt);
+    - a leitura da fatura (ficheiro ou QR) devolve o `store_nif`. Se o utilizador já tiver uma compra com esse NIF, a loja e o email vêm da mais recente: o nome que a pessoa escreveu ganha ao palpite tirado do texto da fatura;
+    - `duplicate_purchase_id`: uma compra com o mesmo NIF e o mesmo n.º de fatura. O site e a app avisam ("Já tens uma compra com esta fatura") e levam a essa compra; na edição, a própria compra não conta;
+    - as duas procuras usam as compras que o utilizador vê (as dele e as dos arquivos partilhados com ele), o mesmo `visible_purchases` da lista. As compras de outras contas, e as de convites por aceitar, nunca entram: há um teste para isso;
+    - o NIF aparece no formulário (opcional), no detalhe, na exportação (CSV e JSON) e na carta de reclamação ("NIF do vendedor");
+    - a mensagem de erro do NIF usa o `PydanticCustomError`, para chegar à interface sem o prefixo "Value error, ";
+    - a métrica `InvoiceFieldsSuggested` ganhou a propriedade `known_store`, sem criar uma métrica nova.
+  - **Verificado aqui:** 6 testes novos no backend (325), 1 no site (99, mais o NIF no teste do detalhe) e 1 na app (78); os E2E de acessibilidade, compras e reclamação; o lint, os tipos e os bundles.
+  - **Lição:** dentro de uma transação, o `now()` do Postgres é sempre o mesmo, por isso duas compras criadas no mesmo teste têm o mesmo `created_at`. "A mais recente" ordena também pelo `id`, senão o resultado depende da sorte.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
-Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 319 testes, frontend com 98, app móvel com 77, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
+Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 325 testes, frontend com 99, app móvel com 78, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
 
 Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr a app online na AWS, aprendendo cada passo.
 
@@ -496,7 +509,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
   - Apagar o `.env`: o `post-create.sh` volta a criá-lo a partir do `.env.example`. O antigo já não serve, porque a `SECRET_KEY` precisa de 32 caracteres ou mais e há variáveis novas.
   - "Dev Containers: Rebuild and Reopen in Container", porque o dev container passa a ter o AWS CLI, o Terraform, o Tesseract e o Claude Code (`claude` no terminal; a sessão sobrevive a reconstruções). No portátil, criar um Codespace novo no `main`.
 - [ ] **0:10–0:45 · Validar o ambiente:**
-  - `cd backend && alembic upgrade head && pytest` (319 testes, sem avisos) e `cd frontend && npm test` (98 testes).
+  - `cd backend && alembic upgrade head && pytest` (325 testes, sem avisos) e `cd frontend && npm test` (99 testes).
   - Arrancar a API (`cd backend && uvicorn app.main:app --reload --host 0.0.0.0`) e o frontend (`cd frontend && npm run dev`), e abrir a porta 5173. Experimentar:
     - criar conta com nome; "Esqueci-me da palavra-passe" e ver o email no Mailpit (porta 8025);
     - registar uma compra com uma fatura em PDF e outra com uma fotografia do telemóvel, escolhendo a fatura **primeiro**, e ver o que a leitura preenche (`tesseract --list-langs` deve mostrar `por`);
@@ -523,7 +536,7 @@ Objetivo: 1) confirmar que tudo funciona no ambiente de desenvolvimento; 2) pôr
      - a leitura pelo QR: o PDF de uma fatura recebida por email e uma fotografia de um talão, com a data, o total e o n.º a virem do QR (`docs/cloud.md`, passo 8);
   8. commit dos `.terraform.lock.hcl`.
   - Se algo falhar, copiar o erro (do Actions ou do terminal) para a sessão do Claude Code e corrigir num PR.
-- [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério (com o QR da AT dentro da fotografia) e ver o que a leitura preenche: a data, o total e o número devem vir do QR. Experimentar também "Ler o código QR" com a câmara, num talão e num QR de outra coisa. Anotar o que correr mal.
+- [ ] **Se sobrar tempo · App móvel no telemóvel:** instalar a Expo Go, `cd mobile && npm install`, `.env.local` com o `EXPO_PUBLIC_API_URL` (a API do CloudFront com `/api`, ou ver o README) e `npx expo start --go` (ou `--tunnel` no Codespace). Entrar, fotografar uma fatura a sério (com o QR da AT dentro da fotografia) e ver o que a leitura preenche: a data, o total e o número devem vir do QR. Experimentar também "Ler o código QR" com a câmara, num talão e num QR de outra coisa. Depois de guardar, ler outra vez o QR do mesmo talão: a loja deve vir preenchida e deve aparecer o aviso de fatura repetida. Anotar o que correr mal.
 - [ ] **Noutra sessão · Push no telemóvel:** seguir [`docs/push.md`](docs/push.md): conta do Expo, `eas init` (pôr o `projectId` no `app.json`), Firebase com o `google-services.json`, chave do FCM no EAS, development build de Android e uma compra a menos de 60 dias para correr os alertas. Commit do `projectId`.
 - [ ] **2:30–2:45 · Fechar:** entrada no DEVLOG (o que funcionou, o que falhou e o custo visto em Billing), commit, push e PR.
 

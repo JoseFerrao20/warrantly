@@ -145,6 +145,11 @@ export function PurchaseDetailPage() {
               N.º <strong>{purchase.invoice_number}</strong>
             </p>
           )}
+          {purchase.store_nif && (
+            <p>
+              NIF da loja <strong>{purchase.store_nif}</strong>
+            </p>
+          )}
           {purchase.invoice_filename ? (
             <>
               <p className="invoice-name">{purchase.invoice_filename}</p>

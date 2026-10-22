@@ -27,6 +27,7 @@ interface FormState {
   custom_months: string
   invoice_number: string
   store_email: string
+  store_nif: string
 }
 
 const emptyForm = (): FormState => ({
@@ -39,6 +40,7 @@ const emptyForm = (): FormState => ({
   custom_months: '',
   invoice_number: '',
   store_email: '',
+  store_nif: '',
 })
 
 // Campos que a leitura da fatura pode preencher, com o nome para a mensagem.
@@ -49,6 +51,7 @@ const SCAN_FIELDS: [keyof FormState & keyof InvoiceScan, string][] = [
   ['purchase_date', 'data'],
   ['invoice_number', 'n.º da fatura'],
   ['store_email', 'email da loja'],
+  ['store_nif', 'NIF da loja'],
 ]
 
 function joinPt(items: string[]): string {
@@ -68,6 +71,8 @@ export function PurchaseFormPage() {
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState(false)
   const [scanStatus, setScanStatus] = useState<string | null>(null)
+  // A compra que já tem a fatura escolhida (mesmo NIF da loja e mesmo n.º), se houver.
+  const [duplicateId, setDuplicateId] = useState<number | null>(null)
 
   // Para a leitura da fatura não apagar o que o utilizador já escreveu.
   const formRef = useRef(form)
@@ -95,6 +100,7 @@ export function PurchaseFormPage() {
           custom_months: preset ? '' : String(p.warranty_months),
           invoice_number: p.invoice_number ?? '',
           store_email: p.store_email ?? '',
+          store_nif: p.store_nif ?? '',
         })
         setCurrentInvoice(p.invoice_filename)
       })
@@ -111,6 +117,7 @@ export function PurchaseFormPage() {
   async function chooseInvoice(file: File | null) {
     setInvoice(file)
     setScanStatus(null)
+    setDuplicateId(null)
     staged.current = file ? stageInvoice(file) : null
     if (!file || !staged.current) return
     const request = ++scanRequest.current
@@ -135,6 +142,12 @@ export function PurchaseFormPage() {
       filled.push(label)
     }
     setForm(next)
+    // Na edição, a própria compra não conta como repetida.
+    setDuplicateId(
+      scan.duplicate_purchase_id !== null && scan.duplicate_purchase_id !== Number(id)
+        ? scan.duplicate_purchase_id
+        : null,
+    )
     setScanStatus(
       filled.length > 0
         ? `Lemos a fatura e preenchemos: ${joinPt(filled)}. Confirma os valores antes de guardar.`
@@ -164,6 +177,7 @@ export function PurchaseFormPage() {
       warranty_months: months,
       invoice_number: form.invoice_number.trim() || null,
       store_email: form.store_email.trim() || null,
+      store_nif: form.store_nif.trim() || null,
     }
     setSubmitting(true)
     try {
@@ -198,6 +212,12 @@ export function PurchaseFormPage() {
       {scanStatus && (
         <p className="scan-status" role="status">
           {scanStatus}
+        </p>
+      )}
+      {duplicateId !== null && (
+        <p className="warning" role="alert">
+          Já tens uma compra com esta fatura (a mesma loja e o mesmo n.º).{' '}
+          <Link to={`/compras/${duplicateId}`}>Ver a compra registada</Link>
         </p>
       )}
 
@@ -306,6 +326,19 @@ export function PurchaseFormPage() {
           value={form.store_email}
           onChange={(e) => set('store_email')(e.target.value)}
           placeholder="apoio@loja.pt"
+        />
+      </label>
+
+      <label>
+        <span>
+          NIF da loja <span className="muted">(opcional, vem do código QR da fatura)</span>
+        </span>
+        <input
+          inputMode="numeric"
+          maxLength={20}
+          value={form.store_nif}
+          onChange={(e) => set('store_nif')(e.target.value)}
+          placeholder="503630330"
         />
       </label>
 

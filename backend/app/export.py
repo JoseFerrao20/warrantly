@@ -32,6 +32,7 @@ CSV_HEADER = [
     "Estado",
     "N.º da fatura",
     "Email da loja",
+    "NIF da loja",
     "Ficheiro da fatura",
 ]
 
@@ -76,6 +77,7 @@ def _csv(rows: list[tuple[Purchase, str | None]], today: date) -> bytes:
                 STATUS_LABELS[warranty_status(purchase.warranty_end, today)],
                 _cell(purchase.invoice_number),
                 _cell(purchase.store_email),
+                purchase.store_nif or "",
                 invoice_name or "",
             ]
         )
@@ -100,6 +102,7 @@ def _json(user: User, rows: list[tuple[Purchase, str | None]], now: datetime) ->
                 "status": warranty_status(p.warranty_end, now.date()).value,
                 "invoice_number": p.invoice_number,
                 "store_email": p.store_email,
+                "store_nif": p.store_nif,
                 "invoice_file": invoice_name,
                 "invoice_original_filename": p.invoice_filename if invoice_name else None,
                 "created_at": p.created_at.isoformat(timespec="seconds"),

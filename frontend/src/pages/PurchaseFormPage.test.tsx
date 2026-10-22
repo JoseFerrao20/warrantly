@@ -204,6 +204,7 @@ describe('PurchaseFormPage', () => {
       warranty_months: 36,
       invoice_number: null,
       store_email: null,
+      store_nif: null,
     })
     const upload = fetchMock.mock.calls.find((c) => c[1]?.method === 'PUT')
     expect((upload![1]!.body as FormData).get('file')).toBeInstanceOf(File)
@@ -261,4 +262,46 @@ it('envia o número da fatura quando preenchido', async () => {
   await screen.findByRole('heading', { name: created.product_name })
   const create = fetchMock.mock.calls.find((c) => c[1]?.method === 'POST')
   expect(JSON.parse(create![1]!.body as string).invoice_number).toBe('FT 2026/12345')
+})
+
+it('com o NIF da loja do código QR, avisa de uma fatura já registada e guarda o NIF', async () => {
+  const created = makePurchase({ id: 8 })
+  const fetchMock = mockApi({
+    'GET /auth/me': { body: USER },
+    'POST /purchases/scan-invoice': {
+      body: {
+        text_found: true,
+        ocr_available: true,
+        product_name: null,
+        store: 'Worten Amadora', // o nome que o utilizador deu a este NIF da última vez
+        purchase_date: '2023-11-05',
+        price: '490.00',
+        invoice_number: 'FR 0123/456790',
+        store_email: null,
+        store_nif: '503630330',
+        duplicate_purchase_id: 3,
+      },
+    },
+    'POST /purchases': { status: 201, body: created },
+    'GET /purchases/8': { body: created },
+  })
+  renderApp('/compras/nova')
+  const file = new File(['%PDF-1.4'], 'fatura.pdf', { type: 'application/pdf' })
+  await userEvent.upload(await screen.findByLabelText('Fatura'), file)
+
+  expect(await screen.findByRole('status')).toHaveTextContent('NIF da loja')
+  expect(screen.getByLabelText('Loja')).toHaveValue('Worten Amadora')
+  expect(screen.getByLabelText(/NIF da loja/)).toHaveValue('503630330')
+  expect(screen.getByRole('alert')).toHaveTextContent('Já tens uma compra com esta fatura')
+  expect(screen.getByRole('link', { name: 'Ver a compra registada' })).toHaveAttribute(
+    'href',
+    '/compras/3',
+  )
+
+  await userEvent.type(screen.getByLabelText('Produto'), 'Máquina de lavar')
+  await userEvent.click(screen.getByRole('button', { name: 'Guardar' }))
+
+  await screen.findByRole('heading', { name: created.product_name })
+  const create = fetchMock.mock.calls.find((c) => c[0] === '/api/purchases')
+  expect(JSON.parse(create![1]!.body as string).store_nif).toBe('503630330')
 })

@@ -33,6 +33,7 @@ export function makePurchase(overrides: Partial<Purchase> = {}): Purchase {
     warranty_end: '2028-03-10',
     invoice_number: null,
     store_email: null,
+    store_nif: null,
     invoice_filename: null,
     invoice_content_type: null,
     invoice_size: null,
