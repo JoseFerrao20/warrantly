@@ -182,3 +182,7 @@ O resto está documentado à parte:
 - **Processo.** PRs pequenos com o CI verde, uma decisão por ADR e um DEVLOG honesto, com o que falhou e porquê.
 
 O Warrantly foi feito por José Ferrão em sessões com o [Claude Code](https://claude.com/claude-code) como assistente de programação. As decisões, a revisão e os merges foram meus, e o processo está registado no [`DEVLOG.md`](DEVLOG.md).
+
+## Licença
+
+[MIT](LICENSE).

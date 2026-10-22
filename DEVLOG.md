@@ -471,7 +471,8 @@
   - **Segredos no histórico:** todas as versões de todos os ficheiros dos 103 commits do `main` (913 ficheiros) passaram pelo `detect-secrets` e por uma pesquisa de padrões de chaves reais (AWS, chaves privadas, tokens do GitHub, do Expo e do Google, ligações ao Neon). Nada real: só a palavra-passe do Postgres de desenvolvimento (`warrantly`), as palavras-passe inventadas dos testes e o token de push dos testes (`ExponentPushToken[abc123-XYZ_9]`). Nunca entrou um `.env`, um `tfvars`, um estado do Terraform nem um `google-services.json`. O gitleaks não se conseguiu descarregar na sessão cloud.
   - **Ficheiros ignorados:** o `.env`, os `tfvars`, o estado do Terraform, o `google-services.json`, os `.env.local` e as pastas nativas da app estão no `.gitignore`. Faltava o `infra/app/backend.hcl`, que tem o nome do bucket do estado, com o número da conta AWS: passou a estar ignorado.
   - **README e documentação:** os 65 links e imagens locais dos 16 ficheiros `.md` existem, e os badges apontam para workflows que existem.
-  - **Por decidir (o José):** a licença (o repositório não tem nenhuma; sem licença, o código fica visível mas ninguém o pode reutilizar) e os emails dos commits, que ficam públicos com o repositório (`zemiguelferrao20@hotmail.com` em 58 commits, o Gmail nos commits das sessões do Claude Code).
+  - **Licença:** MIT, decidida pelo José (a mesma do faturapt). Ficheiro `LICENSE` e secção no README.
+  - **Por decidir (o José):** os emails dos commits, que ficam públicos com o repositório (`zemiguelferrao20@hotmail.com` em 58 commits, o Gmail nos commits das sessões do Claude Code).
 
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
