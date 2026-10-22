@@ -4,4 +4,6 @@
 *.tfstate.*
 *.tfvars
 !*.tfvars.example
+# O backend.hcl tem o nome do bucket do estado, com o número da conta AWS.
+backend.hcl
 crash.log
