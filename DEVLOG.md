@@ -456,7 +456,7 @@
   - **O que mudou:** o limite da entrada anterior (o QR desenhado no PDF não se encontrava) resolveu-se no faturapt 0.2.0, com o `read_pdf`: desenha a primeira e a última página a 300 dpi (com o pypdfium2) e procura o QR na imagem. O `read_qr` do Warrantly passa a usá-lo e fica mais curto (o faturapt já ignora os QR que não são de faturas). A dependência passa a `faturapt[pdf]>=0.2`.
   - **Verificado aqui:** 1 teste novo (311 no backend), com o QR desenhado pelo reportlab (vetorial, 30 mm), como num PDF de um programa de faturação.
   - **Cuidado que ficou no faturapt:** o PDFium não aguenta duas threads ao mesmo tempo, e o FastAPI corre as rotas síncronas em várias threads. O `read_pdf` desenha as páginas com um lock, por isso o Warrantly não precisa de fazer nada.
-  - **CI:** a auditoria de dependências falhou duas vezes com "faturapt>=0.2 não existe", com a 0.2.0 já no PyPI. Com o `pyproject.toml` novo, o `setup-python` não tinha cache com a chave certa e restaurou uma antiga, e as respostas do PyPI guardadas nela só conheciam a 0.1.0 (o job dos testes, sem essa cache, instalou a 0.2.0). A auditoria deixa de usar a cache do pip: tem de resolver contra o PyPI de hoje, e custa só alguns segundos.
+  - **CI:** a auditoria de dependências falhou duas vezes com "faturapt>=0.2 não existe", com a 0.2.0 já no PyPI. Com o `pyproject.toml` novo, o `setup-python` não tinha cache com a chave certa e restaurou uma antiga, e as respostas do PyPI guardadas nela só conheciam a 0.1.0 (no mesmo minuto, o job dos testes instalou a 0.2.0 sem problemas). A auditoria deixa de usar a cache do pip: tem de resolver contra o PyPI de hoje, e custa só alguns segundos.
 
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
