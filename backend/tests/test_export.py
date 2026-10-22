@@ -76,6 +76,7 @@ def test_export_without_purchases(auth_client: TestClient, user: User):
             "Estado",
             "N.º da fatura",
             "Email da loja",
+            "NIF da loja",
             "Ficheiro da fatura",
         ]
     ]
@@ -93,6 +94,7 @@ def test_export_with_purchases_and_invoices(
         category="Eletrodomésticos",
         invoice_number="FT 2026/1",
         store_email="loja@worten.pt",
+        store_nif="503630330",
     )
     attach_invoice(db_session, washer, PDF, "application/pdf")
     old = make_purchase(
@@ -130,15 +132,16 @@ def test_export_with_purchases_and_invoices(
         "2023-01-05",
         "Expirada",
     ]
-    assert rows[0][11] == ""
+    assert rows[0][12] == ""
     assert rows[1][3] == "Eletrodomésticos"
     assert rows[1][5] == "1234,50"
     assert rows[1][8] == "Ativa"
-    assert rows[1][9:] == ["FT 2026/1", "loja@worten.pt", washer_file]
+    assert rows[1][9:] == ["FT 2026/1", "loja@worten.pt", "503630330", washer_file]
 
     data = json.loads(archive.read("compras.json"))
     by_id = {p["id"]: p for p in data["purchases"]}
     assert by_id[washer.id]["price"] == "1234.50"
+    assert by_id[washer.id]["store_nif"] == "503630330"
     assert by_id[washer.id]["status"] == "active"
     assert by_id[washer.id]["invoice_file"] == washer_file
     assert by_id[washer.id]["invoice_original_filename"] == "fatura original.pdf"
@@ -156,7 +159,7 @@ def test_export_skips_invoice_missing_on_disk(
     archive = export(auth_client)
 
     assert sorted(archive.namelist()) == ["compras.csv", "compras.json"]
-    assert read_csv(archive)[1][11] == ""
+    assert read_csv(archive)[1][12] == ""
     assert json.loads(archive.read("compras.json"))["purchases"][0]["invoice_file"] is None
 
 

@@ -36,6 +36,8 @@ const SCAN: InvoiceScan = {
   price: '1234.50',
   invoice_number: 'FT A2025/77',
   store_email: null,
+  store_nif: null,
+  duplicate_purchase_id: null,
 }
 
 const PDF = { uri: 'file:///cache/fatura.pdf', name: 'fatura.pdf', mimeType: 'application/pdf' }
@@ -100,6 +102,7 @@ test('escolher um PDF lê a fatura e só preenche os campos vazios', async () =>
     warranty_months: 36,
     invoice_number: 'FT A2025/77',
     store_email: null,
+    store_nif: null,
   })
   const upload = calls.find((c) => c.url.endsWith('/purchases/9/invoice'))!
   expect(formFields(upload.init.body)).toEqual({

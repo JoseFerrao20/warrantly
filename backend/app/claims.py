@@ -26,6 +26,8 @@ def build_claim(purchase: Purchase, user: User, description: str, today: date) -
     ]
     if purchase.invoice_number:
         details.append(f"- Fatura n.º {purchase.invoice_number}")
+    if purchase.store_nif:
+        details.append(f"- NIF do vendedor: {purchase.store_nif}")
 
     lines = [
         f"Exmos. Senhores {purchase.store},",

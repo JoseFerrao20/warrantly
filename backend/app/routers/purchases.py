@@ -7,7 +7,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, Query, Response, UploadFile, status
 from fastapi.responses import StreamingResponse
-from sqlalchemy import or_, select
+from sqlalchemy import Select, or_, select
 
 from app import invoice_scan, sharing, storage
 from app.claim_pdf import build_claim_pdf
@@ -32,6 +32,13 @@ from app.schemas import (
 )
 
 router = APIRouter(prefix="/purchases", tags=["purchases"])
+
+
+def visible_purchases(user: User) -> Select[tuple[Purchase]]:
+    """As compras que `user` vê: as dele e as dos arquivos partilhados com ele (ADR 0007)."""
+    return select(Purchase).where(
+        or_(Purchase.user_id == user.id, Purchase.user_id.in_(sharing.shared_owner_ids(user)))
+    )
 
 
 def get_purchase_or_404(
@@ -72,13 +79,7 @@ def list_purchases(
 ) -> list[Purchase]:
     """Lista as compras do utilizador e as dos arquivos partilhados com ele, da garantia que
     expira primeiro para a última."""
-    query = (
-        select(Purchase)
-        .where(
-            or_(Purchase.user_id == user.id, Purchase.user_id.in_(sharing.shared_owner_ids(user)))
-        )
-        .order_by(Purchase.warranty_end, Purchase.id)
-    )
+    query = visible_purchases(user).order_by(Purchase.warranty_end, Purchase.id)
     if store is not None:
         query = query.where(Purchase.store == store)
     if category is not None:
@@ -243,11 +244,11 @@ def create_upload(user: CurrentUser) -> UploadTicketRead:
 
 
 @router.post("/uploads/{token}/scan", response_model=InvoiceScanRead)
-def scan_uploaded_invoice(token: str, user: CurrentUser) -> InvoiceScanRead:
+def scan_uploaded_invoice(token: str, user: CurrentUser, session: SessionDep) -> InvoiceScanRead:
     """Como /scan-invoice, mas para uma fatura já enviada para o S3."""
     raw, _ = load_direct_upload(user, token)
     data, content_type, _ = validate_invoice(raw, None)
-    return scan_response(data, content_type)
+    return scan_response(data, content_type, user, session)
 
 
 @router.put("/{purchase_id}/invoice/upload", response_model=PurchaseRead)
@@ -268,18 +269,18 @@ def attach_uploaded_invoice(
 
 
 @router.post("/scan-invoice", response_model=InvoiceScanRead)
-def scan_invoice(file: UploadFile, user: CurrentUser) -> InvoiceScanRead:
+def scan_invoice(file: UploadFile, user: CurrentUser, session: SessionDep) -> InvoiceScanRead:
     """Lê a fatura e sugere os campos da compra (não guarda nada).
 
     PDF com texto: lido diretamente. Fotografia ou PDF digitalizado: OCR com o Tesseract.
     Os campos que não se conseguem ler vêm a null.
     """
     data, content_type, _ = read_invoice_upload(file)
-    return scan_response(data, content_type)
+    return scan_response(data, content_type, user, session)
 
 
 @router.post("/scan-qr", response_model=InvoiceScanRead)
-def scan_qr(body: QRScanRequest, user: CurrentUser) -> InvoiceScanRead:
+def scan_qr(body: QRScanRequest, user: CurrentUser, session: SessionDep) -> InvoiceScanRead:
     """Lê o texto do código QR da AT (a app móvel lê-o com a câmara) e sugere a data, o total
     e o número da fatura. 422 se o QR não for de uma fatura (ou for de uma anulada ou de uma
     nota de crédito)."""
@@ -288,14 +289,37 @@ def scan_qr(body: QRScanRequest, user: CurrentUser) -> InvoiceScanRead:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_CONTENT, detail="Este código QR não é de uma fatura"
         )
-    return scan_result_response(result, "qr")
+    return scan_result_response(result, "qr", user, session)
 
 
-def scan_response(data: bytes, content_type: str) -> InvoiceScanRead:
-    return scan_result_response(invoice_scan.scan_invoice(data, content_type), content_type)
+def scan_response(
+    data: bytes, content_type: str, user: User, session: SessionDep
+) -> InvoiceScanRead:
+    result = invoice_scan.scan_invoice(data, content_type)
+    return scan_result_response(result, content_type, user, session)
 
 
-def scan_result_response(result: invoice_scan.ScanResult, content_type: str) -> InvoiceScanRead:
+def scan_result_response(
+    result: invoice_scan.ScanResult, content_type: str, user: User, session: SessionDep
+) -> InvoiceScanRead:
+    duplicate_id = None
+    known_store = None
+    if result.store_nif:
+        same_store = visible_purchases(user).where(Purchase.store_nif == result.store_nif)
+        # A loja com este NIF, como o utilizador a escreveu da última vez: ganha ao texto, que é
+        # só um palpite.
+        known_store = session.scalar(
+            same_store.order_by(Purchase.created_at.desc(), Purchase.id.desc()).limit(1)
+        )
+        if known_store is not None:
+            result.store = known_store.store
+            result.store_email = known_store.store_email or result.store_email
+        if result.invoice_number:
+            duplicate_id = session.scalar(
+                same_store.with_only_columns(Purchase.id)
+                .where(Purchase.invoice_number == result.invoice_number)
+                .limit(1)
+            )
     suggested = [
         name
         for name in ("product_name", "store", "purchase_date", "price", "invoice_number")
@@ -307,6 +331,7 @@ def scan_result_response(result: invoice_scan.ScanResult, content_type: str) -> 
         len(suggested),
         content_type=content_type,
         qr="yes" if result.from_qr else "no",
+        known_store="yes" if known_store is not None else "no",
     )
     return InvoiceScanRead(
         text_found=bool(result.text.strip()) or result.from_qr,
@@ -317,6 +342,8 @@ def scan_result_response(result: invoice_scan.ScanResult, content_type: str) -> 
         price=result.price,
         invoice_number=result.invoice_number,
         store_email=result.store_email,
+        store_nif=result.store_nif,
+        duplicate_purchase_id=duplicate_id,
     )
 
 

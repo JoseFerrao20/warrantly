@@ -192,3 +192,16 @@ def test_store_email_is_saved_validated_and_clearable(auth_client: TestClient):
     cleared = auth_client.patch(f"/purchases/{created['id']}", json={"store_email": None})
     assert cleared.status_code == 200
     assert cleared.json()["store_email"] is None
+
+
+def test_store_nif_is_normalized_validated_and_clearable(auth_client: TestClient):
+    created = create(auth_client, store_nif="PT 503 630 330")
+    assert created["store_nif"] == "503630330"
+
+    invalid = auth_client.patch(f"/purchases/{created['id']}", json={"store_nif": "503630331"})
+    assert invalid.status_code == 422
+    assert invalid.json()["detail"][0]["msg"] == "O NIF da loja não é válido"
+
+    cleared = auth_client.patch(f"/purchases/{created['id']}", json={"store_nif": None})
+    assert cleared.status_code == 200
+    assert cleared.json()["store_nif"] is None

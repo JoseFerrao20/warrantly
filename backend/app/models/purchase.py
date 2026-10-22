@@ -55,6 +55,9 @@ class Purchase(Base):
     )
     # Email da loja para onde enviar reclamações (o utilizador envia-o do seu próprio email).
     store_email: Mapped[str | None] = mapped_column(String(320))
+    # NIF de quem passou a fatura (vem do código QR): identifica a loja na reclamação, lembra o
+    # nome dela nas compras seguintes e deteta faturas registadas duas vezes.
+    store_nif: Mapped[str | None] = mapped_column(String(9))
     # Número da fatura (ex.: "FT 2023/48213"), citado na reclamação.
     invoice_number: Mapped[str | None] = mapped_column(String(100))
     # Fatura (opcional): o ficheiro fica no disco com o nome `invoice_key`; guardamos também o nome

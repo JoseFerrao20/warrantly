@@ -1,5 +1,5 @@
 import io
-from datetime import date
+from datetime import UTC, date, datetime
 from decimal import Decimal
 
 import pytest
@@ -12,8 +12,11 @@ from reportlab.graphics.shapes import Drawing
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.utils import ImageReader
 from reportlab.pdfgen import canvas
+from sqlalchemy.orm import Session
 
 from app.invoice_scan import ocr_available, parse_invoice_text, scan_invoice, scan_qr_text
+from app.models import ArchiveShare, Purchase, User
+from tests.conftest import make_user
 
 TODAY = date(2026, 10, 15)
 
@@ -287,6 +290,8 @@ def test_scan_qr_text_from_the_phone(auth_client: TestClient):
         "price": "490.00",
         "invoice_number": "FR 0123/456790",
         "store_email": None,
+        "store_nif": "503630330",
+        "duplicate_purchase_id": None,
     }
 
 
@@ -321,3 +326,95 @@ def test_future_date_in_scanned_qr_is_not_suggested():
     assert result is not None
     assert result.purchase_date is None
     assert result.price == Decimal("490.00")
+
+
+# --- NIF da loja: o nome que o utilizador já lhe deu e faturas repetidas ------------------------
+
+
+def add_purchase(session: Session, owner: User, **overrides) -> Purchase:
+    data = {
+        "user_id": owner.id,
+        "product_name": "Aspirador",
+        "store": "Worten Amadora",
+        "store_email": "amadora@worten.pt",
+        "store_nif": "503630330",
+        "purchase_date": date(2023, 1, 10),
+        "price": Decimal("99.00"),
+    }
+    purchase = Purchase(**(data | overrides))
+    session.add(purchase)
+    session.flush()
+    return purchase
+
+
+def scan_qr(client: TestClient, text: str = WORTEN_QR) -> dict:
+    response = client.post("/purchases/scan-qr", json={"text": text})
+    assert response.status_code == 200
+    return response.json()
+
+
+def test_known_store_nif_suggests_the_store_name_and_email(
+    auth_client: TestClient, db_session: Session, user: User
+):
+    add_purchase(db_session, user, store="Worten antiga", store_email=None)
+    add_purchase(db_session, user)  # a mais recente ganha
+    add_purchase(db_session, user, store="Fnac", store_nif="500000000")
+
+    body = scan_qr(auth_client)
+
+    assert body["store"] == "Worten Amadora"
+    assert body["store_email"] == "amadora@worten.pt"
+    assert body["duplicate_purchase_id"] is None
+
+
+def test_known_store_wins_over_the_text_of_the_invoice(
+    auth_client: TestClient, db_session: Session, user: User
+):
+    add_purchase(db_session, user)
+
+    body = scan(auth_client, make_pdf(WORTEN.splitlines(), qr=WORTEN_QR), "fatura.pdf").json()
+
+    assert body["store"] == "Worten Amadora"
+    assert body["store_nif"] == "503630330"
+    assert body["product_name"] == "Máquina de Lavar Roupa Bosch WAN28280ES 8kg"
+
+
+def test_invoice_already_registered(auth_client: TestClient, db_session: Session, user: User):
+    same = add_purchase(db_session, user, invoice_number="FR 0123/456790")
+    add_purchase(db_session, user, invoice_number="FR 0123/456790", store_nif="500000000")
+
+    assert scan_qr(auth_client)["duplicate_purchase_id"] == same.id
+
+
+def test_store_and_duplicates_from_a_shared_archive(
+    auth_client: TestClient, db_session: Session, user: User
+):
+    owner = make_user(db_session, "rui@example.com")
+    shared = add_purchase(db_session, owner, invoice_number="FR 0123/456790")
+    db_session.add(
+        ArchiveShare(
+            owner_id=owner.id, email=user.email, member_id=user.id, accepted_at=datetime.now(UTC)
+        )
+    )
+    db_session.flush()
+
+    body = scan_qr(auth_client)
+
+    assert body["store"] == "Worten Amadora"
+    assert body["duplicate_purchase_id"] == shared.id
+
+
+def test_other_peoples_purchases_stay_private(
+    auth_client: TestClient, db_session: Session, user: User
+):
+    stranger = make_user(db_session, "rui@example.com")
+    add_purchase(db_session, stranger, invoice_number="FR 0123/456790")
+    # Um convite por aceitar ainda não dá acesso.
+    db_session.add(ArchiveShare(owner_id=stranger.id, email=user.email, member_id=user.id))
+    db_session.flush()
+
+    body = scan_qr(auth_client)
+
+    assert body["store"] is None
+    assert body["store_email"] is None
+    assert body["duplicate_purchase_id"] is None

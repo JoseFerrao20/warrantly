@@ -10,7 +10,9 @@ describe('PurchaseDetailPage', () => {
   it('mostra os dados da compra e da fatura', async () => {
     mockApi({
       'GET /auth/me': { body: USER },
-      'GET /purchases/1': { body: makePurchase({ invoice_filename: 'fatura-worten.pdf' }) },
+      'GET /purchases/1': {
+        body: makePurchase({ invoice_filename: 'fatura-worten.pdf', store_nif: '503630330' }),
+      },
     })
     renderApp('/compras/1')
 
@@ -18,6 +20,7 @@ describe('PurchaseDetailPage', () => {
     expect(screen.getByText(/Worten · comprada a 03\/11\/2023 · 429,00\s€/)).toBeInTheDocument()
     expect(screen.getByText('03/11/2026')).toBeInTheDocument()
     expect(screen.getByText('fatura-worten.pdf')).toBeInTheDocument()
+    expect(screen.getByText('503630330')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Ver fatura' })).toBeInTheDocument()
   })
 

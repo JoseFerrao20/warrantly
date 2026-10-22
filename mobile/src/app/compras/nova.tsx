@@ -20,7 +20,7 @@ import { Button, ErrorText } from '@/lib/ui'
 import type { InvoiceScan } from '@/shared/types'
 
 // Os campos que a leitura da fatura pode sugerir.
-type ScannedField = 'product_name' | 'store' | 'purchase_date' | 'price' | 'invoice_number'
+type ScannedField = Exclude<keyof PurchaseForm, 'warranty_months'>
 
 function message(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback
@@ -37,6 +37,8 @@ export default function NewPurchaseScreen() {
   const [error, setError] = useState<string | null>(null)
   const [busy, setBusy] = useState<'invoice' | 'save' | null>(null)
   const [scanningQr, setScanningQr] = useState(false)
+  // A compra que já tem esta fatura (mesmo NIF da loja e mesmo n.º), se houver.
+  const [duplicateId, setDuplicateId] = useState<number | null>(null)
 
   function change(name: keyof PurchaseForm, value: string) {
     touched.current.add(name)
@@ -52,12 +54,15 @@ export default function NewPurchaseScreen() {
           purchase_date: scan.purchase_date,
           price: scan.price?.replace('.', ','),
           invoice_number: scan.invoice_number,
+          store_email: scan.store_email,
+          store_nif: scan.store_nif,
         }
       : {}
     const filled = Object.entries(suggestions).filter(
       ([name, value]) => value && !touched.current.has(name as ScannedField),
     )
     setForm((current) => ({ ...current, ...Object.fromEntries(filled) }))
+    setDuplicateId(scan?.duplicate_purchase_id ?? null)
     return filled.length
   }
 
@@ -65,15 +70,18 @@ export default function NewPurchaseScreen() {
     setScanningQr(false)
     setError(null)
     applyScan(scan)
+    // A loja só vem quando o NIF já é conhecido (de uma compra anterior com o mesmo NIF).
+    const missing = scan.store ? 'o produto' : 'o produto e a loja'
     setScanNote(
-      'Lemos o código QR da fatura. Confirma a data, o preço e o n.º, e indica o produto e a ' +
-        'loja. Para guardar a fatura, fotografa-a ou escolhe o ficheiro.',
+      `Lemos o código QR da fatura. Confirma os valores e indica ${missing}. Para guardar a ` +
+        'fatura, fotografa-a ou escolhe o ficheiro.',
     )
   }
 
   async function handleFile(file: PickedFile) {
     setError(null)
     setScanNote(null)
+    setDuplicateId(null)
     setBusy('invoice')
     try {
       const staged = await stageInvoice(file)
@@ -158,6 +166,18 @@ export default function NewPurchaseScreen() {
         />
         {busy === 'invoice' && <Text style={{ color: colors.muted }}>A ler a fatura…</Text>}
         {scanNote && <Text style={{ color: colors.muted }}>{scanNote}</Text>}
+        {duplicateId !== null && (
+          <View style={[styles.duplicate, { backgroundColor: colors.status.expiring.bg }]}>
+            <Text accessibilityRole="alert" style={{ color: colors.status.expiring.text }}>
+              Já tens uma compra com esta fatura (a mesma loja e o mesmo n.º).
+            </Text>
+            <Button
+              title="Ver a compra registada"
+              variant="secondary"
+              onPress={() => router.push(`/compras/${duplicateId}`)}
+            />
+          </View>
+        )}
       </View>
 
       <PurchaseFields form={form} onChange={change} />
@@ -183,4 +203,5 @@ const styles = StyleSheet.create({
   invoice: { gap: 8, marginBottom: 8 },
   section: { fontSize: 18, fontWeight: '600' },
   buttons: { flexDirection: 'row', gap: 10 },
+  duplicate: { gap: 8, padding: 12, borderRadius: 8 },
 })

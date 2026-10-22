@@ -47,6 +47,7 @@ class ScanResult:
     price: Decimal | None = None
     invoice_number: str | None = None
     store_email: str | None = None
+    store_nif: str | None = None  # de quem passou a fatura (só o QR o tem)
     from_qr: bool = False  # a data, o total e o número vieram do código QR da AT
 
 
@@ -135,11 +136,13 @@ def is_purchase_invoice(invoice: faturapt.InvoiceQR) -> bool:
 
 
 def apply_qr(result: ScanResult, qr: faturapt.InvoiceQR, today: date) -> None:
-    """O QR ganha ao texto na data (se não estiver no futuro), no total e no número."""
+    """O QR ganha ao texto na data (se não estiver no futuro), no total e no número, e é o
+    único que tem o NIF de quem passou a fatura."""
     if date(2000, 1, 1) <= qr.document_date <= today:
         result.purchase_date = qr.document_date
     result.price = qr.total
     result.invoice_number = qr.document_id
+    result.store_nif = qr.issuer_nif
     result.from_qr = True
 
 

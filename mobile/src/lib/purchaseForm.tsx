@@ -11,6 +11,7 @@ export interface PurchaseForm {
   warranty_months: string
   invoice_number: string
   store_email: string
+  store_nif: string
 }
 
 const DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/
@@ -25,6 +26,7 @@ export function emptyForm(): PurchaseForm {
     warranty_months: '36',
     invoice_number: '',
     store_email: '',
+    store_nif: '',
   }
 }
 
@@ -37,6 +39,7 @@ export function formFromPurchase(purchase: Purchase): PurchaseForm {
     warranty_months: String(purchase.warranty_months),
     invoice_number: purchase.invoice_number ?? '',
     store_email: purchase.store_email ?? '',
+    store_nif: purchase.store_nif ?? '',
   }
 }
 
@@ -71,6 +74,7 @@ export function toInput(
       warranty_months: months,
       invoice_number: form.invoice_number.trim() || null,
       store_email: storeEmail || null,
+      store_nif: form.store_nif.trim() || null,
     },
   }
 }
@@ -120,6 +124,12 @@ export function PurchaseFields({
         keyboardType="email-address"
         autoCapitalize="none"
         autoComplete="off"
+      />
+      <Field
+        label="NIF da loja (opcional, vem do código QR)"
+        value={form.store_nif}
+        onChangeText={(v) => onChange('store_nif', v)}
+        keyboardType="number-pad"
       />
     </>
   )

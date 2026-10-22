@@ -125,6 +125,7 @@ export default function PurchaseScreen() {
   ]
   if (current.invoice_number) rows.push(['N.º da fatura', current.invoice_number])
   if (current.store_email) rows.push(['Email da loja', current.store_email])
+  if (current.store_nif) rows.push(['NIF da loja', current.store_nif])
   rows.push(['Fatura', current.invoice_filename ?? 'Sem fatura'])
 
   return (
