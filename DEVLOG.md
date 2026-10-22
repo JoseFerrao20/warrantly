@@ -512,6 +512,14 @@
   - **Verificado aqui:** 11 testes novos (336 no backend), com a AWS simulada pelo moto e o `gh` simulado. O moto não tem o `get_account` do SES, por isso esse cliente é um objeto de teste. Também corri o script a sério, sem credenciais, e apareceu um erro: com um `AWS_PROFILE` que não existe, o boto3 falhava logo ao abrir a sessão e o script mostrava um traceback. Passou a mostrar o que fazer.
   - **Lição:** na primeira versão, a região esperada vinha da própria sessão, por isso a verificação passava sempre. A região certa é a do deploy (a variável `AWS_REGION` do GitHub, ou `eu-central-1`). Um teste que estraga a regra e confirma que falha apanha estes casos.
 
+- **2026-10-22 (sessão cloud do Claude Code):** README pronto para quando o repositório for público.
+  - **O que mudou:**
+    - as contagens de testes estavam para trás. Passaram a 336 no backend, 99 no site, 78 na app e 29 E2E, "cerca de 540" no topo;
+    - a leitura pelo código QR, a câmara na app, o NIF da loja e a verificação antes do deploy entraram no "O que a app faz", na stack e nos destaques. O faturapt aparece também no "O que aprendi";
+    - capturas geradas outra vez. A "Nova compra" usa agora uma fatura fictícia com o QR da AT (`e2e/fixtures/fatura-qr.pdf`), por isso a imagem mostra todos os campos preenchidos, incluindo o NIF da loja.
+  - **Problema encontrado:** nas capturas, a data aparecia como "11/14/2025", e as anteriores já tinham o mesmo erro, apesar do `locale: 'pt-PT'` do Playwright. O Chromium desenha o campo de data na língua do sistema operativo. O `npm run screenshots` passou a pôr `LANG=pt_PT.UTF-8`.
+  - **Lição:** olhar para as capturas, e não só confirmar que o script passou. O erro da data estava no README há várias versões.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
 Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 336 testes, frontend com 99, app móvel com 78, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
@@ -571,6 +579,6 @@ Próximos passos, por esta ordem:
 2. **Mostrar o repositório,** depois de a app estar terminada:
    - torná-lo público (liga também o CodeQL e os badges do README);
    - pôr o link da app no README e fixá-lo no perfil do GitHub;
-   - no README do perfil (repositório `JoseFerrao20/JoseFerrao20`), trocar a nota "o repositório fica público…" pelo link e por uma captura;
+   - no README do perfil (repositório `JoseFerrao20/JoseFerrao20`), trocar a nota "o repositório fica público…" pelo link e por uma captura, e atualizar a contagem de testes (cerca de 540);
    - só então, se fizer falta, a descrição para o CV ou o LinkedIn.
 

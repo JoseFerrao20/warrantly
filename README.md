@@ -2,7 +2,7 @@
 
 **Arquivo de garantias:** guarda as faturas das tuas compras, calcula até quando cada uma está na garantia, avisa-te antes de expirar e, quando algo avaria, escreve a reclamação para a loja.
 
-Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura na AWS em Terraform, CI/CD no GitHub Actions e cerca de 440 testes automáticos.
+Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura na AWS em Terraform, CI/CD no GitHub Actions e cerca de 540 testes automáticos.
 
 [![Backend](https://github.com/JoseFerrao20/warrantly/actions/workflows/backend.yml/badge.svg)](https://github.com/JoseFerrao20/warrantly/actions/workflows/backend.yml)
 [![Frontend](https://github.com/JoseFerrao20/warrantly/actions/workflows/frontend.yml/badge.svg)](https://github.com/JoseFerrao20/warrantly/actions/workflows/frontend.yml)
@@ -15,9 +15,9 @@ Site (React), app móvel (Expo) e API (FastAPI + PostgreSQL), com infraestrutura
 
 ![Painel com as garantias, das que expiram primeiro às já expiradas, incluindo uma televisão partilhada pelo Rui Silva](docs/images/painel.png)
 
-| Registar uma compra: a fatura é lida e os campos preenchidos | Reclamação à loja, pronta a enviar |
+| Registar uma compra: a fatura e o código QR são lidos, e os campos preenchidos | Reclamação à loja, pronta a enviar |
 | --- | --- |
-| ![Formulário de nova compra preenchido a partir de uma fatura em PDF](docs/images/nova-compra.png) | ![Reclamação gerada para uma máquina de lavar, com os passos para enviar](docs/images/reclamacao.png) |
+| ![Formulário de nova compra preenchido a partir de uma fatura em PDF com o código QR da AT: produto, loja, preço, data, n.º da fatura, email e NIF da loja](docs/images/nova-compra.png) | ![Reclamação gerada para uma máquina de lavar, com os passos para enviar](docs/images/reclamacao.png) |
 
 | Modo escuro | No telemóvel |
 | --- | --- |
@@ -33,14 +33,14 @@ Em Portugal, os bens novos têm 3 anos de garantia legal (Decreto-Lei n.º 84/20
 
 ## O que a app faz
 
-- **Registar compras com a fatura.** Carregas um PDF ou uma fotografia, e a app lê-a e sugere o produto, a loja, a data, o preço e o n.º da fatura. Confirmas antes de guardar.
+- **Registar compras com a fatura.** Carregas um PDF ou uma fotografia, e a app lê-a e sugere o produto, a loja, a data, o preço e o n.º da fatura. Com o código QR da AT, a data, o total e o NIF da loja vêm dele, sem adivinhar. Confirmas antes de guardar.
 - **Calcular o prazo.** São 3 anos por omissão, ajustáveis para garantias de marca ou bens usados.
 - **Painel.** As garantias aparecem pela ordem em que acabam, com o estado de cada uma. Tem pesquisa e filtros.
 - **Alertas.** Recebes um email e uma notificação na app móvel 60 e 15 dias antes do fim.
 - **Reclamação pronta.** A carta já vem preenchida com os dados da compra e a descrição da avaria, em PDF com a fatura anexada. Abre no teu email com tudo escrito.
 - **Exportar.** Um ZIP com todas as compras (CSV para o Excel e JSON) e as faturas.
 - **Conta.** Recuperação da palavra-passe por email, sessões longas, a lista dos aparelhos com sessão aberta (para terminar a de um telemóvel perdido) e apagar a conta com todos os dados.
-- **App móvel** (Android e iOS). Vês as garantias e registas uma compra fotografando a fatura na loja.
+- **App móvel** (Android e iOS). Vês as garantias e registas uma compra na loja: fotografas a fatura ou só apontas a câmara ao código QR.
 
 ## Arquitetura
 
@@ -73,9 +73,9 @@ flowchart LR
 
 | | |
 | --- | --- |
-| **Backend** | Python 3.12, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 16, Pydantic, Tesseract (OCR), ReportLab e pypdf (PDF) |
+| **Backend** | Python 3.12, FastAPI, SQLAlchemy 2, Alembic, PostgreSQL 16, Pydantic, Tesseract (OCR), [faturapt](https://github.com/JoseFerrao20/faturapt) (código QR da AT), ReportLab e pypdf (PDF) |
 | **Frontend** | React 19, TypeScript, Vite, React Router, CSS próprio com modo claro e escuro |
-| **App móvel** | Expo SDK 58 (React Native), Expo Router, expo-secure-store, expo-notifications |
+| **App móvel** | Expo SDK 58 (React Native), Expo Router, expo-camera, expo-secure-store, expo-notifications |
 | **Cloud** | AWS: Lambda, S3, CloudFront, SES, SSM, EventBridge Scheduler, CloudWatch, SNS, ECR, IAM. Neon (PostgreSQL) |
 | **Infraestrutura e entrega** | Terraform, Docker, GitHub Actions (CI, deploy com OIDC), Dependabot |
 | **Testes** | pytest, moto, Vitest, Testing Library, jest-expo, Playwright, axe |
@@ -102,15 +102,16 @@ flowchart LR
   - Métricas de negócio pelo Embedded Metric Format, sem chamadas extra à API do CloudWatch.
   - 7 alarmes por email e um dashboard, tudo no nível gratuito.
   - Um dos alarmes avisa quando os alertas diários *deixam* de correr ([ADR 0005](docs/adr/0005-observabilidade.md)).
+- **Primeiro deploy verificado antes de correr.** O `scripts/preflight.py` confirma, passo a passo, o que o roteiro da AWS manda criar: a sessão e a região, o bootstrap, os segredos no SSM (cifrados, diferentes entre si e com o Neon a responder) e as variáveis do GitHub comparadas com a AWS. Não muda nada, nunca mostra um segredo e diz como corrigir cada falha.
 - **Acessibilidade WCAG 2.2 AA.** O axe corre nos testes E2E em todas as páginas, nos dois temas e a 320 px de largura, e há um teste de navegação só com o teclado.
 
 ## Qualidade
 
 | | Testes | No CI |
 | --- | --- | --- |
-| Backend | 311 (pytest, com Postgres; S3, SSM e SES simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
-| Frontend | 98 (Vitest e Testing Library) | oxlint, TypeScript, build |
-| App móvel | 72 (jest-expo e Testing Library) | ESLint, TypeScript, bundle de Android |
+| Backend | 336 (pytest, com Postgres; S3, SSM, SES e IAM simulados com o moto) | ruff (lint, formatação e regras de segurança do Bandit) |
+| Frontend | 99 (Vitest e Testing Library) | oxlint, TypeScript, build |
+| App móvel | 78 (jest-expo e Testing Library, com a câmara simulada) | ESLint, TypeScript, bundle de Android |
 | De ponta a ponta | 29 (Playwright no Chromium, incluindo o axe e um email de recuperação lido do disco) | contra o Vite e contra o contentor de produção |
 | Infraestrutura | — | `terraform validate` e, com a AWS configurada, o `plan` em cada PR |
 | App publicada | 26 verificações (`scripts/smoke_test.py`: cabeçalhos, rotas fechadas, cookie da sessão, limite de tentativas) | no fim de cada deploy e contra o contentor de produção |
@@ -142,7 +143,7 @@ Cada alteração entra por um PR com o CI verde. As decisões ficam em [`docs/ad
 backend/    API FastAPI, modelos, migrações Alembic e testes
 frontend/   site em React (Vite) e testes E2E (Playwright)
 mobile/     app Expo (Android e iOS)
-scripts/    verificações rápidas de uma app publicada (smoke test)
+scripts/    verificação antes do primeiro deploy e da app publicada (smoke test)
 infra/      Terraform: bootstrap (estado, OIDC, orçamento) e app (Lambda, S3, CloudFront, …)
 docs/       ADR, guia da cloud, push, desenvolvimento e capturas de ecrã
 ```
@@ -181,6 +182,7 @@ O resto está documentado à parte:
 - **Segurança como hábito.** Nem sempre o mais seguro é o mais complicado: o token de recuperação sem tabela, o cookie `HttpOnly` e respostas que não revelam que emails existem. Cada exceção de segurança aceite fica escrita, com a razão.
 - **Testes a vários níveis.** Testes unitários com a AWS simulada, testes de componentes e E2E que seguem um email a sério ou correm contra a imagem de produção. Um teste que falha só quando corre com os outros tem quase sempre um estado partilhado por trás.
 - **Produto.** A leitura da fatura só *sugere*, porque na dúvida é melhor não preencher do que preencher mal. A reclamação é enviada pelo email da própria pessoa, que é o que a loja leva a sério.
+- **Separar o que é genérico.** A leitura do código QR das faturas saiu para uma biblioteca própria, o [faturapt](https://github.com/JoseFerrao20/faturapt), com testes contra a especificação da AT. Assim ficou mais bem testada do que estaria dentro da app, e serve outros projetos.
 - **Processo.** PRs pequenos com o CI verde, uma decisão por ADR e um DEVLOG honesto, com o que falhou e porquê.
 
 O Warrantly foi feito por José Ferrão em sessões com o [Claude Code](https://claude.com/claude-code) como assistente de programação. As decisões, a revisão e os merges foram meus, e o processo está registado no [`DEVLOG.md`](DEVLOG.md).
