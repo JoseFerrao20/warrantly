@@ -1,8 +1,9 @@
 name: CodeQL
 
 # Análise estática do código (injeções, XSS, caminhos, ...) com o CodeQL do GitHub.
-# O code scanning é grátis em repositórios públicos; enquanto o repositório for privado, o job
-# é saltado (no Python, o ruff com as regras S do Bandit cobre o básico em todos os PRs).
+# O code scanning é grátis em repositórios públicos (o repositório é público desde 4/11/2026).
+# Se voltar a ser privado, o job é saltado (no Python, o ruff com as regras S do Bandit cobre o
+# básico em todos os PRs).
 on:
   push:
     branches: [main]
