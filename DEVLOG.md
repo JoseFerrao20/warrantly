@@ -520,6 +520,14 @@
   - **Problema encontrado:** nas capturas, a data aparecia como "11/14/2025", e as anteriores já tinham o mesmo erro, apesar do `locale: 'pt-PT'` do Playwright. O Chromium desenha o campo de data na língua do sistema operativo. O `npm run screenshots` passou a pôr `LANG=pt_PT.UTF-8`.
   - **Lição:** olhar para as capturas, e não só confirmar que o script passou. O erro da data estava no README há várias versões.
 
+- **2026-11-04 (sessão cloud do Claude Code):** o repositório passa a público.
+  - **Feito:**
+    - Antes de o José o tornar público, voltei a procurar segredos em todos os commits de todos os ramos (112): chaves da AWS, chaves privadas, tokens do GitHub, do Expo, do Google e de outras APIs, atribuições de palavras-passe e tokens, `.env`, `tfvars` e estado do Terraform. Nada real, como na verificação de 22/10. O gitleaks não se pôde descarregar na sessão, por isso a procura foi feita com um script.
+    - O README e o `codeql.yml` deixam de dizer que o CodeQL espera pelo repositório público.
+    - O README do perfil (`JoseFerrao20/JoseFerrao20`) passa a ter os três projetos, com o Warrantly ligado e com a captura do painel.
+    - **Testes do frontend com o dia fixo:** a compra de exemplo dos testes (`makePurchase`) tem a garantia até 3/11/2026, e a 4/11 passou a aparecer como "expirada": o teste do painel falhou no CI, também no `main`. O `setup.ts` passa a fixar o dia (1/10/2026), só com o `Date` simulado (`vi.useFakeTimers({ toFake: ['Date'] })`), para os temporizadores do userEvent continuarem reais.
+  - **Decisão (o José):** os emails dos commits ficam como estão. Reescrever o histórico mudaria os identificadores dos commits e partiria os links para eles.
+
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
 
 Contexto: de 2026-10-14 a 2026-10-22 trabalhei em sessões cloud do Claude Code, sem Docker, dev container nem conta AWS (o último PR foi o #61). Tudo está testado no CI: backend com 336 testes, frontend com 99, app móvel com 78, 29 E2E com Playwright, a imagem Docker testada com E2E, e o Terraform validado. O deploy passou do Fly.io para a **AWS**, numa arquitetura serverless ([ADR 0002](docs/adr/0002-arquitetura-serverless.md)). **Ainda nada correu no dev container, no Codespace nem na AWS.**
@@ -576,9 +584,7 @@ Próximos passos, por esta ordem:
    - nas sessões, ver no site e na app que o aparelho aparece bem ("Chrome no Windows", o modelo do telemóvel) e que terminar a sessão de um aparelho o põe a pedir o login.
 
    O que falhar vem para uma sessão do Claude Code e corrige-se num PR.
-2. **Mostrar o repositório,** depois de a app estar terminada:
-   - torná-lo público (liga também o CodeQL e os badges do README);
-   - pôr o link da app no README e fixá-lo no perfil do GitHub;
-   - no README do perfil (repositório `JoseFerrao20/JoseFerrao20`), trocar a nota "o repositório fica público…" pelo link e por uma captura, e atualizar a contagem de testes (cerca de 540);
-   - só então, se fizer falta, a descrição para o CV ou o LinkedIn.
+2. **Mostrar o repositório:** já é público e está no perfil. Falta, depois do deploy:
+   - pôr o link da app no README e no perfil;
+   - se fizer falta, a descrição para o CV ou o LinkedIn.
 

@@ -130,7 +130,7 @@ Cada alteração entra por um PR com o CI verde. As decisões ficam em [`docs/ad
   - `pip-audit` e `npm audit` nas dependências;
   - **Checkov** no Terraform, no Dockerfile e nos workflows, com cada exceção aceite justificada no [`.checkov.yaml`](.checkov.yaml);
   - **Dependabot** com atualizações semanais agrupadas;
-  - **CodeQL** pronto para quando o repositório for público.
+  - **CodeQL** (Python, TypeScript e os workflows) em cada PR e todas as semanas.
 - **Na AWS:**
   - papéis IAM com o mínimo de permissões e deploy por OIDC só a partir do `main`;
   - segredos no SSM, cifrados;
