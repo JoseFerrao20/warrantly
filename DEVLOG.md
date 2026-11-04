@@ -525,6 +525,7 @@
     - Antes de o José o tornar público, voltei a procurar segredos em todos os commits de todos os ramos (112): chaves da AWS, chaves privadas, tokens do GitHub, do Expo, do Google e de outras APIs, atribuições de palavras-passe e tokens, `.env`, `tfvars` e estado do Terraform. Nada real, como na verificação de 22/10. O gitleaks não se pôde descarregar na sessão, por isso a procura foi feita com um script.
     - O README e o `codeql.yml` deixam de dizer que o CodeQL espera pelo repositório público.
     - O README do perfil (`JoseFerrao20/JoseFerrao20`) passa a ter os três projetos, com o Warrantly ligado e com a captura do painel.
+    - **Testes do frontend com o dia fixo:** a compra de exemplo dos testes (`makePurchase`) tem a garantia até 3/11/2026, e a 4/11 passou a aparecer como "expirada": o teste do painel falhou no CI, também no `main`. O `setup.ts` passa a fixar o dia (1/10/2026), só com o `Date` simulado (`vi.useFakeTimers({ toFake: ['Date'] })`), para os temporizadores do userEvent continuarem reais.
   - **Decisão (o José):** os emails dos commits ficam como estão. Reescrever o histórico mudaria os identificadores dos commits e partiria os links para eles.
 
 ## Plano para a próxima sessão (desktop ou portátil, 2–3h)
